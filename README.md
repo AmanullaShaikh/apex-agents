@@ -3,7 +3,7 @@
 > **The zero-slop autonomous engineering agency and execution harness. 10 specialized divisions, 38+ expert agent personas, Babel AST context compaction (70-88% token reduction), persistent cross-session memory, physical git worktree sandboxes, pre-commit secret leak interceptors, and native Model Context Protocol (MCP) server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Version: 1.6.0](https://img.shields.io/badge/version-1.6.0-brightgreen.svg?style=flat-square)](https://www.npmjs.com/package/apex-agents)
+[![Version: 1.7.0](https://img.shields.io/badge/version-1.7.0-brightgreen.svg?style=flat-square)](https://www.npmjs.com/package/apex-agents)
 [![Babel AST](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
 [![Eval Score](https://img.shields.io/badge/Evaluation-100%2F100%20(Grade%20A%2B)-success.svg?style=flat-square)](#-agency-evaluation--benchmark-harness)
 [![AST Compaction](https://img.shields.io/badge/Context%20Reduction-70%25--88.5%25%20Savings-blueviolet.svg?style=flat-square)](#-babel-ast-context-compactor)
@@ -52,8 +52,8 @@ npx apex-agents <command>
 | `npx apex-agents sandbox start <name>`| Spin up an isolated Git Worktree sandbox |
 | `npx apex-agents scope-guard` | Detect unintended file drift across staged git changes |
 | `npx apex-agents orphans` | Scan repository for unwired or orphaned source files |
-| `npx apex-agents dashboard` | Open the offline dark-mode Agent Explorer in your browser |
-| `npx apex-agents mcp` | Start the native Model Context Protocol (MCP) server |
+| `npx apex-agents graph` | Analyze AST codebase dependencies & detect circular import cycles |
+| `npx apex-agents diagram` | Generate responsive dark-mode HTML architecture diagram card |
 | `npx apex-agents dashboard` | Open the offline dark-mode Agent Explorer in your browser |
 | `npx apex-agents mcp` | Start the native Model Context Protocol (MCP) server |
 

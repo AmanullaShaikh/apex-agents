@@ -50,6 +50,8 @@ function printHelp() {
   console.log(`  ${c.green}memory [cmd]${c.reset}     Manage persistent cross-session memory [record|recall|sync|clear]`);
   console.log(`  ${c.green}design <preset>${c.reset}  Inject DESIGN.md design system tokens [linear|stripe|apple|raycast]`);
   console.log(`  ${c.green}caveman [on|off]${c.reset} Toggle Caveman 65% token drop telegraphic mode`);
+  console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
+  console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
   console.log(`  ${c.green}compact${c.reset}         Run AST Context Compactor to shrink codebase tokens by 85%+`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
@@ -362,6 +364,18 @@ function handleMemory(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleGraph(args) {
+  const graphScript = path.join(ROOT_DIR, 'scripts', 'dependency-graph.js');
+  const child = spawn(process.execPath, [graphScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleDiagram(args) {
+  const diagramScript = path.join(ROOT_DIR, 'scripts', 'generate-diagram.js');
+  const child = spawn(process.execPath, [diagramScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleMcp() {
   const mcpServerPath = path.join(__dirname, 'mcp-server.js');
   const child = spawn(process.execPath, [mcpServerPath], {
@@ -402,6 +416,12 @@ switch (command) {
     break;
   case 'caveman':
     handleCaveman(args.slice(1));
+    break;
+  case 'graph':
+    handleGraph(args.slice(1));
+    break;
+  case 'diagram':
+    handleDiagram(args.slice(1));
     break;
   case 'compact':
     handleCompact(args.slice(1));

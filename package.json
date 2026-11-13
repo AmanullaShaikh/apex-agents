@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.6.0",
-  "description": "Industrial-Grade Autonomous AI Engineering Agency: Babel AST Context Compaction, Persistent Session Memory, Physical Git Worktree Sandboxes, Scope Drift Guards, Pre-Commit Security Hooks, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.7.0",
+  "description": "Industrial-Grade Autonomous AI Engineering Agency: Babel AST Context Compaction, Dependency Graph & Cycle Detection, Persistent Session Memory, Physical Git Worktree Sandboxes, Scope Drift Guards, Pre-Commit Security Hooks, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -9,11 +9,15 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node ./scripts/validate-agents.js",
+    "test": "node ./scripts/validate-agents.js && node --test tests/*.test.js",
+    "test:unit": "node --test tests/*.test.js",
+    "test:agents": "node ./scripts/validate-agents.js",
     "eval": "node ./bin/apex.js eval",
     "benchmark": "node ./bin/apex.js eval",
     "review": "node ./bin/apex.js review",
     "budget": "node ./bin/apex.js budget",
+    "graph": "node ./bin/apex.js graph",
+    "diagram": "node ./bin/apex.js diagram",
     "memory": "node ./bin/apex.js memory",
     "design": "node ./bin/apex.js design",
     "caveman": "node ./bin/apex.js caveman",
