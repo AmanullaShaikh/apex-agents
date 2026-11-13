@@ -35,6 +35,14 @@ if [ -f "./scripts/scan-secrets.js" ]; then
   }
 fi
 
+# Run Zero-Slop & Test Tampering Diff Auditor if available
+if [ -f "./scripts/audit-diff.js" ]; then
+  node "./scripts/audit-diff.js" --staged --strict || {
+    echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
+    exit 1
+  }
+fi
+
 # Run Anti-Drift Scope Guard if available
 if [ -f "./scripts/scope-enforcer.js" ]; then
   node "./scripts/scope-enforcer.js" || {
@@ -46,10 +54,12 @@ echo "✓ [Apex-Agents Hook] Safety checks passed."
 exit 0
 `;
 
-  fs.writeFileSync(preCommitHookPath, hookScript);
+  // Always force POSIX LF line endings to avoid "\r: command not found" on Git Bash / Linux / macOS
+  const normalizedScript = hookScript.replace(/\r\n/g, '\n');
+  fs.writeFileSync(preCommitHookPath, normalizedScript, { mode: 0o755 });
 
   try {
-    fs.chmodSync(preCommitHookPath, '755');
+    fs.chmodSync(preCommitHookPath, 0o755);
   } catch {
     // Windows chmod may be a no-op, which is fine
   }

@@ -40,6 +40,11 @@ const DEBUG_PATTERNS = [
   { name: 'Python Print Debug', regex: /\bprint\s*\(\s*["']DEBUG/i }
 ];
 
+const TEST_TAMPERING_PATTERNS = [
+  { name: 'Skipped Test Suite / Case', regex: /\b(it\.skip|test\.skip|describe\.skip|xit|xtest)\s*\(/ },
+  { name: 'Commented Out Assertion', regex: /\/\/\s*(expect|assert|should)\s*\(/ }
+];
+
 function getGitDiff(targetBranch = null, stagedOnly = false) {
   try {
     if (targetBranch) {
@@ -115,6 +120,22 @@ export function auditDiff(diffText) {
         }
       }
 
+      // Check test tampering if modifying tests
+      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
+      if (isTestFile) {
+        for (const ttp of TEST_TAMPERING_PATTERNS) {
+          if (ttp.regex.test(addedText)) {
+            issues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file: currentFile,
+              description: `AI Agent Attempted Test Weakening: ${ttp.name}`,
+              snippet: addedText.trim().slice(0, 80)
+            });
+          }
+        }
+      }
+
       // Check debug remnants (exclude CLI entrypoints and scripts)
       const isCliOrScript = currentFile.startsWith('bin/') || currentFile.startsWith('scripts/') || currentFile.includes('cli.');
       if (!isCliOrScript) {
@@ -161,6 +182,7 @@ export function auditDiff(diffText) {
   const stats = {
     secrets: issues.filter((i) => i.category === 'SECRET_LEAK').length,
     slop: issues.filter((i) => i.category === 'AI_SLOP').length,
+    tampering: issues.filter((i) => i.category === 'TEST_TAMPERING').length,
     debug: issues.filter((i) => i.category === 'DEBUG_REMNANT').length,
     warnings: issues.filter((i) => i.severity === 'WARNING').length
   };
@@ -215,6 +237,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-diff.js')) {
     console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS ZERO-SLOP DIFF AUDITOR ═════${c.reset}`);
     console.log(`  ${c.bold}Files Audited:${c.reset} ${c.cyan}${result.filesChanged}${c.reset}`);
     console.log(`  ${c.bold}Critical Secrets:${c.reset} ${result.stats.secrets > 0 ? c.red : c.green}${result.stats.secrets}${c.reset}`);
+    console.log(`  ${c.bold}Test Tampering:${c.reset} ${result.stats.tampering > 0 ? c.red : c.green}${result.stats.tampering}${c.reset}`);
     console.log(`  ${c.bold}AI Slop / Stubs:${c.reset} ${result.stats.slop > 0 ? c.red : c.green}${result.stats.slop}${c.reset}`);
     console.log(`  ${c.bold}Debug Remnants:${c.reset} ${result.stats.debug > 0 ? c.yellow : c.green}${result.stats.debug}${c.reset}`);
     console.log(`  ${c.bold}Discipline Warnings:${c.reset} ${result.stats.warnings > 0 ? c.yellow : c.green}${result.stats.warnings}${c.reset}\n`);
