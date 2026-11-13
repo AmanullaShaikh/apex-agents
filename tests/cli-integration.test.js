@@ -75,4 +75,9 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.ok(!out.includes('Matt Pocock'), 'No external promotion in doctor');
     assert.ok(!out.includes('Donne Martin'), 'No external promotion in doctor');
   });
+
+  test('should run cross-platform test runner script cleanly', () => {
+    const runnerScript = path.join(ROOT_DIR, 'scripts', 'run-tests.js');
+    assert.ok(fs.existsSync(runnerScript), 'run-tests.js must exist');
+  });
 });
