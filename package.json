@@ -1,6 +1,6 @@
 {
   "name": "apex-agents",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "The Sovereign AI Engineering Agency: Babel AST Context Compactor, Codebase Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Cross-Session Memory, Physical Worktree Sandboxes, Pre-Commit Hardened Gates, and Native MCP Server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
