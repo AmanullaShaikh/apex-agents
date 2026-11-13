@@ -1,6 +1,6 @@
-# Ponytail Minimal-Code Philosophy
+# Minimalist Code Engineering Discipline
 
-Derived from Dietrich Gebert's *Ponytail*: "Make your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote."
+Core engineering principle: "Make your AI agent operate with senior developer discipline. The best code is the code you never wrote."
 
 ## The Iron Laws of Minimal Code:
 

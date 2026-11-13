@@ -1,6 +1,6 @@
-# Karpathy LLM Coding Pitfalls & Antidotes
+# LLM Hallucination & Coding Pitfalls Antidotes
 
-Derived from Andrej Karpathy's foundational observations on how Large Language Models fail when writing code in autonomous harnesses.
+Foundational engineering rules defending against common Large Language Model failure modes when writing code in autonomous harnesses.
 
 ## The 5 Fatal LLM Failure Modes:
 

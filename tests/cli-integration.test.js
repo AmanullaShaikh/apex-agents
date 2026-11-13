@@ -69,4 +69,10 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  test('should display clean branding without external promotion', () => {
+    const out = stripAnsi(execSync(`node "${APEX_BIN}" doctor`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.ok(!out.includes('Matt Pocock'), 'No external promotion in doctor');
+    assert.ok(!out.includes('Donne Martin'), 'No external promotion in doctor');
+  });
 });

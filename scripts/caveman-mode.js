@@ -49,7 +49,7 @@ export function handleCavemanCommand(action = 'show', targetDir = process.cwd())
     console.log(`\n${c.yellow}Caveman mode disabled. Normal conversational length restored.${c.reset}\n`);
   } else {
     console.log(`\n${c.cyan}${c.bold}🪨 APEX AGENTS: CAVEMAN 65% TOKEN REDUCER${c.reset}`);
-    console.log(`${c.gray}Based on JuliusBrussee/caveman: "why use many token when few token do trick"${c.reset}\n`);
+    console.log(`${c.gray}Telegraphic brevity protocol: Extreme density for maximum token thrift.${c.reset}\n`);
     console.log(`${c.bold}Directive snippet:${c.reset}`);
     console.log(c.yellow + CAVEMAN_PROMPT.trim() + c.reset + '\n');
     console.log(`Usage:`);

@@ -165,7 +165,7 @@ export function auditDiff(diffText) {
       severity: 'WARNING',
       category: 'TEST_DISCIPLINE',
       file: 'Pull Request / Diff',
-      description: `Modified ${codeFiles.length} source code file(s) with 0 accompanying test updates. Violation of Superpowers TDD Discipline!`,
+      description: `Modified ${codeFiles.length} source code file(s) with 0 accompanying test updates. Violation of Zero-Slop TDD Discipline!`,
       snippet: codeFiles.slice(0, 3).join(', ') + (codeFiles.length > 3 ? '...' : '')
     });
   }

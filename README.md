@@ -20,7 +20,7 @@ Generic AI coding prompts output generic, fragile code. They leave lazy `// TODO
 * **True Babel AST Token Compactor**: Uses `@babel/parser` to strip function and method implementation bodies while preserving 100% syntactically valid TypeScript/JSX interfaces, exports, and signatures.
 * **Persistent Cross-Session Memory (`apex-agents memory`)**: Records technical decisions, architecture contracts, and known bugs in `.agents/memory.json` and syncs them automatically into `CLAUDE.md` and `.cursorrules`.
 * **38+ Specialized Domain Experts**: Need database tuning? Summon `@database-tuner`. Need system scale? Summon `@system-design-architect`. Need type safety? Summon `@typescript-pro`.
-* **12 Operational Instincts**: Grounded reflexes derived from real production failure modes: Zero-Slop Contract, Anti-Loop Circuit Breaker, Karpathy Pitfalls Defense, and Ponytail Minimal-Code.
+* **13 Operational Instincts**: Grounded reflexes derived from real production failure modes: Zero-Slop Contract, Anti-Loop Circuit Breaker, LLM Hallucination Defense, Minimalist Code Discipline, and Anti-Cheat Test Protection.
 * **Physical Pre-Commit Safety Hooks**: Intercepts credentials (AWS, Stripe, OpenAI) and scope drift at the `.git/hooks/pre-commit` level before files ever hit git.
 * **Isolated Git Worktree Sandboxes**: Safely runs speculative AI features in `.worktrees/` without polluting your active working branch.
 * **Native Model Context Protocol (MCP)**: Built-in JSON-RPC stdio MCP server for Claude Desktop, Cursor, and Antigravity.
@@ -173,7 +173,7 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 
 ### 1. 🛠️ Core Engineering
 - **Frontend Architect** (`@frontend-architect`): React 19, Next.js, state machines, accessible UI, 60fps GPU compositing.
-- **TypeScript Pro** (`@typescript-pro`): Matt Pocock-level generics, discriminated unions, template literals, zero-any.
+- **TypeScript Pro** (`@typescript-pro`): Advanced type generics, discriminated unions, template literals, zero-any policy.
 - **Backend Systems Lead** (`@backend-systems-lead`): Distributed architectures, idempotency, rate limiting.
 - **Database Tuner** (`@database-tuner`): B-Tree indexing, `EXPLAIN ANALYZE`, connection pooling.
 - **API & Microservices Lead** (`@api-microservices-lead`): Event pipelines, WebSockets, gRPC.
@@ -191,13 +191,13 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 - **FFmpeg Pipeline Master** (`@ffmpeg-pipeline-master`): Faststart web streaming, NVENC hardware acceleration.
 
 ### 4. 🌐 Cloud-Native & Distributed Scale
-- **System Design Architect** (`@system-design-architect`): Donne Martin scale patterns, sharding, caching topologies.
+- **System Design Architect** (`@system-design-architect`): High-scale distributed patterns, sharding, caching topologies.
 - **Serverless Edge Lead** (`@serverless-edge-lead`): Cloudflare Workers, sub-50ms cold starts, streaming SSR.
 - **GraphQL Federation** (`@graphql-federation-architect`): Apollo Federation v2, DataLoader N+1 batching.
 - **Event Sourcing Specialist** (`@event-sourcing-specialist`): Append-only event stores, CQRS, Outbox pattern.
 
 ### 5. 🔍 Reverse Engineering & Protocols
-- **Native Binary Decompiler** (`@binary-decompiler`): morluto/rea & craft-anything native ELF/PE/WASM reverse engineering.
+- **Native Binary Decompiler** (`@binary-decompiler`): Native ELF/PE/WASM binary analysis and protocol reverse engineering.
 - **Binary & AST Inspector** (`@binary-ast-inspector`): Source map reconstruction, AST normalization, JS unminifying.
 - **Network Security Auditor** (`@network-security-auditor`): TLS 1.3 audit, WebSocket hijacking defense.
 
@@ -208,7 +208,7 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 - **Dependency Scanner** (`@dependency-vulnerability-scanner`): npm audit, CVE remediation, supply chain defense.
 
 ### 7. ⚡ Deep Performance
-- **CWV & LCP Doctor** (`@cwv-lcp-doctor`): Addy Osmani-level Sub-2.5s LCP, INP main-thread scheduling.
+- **CWV & LCP Doctor** (`@cwv-lcp-doctor`): Core Web Vitals sub-2.5s LCP, zero CLS, INP main-thread scheduling.
 - **Memory Leak Hunter** (`@memory-leak-hunter`): V8 heap snapshot analysis, detached DOM nodes.
 - **Bundle Dietician** (`@bundle-dietician`): Tree-shaking, dead ghost dependency elimination.
 - **SQL Query Optimizer** (`@sql-query-optimizer`): Keyset pagination, composite index scans.
@@ -224,7 +224,7 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 - **Kubernetes Architect** (`@k8s-cloud-architect`): Helm, HPA autoscaling, zero-downtime rolling updates.
 
 ### 10. 🚀 Product Launch & DevRel
-- **Growth Marketer** (`@growth-marketer`): Corey Haines CRO, technical copywriting, viral launch loops.
+- **Growth Marketer** (`@growth-marketer`): Conversion Rate Optimization (CRO), technical copywriting, viral launch loops.
 - **Prompt Architect** (`@prompt-architect`): 6-step hierarchical system prompts for Claude, GPT-4o, and Gemini.
 - **PR Artisan** (`@pr-artisan`): Conventional Commits, git diff analysis.
 - **README Copywriter** (`@readme-copywriter`): Viral open-source READMEs, conversion hooks.
@@ -241,8 +241,8 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 6. **Anti-Drift Scope Boundary**: Restricts file modifications strictly to target boundary.
 7. **Rationalization Breaker**: Eliminates common LLM excuses ("Tests pass so it must work").
 8. **Systematic Investigation**: 4-phase iron law: Reproduce -> Isolate -> Hypothesize -> Verify.
-9. **Karpathy Pitfalls Defense**: Andrej Karpathy anti-hallucination, API verification, and premature abstraction guards.
-10. **Ponytail Minimal-Code**: "The best code is the code you never wrote." Deletes before adding.
+9. **LLM Hallucination Defense**: Strict API verification and premature abstraction guards.
+10. **Minimalist Code Discipline**: "The best code is the code you never wrote." Deletes before adding.
 11. **Caveman Token Discipline**: 65% token drop telegraphic brevity mode for long autonomous loops.
 12. **Editorial Diagram Rules**: Clean self-contained HTML/SVG cards without messy Mermaid spaghetti.
 13. **Anti-Cheat Test Tampering**: Strictly forbids skipping tests (`it.skip`, `xit`) or commenting out assertions to fake green builds. Fix code, never weaken tests.
