@@ -1,0 +1,30 @@
+{
+  "name": "apex-agents",
+  "version": "1.0.0",
+  "description": "The Autonomous AI Engineering Agency: Elite Specialized Agents, Skills, and Production Instincts for Claude Code, Cursor, Codex, and Antigravity",
+  "main": "bin/apex.js",
+  "bin": {
+    "apex-agents": "./bin/apex.js",
+    "apex": "./bin/apex.js"
+  },
+  "type": "module",
+  "scripts": {
+    "install-global": "node ./bin/apex.js install",
+    "list": "node ./bin/apex.js list",
+    "doctor": "node ./bin/apex.js doctor"
+  },
+  "keywords": [
+    "agents",
+    "claude-code",
+    "cursor",
+    "antigravity",
+    "skills",
+    "ai-agents",
+    "engineering-agency",
+    "performance",
+    "security",
+    "devops"
+  ],
+  "author": "Amanulla Shaikh <businessamanulla@gmail.com>",
+  "license": "MIT"
+}
