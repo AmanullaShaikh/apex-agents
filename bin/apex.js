@@ -32,7 +32,7 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
   ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 34+ Specialists${c.reset}
-  ${c.dim}Native MCP Server • Git Worktree Isolation • Anti-Drift Scope Guard${c.reset}
+  ${c.dim}Native MCP Server • Git Worktrees • Pre-Commit Hooks • Swarm Planner${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -43,9 +43,10 @@ function printHelp() {
   console.log(`  npx apex-agents <command> [options]\n`);
   console.log(`${c.bold}COMMANDS:${c.reset}`);
   console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
-  console.log(`  ${c.green}list${c.reset}            List all available divisions, agents, and instincts`);
+  console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
+  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)`);
   console.log(`  ${c.green}sandbox${c.reset}         Manage isolated Git Worktree sandboxes [start|clean|status]`);
   console.log(`  ${c.green}scope-guard${c.reset}     Detect and prevent unintended agent file drift`);
   console.log(`  ${c.green}orphans${c.reset}         Scan repository for unwired or orphaned source files`);
@@ -97,7 +98,7 @@ function handleList() {
 
   console.log(`${c.cyan}${c.bold}═══ OPERATIONAL INSTINCTS (Zero-Slop Reflexes) ═══${c.reset}`);
   for (const inst of instincts) {
-    console.log(`  ${c.yellow}⚡ ${inst.id.padEnd(30)}${c.reset} ${c.gray}${inst.title}${c.reset}`);
+    console.log(`  ${c.yellow}⚡ ${inst.id.padEnd(32)}${c.reset} ${c.gray}${inst.title}${c.reset}`);
   }
   console.log();
 
@@ -219,6 +220,18 @@ function handleInject() {
   console.log(`\n${c.green}${c.bold}✓ Project successfully supercharged with Apex Agents instincts!${c.reset}\n`);
 }
 
+function handlePlan(args) {
+  const orchestratorScript = path.join(__dirname, 'orchestrator.js');
+  const child = spawn(process.execPath, [orchestratorScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleInstallHooks() {
+  const hooksScript = path.join(ROOT_DIR, 'scripts', 'install-hooks.js');
+  const child = spawn(process.execPath, [hooksScript], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleSandbox(subAction, name) {
   const sandboxScript = path.join(ROOT_DIR, 'scripts', 'worktree-sandbox.js');
   const child = spawn(process.execPath, [sandboxScript, subAction, name || ''], { stdio: 'inherit' });
@@ -270,7 +283,9 @@ function handleDoctor() {
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
     { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
     { name: 'Git Worktree Sandbox', status: 'Available (npx apex-agents sandbox)' },
+    { name: 'Pre-Commit Safety Hooks', status: 'Available (npx apex-agents install-hooks)' },
     { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
+    { name: 'Swarm Orchestrator', status: 'Available (npx apex-agents plan)' },
     { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
     { name: 'Interactive Dashboard', status: 'Available (npx apex-agents dashboard)' }
   ];
@@ -302,11 +317,17 @@ switch (command) {
   case 'list':
     handleList();
     break;
+  case 'plan':
+    handlePlan(args.slice(1));
+    break;
   case 'inject':
     handleInject();
     break;
   case 'cursor-rules':
     handleCursorRules();
+    break;
+  case 'install-hooks':
+    handleInstallHooks();
     break;
   case 'sandbox':
     handleSandbox(args[1], args[2]);
