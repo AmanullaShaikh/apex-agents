@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.4.0",
-  "description": "The Autonomous AI Engineering Agency: 34+ Elite Specialists, AST Context Compactor, Git Worktree Sandboxes, Scope Drift Guards, Zero-Slop PR Reviewer, Context Budget Optimizer, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.5.0",
+  "description": "The Grand Synthesis: 38+ Elite Specialists, 12 Instincts, Design Systems, Caveman 65% Token Reducer, AST Context Compactor, Git Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -14,6 +14,8 @@
     "benchmark": "node ./bin/apex.js eval",
     "review": "node ./bin/apex.js review",
     "budget": "node ./bin/apex.js budget",
+    "design": "node ./bin/apex.js design",
+    "caveman": "node ./bin/apex.js caveman",
     "compact": "node ./bin/apex.js compact",
     "export-all": "node ./bin/apex.js export-all",
     "studio": "node ./bin/apex.js studio",

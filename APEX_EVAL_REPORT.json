@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-11-13T10:08:08.636Z",
+  "timestamp": "2026-11-13T10:30:35.634Z",
   "grade": "A+",
   "compositeScore": 100,
   "vectors": [
     {
       "vector": "Agent Schema & Frontmatter Completeness",
-      "tested": "34 agents across 10 divisions",
+      "tested": "38 agents across 10 divisions",
       "score": "100.0%",
       "passed": true
     },
     {
       "vector": "Zero-Slop Operational Instincts",
-      "tested": "8 core reflexive contracts",
+      "tested": "12 core reflexive contracts",
       "score": "100.0%",
       "passed": true
     },

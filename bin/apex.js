@@ -31,8 +31,8 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  / /_\\ \\| |_| | |__  | ' /    / /_\\ \\ |  __| |__ | . ' | | | \\___ \\ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
-  ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 34+ Specialists${c.reset}
-  ${c.dim}AST Context Compactor • Interactive Terminal Studio • Multi-IDE Exporter${c.reset}
+  ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 38+ Specialists • 12 Instincts${c.reset}
+  ${c.dim}AST Compactor • Design Systems • Caveman Token Reducer • TUI Studio • Native MCP${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -47,6 +47,8 @@ function printHelp() {
   console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks & AI slop`);
   console.log(`  ${c.green}budget${c.reset}          Analyze context window token bloat & generate .cursorignore`);
   console.log(`  ${c.green}eval | benchmark${c.reset} Run automated verification benchmark suite across agency`);
+  console.log(`  ${c.green}design <preset>${c.reset}  Inject DESIGN.md design system tokens [linear|stripe|apple|raycast]`);
+  console.log(`  ${c.green}caveman [on|off]${c.reset} Toggle Caveman 65% token drop telegraphic mode`);
   console.log(`  ${c.green}compact${c.reset}         Run AST Context Compactor to shrink codebase tokens by 85%+`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
@@ -341,6 +343,18 @@ function handleEval(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleDesign(args) {
+  const designScript = path.join(ROOT_DIR, 'scripts', 'inject-design.js');
+  const child = spawn(process.execPath, [designScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleCaveman(args) {
+  const cavemanScript = path.join(ROOT_DIR, 'scripts', 'caveman-mode.js');
+  const child = spawn(process.execPath, [cavemanScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleMcp() {
   const mcpServerPath = path.join(__dirname, 'mcp-server.js');
   const child = spawn(process.execPath, [mcpServerPath], {
@@ -372,6 +386,12 @@ switch (command) {
   case 'eval':
   case 'benchmark':
     handleEval(args.slice(1));
+    break;
+  case 'design':
+    handleDesign(args.slice(1));
+    break;
+  case 'caveman':
+    handleCaveman(args.slice(1));
     break;
   case 'compact':
     handleCompact(args.slice(1));
