@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.5.0",
-  "description": "The Grand Synthesis: 38+ Elite Specialists, 12 Instincts, Design Systems, Caveman 65% Token Reducer, AST Context Compactor, Git Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.6.0",
+  "description": "Industrial-Grade Autonomous AI Engineering Agency: Babel AST Context Compaction, Persistent Session Memory, Physical Git Worktree Sandboxes, Scope Drift Guards, Pre-Commit Security Hooks, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -14,6 +14,7 @@
     "benchmark": "node ./bin/apex.js eval",
     "review": "node ./bin/apex.js review",
     "budget": "node ./bin/apex.js budget",
+    "memory": "node ./bin/apex.js memory",
     "design": "node ./bin/apex.js design",
     "caveman": "node ./bin/apex.js caveman",
     "compact": "node ./bin/apex.js compact",
@@ -44,5 +45,10 @@
     "devops"
   ],
   "author": "Amanulla Shaikh <businessamanulla@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@babel/generator": "^8.1.2",
+    "@babel/parser": "^8.1.2",
+    "@babel/traverse": "^8.1.2"
+  }
 }

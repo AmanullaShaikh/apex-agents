@@ -1,43 +1,36 @@
-# ⚡ Apex Agents: The Autonomous Engineering Agency
+# ⚡ Apex Agents: The Industrial-Grade AI Agent Harness
 
-> **The Grand Synthesis: 10 specialized divisions, 38+ expert agent personas, 12 zero-slop instincts, production design systems, 65% token-drop Caveman mode, AST context compaction (88.5% savings), PR diff reviewer, and native Model Context Protocol (MCP) server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity.**
+> **The zero-slop autonomous engineering agency and execution harness. 10 specialized divisions, 38+ expert agent personas, Babel AST context compaction (70-88% token reduction), persistent cross-session memory, physical git worktree sandboxes, pre-commit secret leak interceptors, and native Model Context Protocol (MCP) server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Version: 1.5.0](https://img.shields.io/badge/version-1.5.0-brightgreen.svg?style=flat-square)](https://www.npmjs.com/package/apex-agents)
+[![Version: 1.6.0](https://img.shields.io/badge/version-1.6.0-brightgreen.svg?style=flat-square)](https://www.npmjs.com/package/apex-agents)
+[![Babel AST](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
 [![Eval Score](https://img.shields.io/badge/Evaluation-100%2F100%20(Grade%20A%2B)-success.svg?style=flat-square)](#-agency-evaluation--benchmark-harness)
-[![AST Compaction](https://img.shields.io/badge/AST%20Compaction-88.5%25%20Token%20Savings-blueviolet.svg?style=flat-square)](#-ast-context-compactor)
+[![AST Compaction](https://img.shields.io/badge/Context%20Reduction-70%25--88.5%25%20Savings-blueviolet.svg?style=flat-square)](#-babel-ast-context-compactor)
 [![MCP Native](https://img.shields.io/badge/MCP-Native%20Server-purple.svg?style=flat-square)](#-native-mcp-server-support)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/apex-agents/pulls)
 
 ---
 
-## 💡 Why Apex Agents? (The Grand Synthesis)
+## 💡 Why Apex Agents?
 
-Developers are tired of installing 25 different agent skills, scripts, and rule files from across GitHub. One repo does design, another does security, another claims to cut tokens, and another has system design tips.
+Generic AI coding prompts output generic, fragile code. They leave lazy `// TODO` placeholders, invent non-existent APIs, introduce N+1 query bottlenecks, leak production API keys into git commits, and hallucinate changes across 15 unrelated files.
 
-**Apex Agents synthesizes the top 100+ GitHub agent repositories into ONE zero-dependency, production-grade CLI and harness:**
-
-| What You Used to Install | Star Count | Replaced in Apex Agents By |
-| :--- | :--- | :--- |
-| `donnemartin/system-design-primer` | 377k ⭐ | `@system-design-architect` (Actionable scalable distributed blueprints) |
-| `obra/superpowers` | 316k ⭐ | Git Worktree Sandboxes (`sandbox`), Strict TDD, Rationalization Breakers |
-| `affaan-m/ECC` | 302k ⭐ | Persistent Harness Instincts, Pre-Commit Physical Hooks (`install-hooks`) |
-| `morluto/rea` & `storytold/craft-anything` | 456k ⭐ | `@binary-decompiler` & `@binary-ast-inspector` (Evidence-backed reverse engineering) |
-| `mattpocock/skills` | 323k ⭐ | `@typescript-pro` (Generics, Discriminated Unions, Template Literals, Zero-any) |
-| `VoltAgent/awesome-design-md` & `emilkowalski/skills` | 127k ⭐ | `npx apex-agents design [linear\|stripe\|apple\|raycast]` |
-| `JuliusBrussee/caveman` | 119k ⭐ | `npx apex-agents caveman on` (65% token drop telegraphic brevity mode) |
-| `multica-ai/andrej-karpathy-skills` | 232k ⭐ | `instincts/karpathy-pitfalls.md` (Anti-hallucination & API verification) |
-| `DietrichGebert/ponytail` | 190k ⭐ | `instincts/ponytail-minimal-code.md` ("The best code is the code you never wrote") |
-| `coreyhaines31/marketingskills` | 60k ⭐ | `@growth-marketer` (CRO, viral launch copy, developer value props) |
-| `cathrynlavery/diagram-design` | 66k ⭐ | `instincts/editorial-diagram-rules.md` (Anti-Mermaid clean SVG/HTML cards) |
-| `headroomlabs-ai/headroom` | 79k ⭐ | AST Context Compactor (`compact`) & Token Budget Optimizer (`budget`) |
+**Apex Agents** converts your coding agent harness into an **enterprise-grade engineering agency** backed by physical filesystem and AST tools:
+* **True Babel AST Token Compactor**: Uses `@babel/parser` to strip function and method implementation bodies while preserving 100% syntactically valid TypeScript/JSX interfaces, exports, and signatures.
+* **Persistent Cross-Session Memory (`apex-agents memory`)**: Records technical decisions, architecture contracts, and known bugs in `.agents/memory.json` and syncs them automatically into `CLAUDE.md` and `.cursorrules`.
+* **38+ Specialized Domain Experts**: Need database tuning? Summon `@database-tuner`. Need system scale? Summon `@system-design-architect`. Need type safety? Summon `@typescript-pro`.
+* **12 Operational Instincts**: Grounded reflexes derived from real production failure modes: Zero-Slop Contract, Anti-Loop Circuit Breaker, Karpathy Pitfalls Defense, and Ponytail Minimal-Code.
+* **Physical Pre-Commit Safety Hooks**: Intercepts credentials (AWS, Stripe, OpenAI) and scope drift at the `.git/hooks/pre-commit` level before files ever hit git.
+* **Isolated Git Worktree Sandboxes**: Safely runs speculative AI features in `.worktrees/` without polluting your active working branch.
+* **Native Model Context Protocol (MCP)**: Built-in JSON-RPC stdio MCP server for Claude Desktop, Cursor, and Antigravity.
 
 ---
 
 ## 🚀 60-Second Quickstart
 
 ```bash
-# Run the agency CLI via npx (zero installation required)
+# Run the agency CLI via npx (zero global install needed)
 npx apex-agents <command>
 ```
 
@@ -46,11 +39,12 @@ npx apex-agents <command>
 | Command | Action |
 | :--- | :--- |
 | `npx apex-agents studio` | Launch the interactive keyboard-driven Terminal Studio |
-| `npx apex-agents design <preset>` | Inject `DESIGN.md` design system tokens (`linear`, `stripe`, `apple`, `raycast`) |
-| `npx apex-agents caveman on` | Enable 65% token-drop telegraphic brevity mode |
-| `npx apex-agents compact` | Run AST Context Compactor to shrink codebase tokens by 85%+ |
+| `npx apex-agents compact` | Run Babel AST Context Compactor to shrink codebase tokens by 70-88% |
+| `npx apex-agents memory [cmd]` | Manage persistent cross-session memory (`record`, `recall`, `sync`, `clear`) |
 | `npx apex-agents review` | Audit staged/committed git diff for secret leaks & AI slop |
 | `npx apex-agents budget` | Analyze context window token bloat & generate `.cursorignore` |
+| `npx apex-agents design <preset>` | Inject `DESIGN.md` design system tokens (`linear`, `stripe`, `apple`, `raycast`) |
+| `npx apex-agents caveman on` | Enable 65% token-drop telegraphic brevity mode |
 | `npx apex-agents eval` | Run the agency verification benchmark suite (100/100 Grade A+) |
 | `npx apex-agents export-all`| Export configs for Claude Code, Cursor, Windsurf, Copilot, & Aider |
 | `npx apex-agents plan "<goal>"`| Decompose an objective into a multi-agent swarm execution plan |
@@ -58,6 +52,8 @@ npx apex-agents <command>
 | `npx apex-agents sandbox start <name>`| Spin up an isolated Git Worktree sandbox |
 | `npx apex-agents scope-guard` | Detect unintended file drift across staged git changes |
 | `npx apex-agents orphans` | Scan repository for unwired or orphaned source files |
+| `npx apex-agents dashboard` | Open the offline dark-mode Agent Explorer in your browser |
+| `npx apex-agents mcp` | Start the native Model Context Protocol (MCP) server |
 | `npx apex-agents dashboard` | Open the offline dark-mode Agent Explorer in your browser |
 | `npx apex-agents mcp` | Start the native Model Context Protocol (MCP) server |
 

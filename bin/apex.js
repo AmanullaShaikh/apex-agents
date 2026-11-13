@@ -47,6 +47,7 @@ function printHelp() {
   console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks & AI slop`);
   console.log(`  ${c.green}budget${c.reset}          Analyze context window token bloat & generate .cursorignore`);
   console.log(`  ${c.green}eval | benchmark${c.reset} Run automated verification benchmark suite across agency`);
+  console.log(`  ${c.green}memory [cmd]${c.reset}     Manage persistent cross-session memory [record|recall|sync|clear]`);
   console.log(`  ${c.green}design <preset>${c.reset}  Inject DESIGN.md design system tokens [linear|stripe|apple|raycast]`);
   console.log(`  ${c.green}caveman [on|off]${c.reset} Toggle Caveman 65% token drop telegraphic mode`);
   console.log(`  ${c.green}compact${c.reset}         Run AST Context Compactor to shrink codebase tokens by 85%+`);
@@ -355,6 +356,12 @@ function handleCaveman(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleMemory(args) {
+  const memoryScript = path.join(ROOT_DIR, 'scripts', 'session-memory.js');
+  const child = spawn(process.execPath, [memoryScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleMcp() {
   const mcpServerPath = path.join(__dirname, 'mcp-server.js');
   const child = spawn(process.execPath, [mcpServerPath], {
@@ -386,6 +393,9 @@ switch (command) {
   case 'eval':
   case 'benchmark':
     handleEval(args.slice(1));
+    break;
+  case 'memory':
+    handleMemory(args.slice(1));
     break;
   case 'design':
     handleDesign(args.slice(1));
