@@ -10,13 +10,15 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 
 // Helper to read agent files
 function getAgentContent(agentId) {
+  if (!agentId) return null;
+  const safeId = path.basename(agentId);
   const agentsDir = path.join(ROOT_DIR, 'agents');
   const divisions = fs.readdirSync(agentsDir);
   for (const div of divisions) {
-    const filePath = path.join(agentsDir, div, `${agentId}.md`);
+    const filePath = path.join(agentsDir, div, `${safeId}.md`);
     if (fs.existsSync(filePath)) {
       return {
-        id: agentId,
+        id: safeId,
         division: div,
         content: fs.readFileSync(filePath, 'utf-8')
       };
@@ -39,7 +41,9 @@ function getAllAgents() {
 }
 
 function getInstinctContent(instinctId) {
-  const filePath = path.join(ROOT_DIR, 'instincts', `${instinctId}.md`);
+  if (!instinctId) return null;
+  const safeId = path.basename(instinctId);
+  const filePath = path.join(ROOT_DIR, 'instincts', `${safeId}.md`);
   if (fs.existsSync(filePath)) {
     return fs.readFileSync(filePath, 'utf-8');
   }
@@ -125,6 +129,7 @@ process.stdin.on('data', (chunk) => {
 });
 
 function handleMessage(msg) {
+  if (!msg || typeof msg !== 'object') return;
   const { id, method, params } = msg;
 
   if (method === 'initialize') {
@@ -135,7 +140,7 @@ function handleMessage(msg) {
       },
       serverInfo: {
         name: 'apex-agents-mcp',
-        version: '1.0.0'
+        version: '2.0.0'
       }
     });
     return;

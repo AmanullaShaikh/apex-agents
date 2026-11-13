@@ -20,25 +20,30 @@ function getMemoryFile(targetDir = process.cwd()) {
 }
 
 function loadMemory(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return {
-      version: '1.0.0',
-      lastUpdated: new Date().toISOString(),
-      decisions: [],
-      architecturalRules: [],
-      knownBugs: []
-    };
-  }
+  const fallback = {
+    version: '1.0.0',
+    lastUpdated: new Date().toISOString(),
+    decisions: [],
+    architecturalRules: [],
+    knownBugs: []
+  };
+
+  if (!fs.existsSync(filePath)) return fallback;
+
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  } catch {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return fallback;
+    }
     return {
-      version: '1.0.0',
-      lastUpdated: new Date().toISOString(),
-      decisions: [],
-      architecturalRules: [],
-      knownBugs: []
+      version: parsed.version || '1.0.0',
+      lastUpdated: parsed.lastUpdated || new Date().toISOString(),
+      decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+      architecturalRules: Array.isArray(parsed.architecturalRules) ? parsed.architecturalRules : [],
+      knownBugs: Array.isArray(parsed.knownBugs) ? parsed.knownBugs : []
     };
+  } catch {
+    return fallback;
   }
 }
 

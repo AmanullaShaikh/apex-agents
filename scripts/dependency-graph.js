@@ -82,16 +82,29 @@ export function buildDependencyGraph(rootDir = process.cwd()) {
 
       traverse(ast, {
         ImportDeclaration(p) {
-          const src = p.node.source.value;
-          const resolved = resolveImportPath(f, src, rootDir);
-          if (resolved.type === 'internal') {
-            graph.get(rel)?.add(resolved.path);
-          } else {
-            externalDeps.add(resolved.name);
+          if (p.node.source?.value) {
+            const src = p.node.source.value;
+            const resolved = resolveImportPath(f, src, rootDir);
+            if (resolved.type === 'internal') {
+              graph.get(rel)?.add(resolved.path);
+            } else {
+              externalDeps.add(resolved.name);
+            }
           }
         },
         ExportNamedDeclaration(p) {
-          if (p.node.source) {
+          if (p.node.source?.value) {
+            const src = p.node.source.value;
+            const resolved = resolveImportPath(f, src, rootDir);
+            if (resolved.type === 'internal') {
+              graph.get(rel)?.add(resolved.path);
+            } else {
+              externalDeps.add(resolved.name);
+            }
+          }
+        },
+        ExportAllDeclaration(p) {
+          if (p.node.source?.value) {
             const src = p.node.source.value;
             const resolved = resolveImportPath(f, src, rootDir);
             if (resolved.type === 'internal') {

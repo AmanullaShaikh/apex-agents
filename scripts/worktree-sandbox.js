@@ -18,13 +18,14 @@ const action = process.argv[2] || 'status';
 const taskName = process.argv[3] || `task-${Date.now().toString().slice(-4)}`;
 
 export function handleStart(name, cwd = process.cwd()) {
-  const branchName = `apex/${name}`;
+  const safeName = path.basename(name || 'task').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const branchName = `apex/${safeName}`;
   const worktreesBase = path.join(cwd, '.worktrees');
-  const worktreeDir = path.join(worktreesBase, name);
+  const worktreeDir = path.join(worktreesBase, safeName);
   const lockFile = path.join(worktreesBase, '.lock');
 
   console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: GIT WORKTREE SANDBOX ═════${c.reset}`);
-  console.log(`Spawning isolated workspace: ${c.cyan}${name}${c.reset}...\n`);
+  console.log(`Spawning isolated workspace: ${c.cyan}${safeName}${c.reset}...\n`);
 
   fs.mkdirSync(worktreesBase, { recursive: true });
 
@@ -87,8 +88,10 @@ export function handleStatus(cwd = process.cwd()) {
 }
 
 export function handleClean(name, cwd = process.cwd()) {
-  const worktreeDir = path.join(cwd, '.worktrees', name);
-  console.log(`\n${c.cyan}[Apex-Agents] Removing worktree: ${name}...${c.reset}`);
+  const safeName = path.basename(name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  if (!safeName) return;
+  const worktreeDir = path.join(cwd, '.worktrees', safeName);
+  console.log(`\n${c.cyan}[Apex-Agents] Removing worktree: ${safeName}...${c.reset}`);
   try {
     execSync(`git worktree remove "${worktreeDir}" --force`, { stdio: 'inherit', cwd });
     execSync(`git worktree prune`, { stdio: 'ignore', cwd });

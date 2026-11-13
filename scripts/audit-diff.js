@@ -41,8 +41,9 @@ const DEBUG_PATTERNS = [
 ];
 
 const TEST_TAMPERING_PATTERNS = [
-  { name: 'Skipped Test Suite / Case', regex: /\b(it\.skip|test\.skip|describe\.skip|xit|xtest)\s*\(/ },
-  { name: 'Commented Out Assertion', regex: /\/\/\s*(expect|assert|should)\s*\(/ }
+  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)\s*(\.|\b)\s*(skip)\s*\(|\b(xit|xtest)\s*\(/ },
+  { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(only)\s*\(/ },
+  { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ }
 ];
 
 function getGitDiff(targetBranch = null, stagedOnly = false) {
