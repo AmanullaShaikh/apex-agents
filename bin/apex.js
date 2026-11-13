@@ -3,13 +3,14 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-// Terminal ANSI colors
+// Terminal ANSI styling
 const c = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
@@ -30,7 +31,8 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  / /_\\ \\| |_| | |__  | ' /    / /_\\ \\ |  __| |__ | . ' | | | \\___ \\ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
-  ${c.gray}Autonomous AI Engineering Agency • 60+ Specialists for Claude, Cursor & AGY${c.reset}
+  ${c.gray}Autonomous AI Engineering Agency • 8 Divisions, 27+ Specialists${c.reset}
+  ${c.dim}Native MCP Server • Universal Claude / Cursor / Antigravity Support${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -40,13 +42,12 @@ function printHelp() {
   console.log(`${c.bold}USAGE:${c.reset}`);
   console.log(`  npx apex-agents <command> [options]\n`);
   console.log(`${c.bold}COMMANDS:${c.reset}`);
-  console.log(`  ${c.green}install${c.reset}     Install all agent personas & instincts into your AI harness`);
-  console.log(`  ${c.green}list${c.reset}        List all available divisions, agents, and operational instincts`);
-  console.log(`  ${c.green}inject${c.reset}      Inject agent rules into current project (CLAUDE.md / .cursorrules)`);
-  console.log(`  ${c.green}doctor${c.reset}      Verify environment, permissions, and agent configurations\n`);
-  console.log(`${c.bold}OPTIONS:${c.reset}`);
-  console.log(`  --target    Target harness: claude, cursor, agents, or all (default: all)`);
-  console.log(`  --workspace Target current workspace directory (default: current dir)\n`);
+  console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
+  console.log(`  ${c.green}list${c.reset}            List all available divisions, agents, and instincts`);
+  console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
+  console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
+  console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
+  console.log(`  ${c.green}doctor${c.reset}          Verify environment, permissions, and agent setups\n`);
 }
 
 function getAvailableAgents() {
@@ -65,7 +66,7 @@ function getAvailableAgents() {
       const name = file.replace('.md', '');
       const titleMatch = content.match(/^#\s+(.+)$/m);
       const title = titleMatch ? titleMatch[1] : name;
-      return { id: name, file, path: filePath, title };
+      return { id: name, file, path: filePath, title, content };
     });
   }
   return registry;
@@ -96,14 +97,17 @@ function handleList() {
   console.log();
 
   console.log(`${c.cyan}${c.bold}═══ SPECIALIZED AGENT DIVISIONS ═══${c.reset}`);
+  let totalAgents = 0;
   for (const [div, agents] of Object.entries(registry)) {
+    totalAgents += agents.length;
     const divTitle = div.toUpperCase().replace('-', ' ');
     console.log(`\n${c.magenta}${c.bold}▶ [DIVISION: ${divTitle}] (${agents.length} Specialists)${c.reset}`);
     for (const ag of agents) {
       console.log(`  ${c.green}• ${ag.id.padEnd(32)}${c.reset} ${c.gray}${ag.title}${c.reset}`);
     }
   }
-  console.log(`\n${c.dim}Run 'npx apex-agents install' to deploy these to your AI agent harness.${c.reset}\n`);
+  console.log(`\n${c.bold}Total Specialists:${c.reset} ${c.green}${totalAgents}${c.reset} across ${Object.keys(registry).length} divisions.`);
+  console.log(`${c.dim}Run 'npx apex-agents install' to deploy these to your AI agent harness.${c.reset}\n`);
 }
 
 function handleInstall() {
@@ -113,7 +117,7 @@ function handleInstall() {
 
   const targets = [
     { name: 'Universal Agents (~/.agents/apex)', dir: path.join(homeDir, '.agents', 'apex') },
-    { name: 'Claude Code Config (~/.claude/agents)', dir: path.join(homeDir, '.claude', 'apex-agents') },
+    { name: 'Claude Code Config (~/.claude/apex-agents)', dir: path.join(homeDir, '.claude', 'apex-agents') },
     { name: 'Local Workspace (.agents/apex)', dir: path.join(cwd, '.agents', 'apex') }
   ];
 
@@ -123,12 +127,10 @@ function handleInstall() {
     try {
       fs.mkdirSync(target.dir, { recursive: true });
       
-      // Copy agents
       const srcAgents = path.join(ROOT_DIR, 'agents');
       const destAgents = path.join(target.dir, 'agents');
       fs.cpSync(srcAgents, destAgents, { recursive: true, force: true });
 
-      // Copy instincts
       const srcInstincts = path.join(ROOT_DIR, 'instincts');
       const destInstincts = path.join(target.dir, 'instincts');
       fs.cpSync(srcInstincts, destInstincts, { recursive: true, force: true });
@@ -147,40 +149,66 @@ function handleInstall() {
   console.log(`  ${c.cyan}"Run @appsec-auditor to audit my authentication endpoints."${c.reset}\n`);
 }
 
+function handleCursorRules() {
+  banner();
+  const cwd = process.cwd();
+  const cursorRulesDir = path.join(cwd, '.cursor', 'rules');
+
+  fs.mkdirSync(cursorRulesDir, { recursive: true });
+  const registry = getAvailableAgents();
+
+  console.log(`${c.bold}Exporting modern .cursor/rules/*.mdc files...${c.reset}\n`);
+
+  let count = 0;
+  for (const [div, agents] of Object.entries(registry)) {
+    for (const ag of agents) {
+      const mdcPath = path.join(cursorRulesDir, `apex-${ag.id}.mdc`);
+      const mdcContent = `---
+description: ${ag.title} - ${div} specialist from Apex Agents
+globs: *
+---
+${ag.content}
+`;
+      fs.writeFileSync(mdcPath, mdcContent);
+      count++;
+    }
+  }
+
+  console.log(`  ${c.green}✓${c.reset} Generated ${c.cyan}${count}${c.reset} rule files in ${c.cyan}.cursor/rules/${c.reset}`);
+  console.log(`\n${c.green}${c.bold}Cursor is now fully powered by Apex Agents specialists!${c.reset}\n`);
+}
+
 function handleInject() {
   banner();
   const cwd = process.cwd();
   const claudeMdPath = path.join(cwd, 'CLAUDE.md');
   const cursorRulesPath = path.join(cwd, '.cursorrules');
 
-  const registry = getAvailableAgents();
   const instincts = getInstincts();
 
   let injectionContent = `\n\n<!-- APEX-AGENTS AUTONOMOUS AGENCY INJECTION -->\n`;
   injectionContent += `# Apex Agents Operational Directives\n`;
-  injectionContent += `This repository is managed with the Apex Agents Autonomous Engineering Agency standards.\n\n`;
+  injectionContent += `This repository is governed by the Apex Agents Autonomous Engineering Agency protocols.\n\n`;
   
   injectionContent += `## Mandatory Operational Instincts:\n`;
   for (const inst of instincts) {
     injectionContent += `### ${inst.title}\n${inst.content}\n\n`;
   }
 
-  // Write to CLAUDE.md
   if (fs.existsSync(claudeMdPath)) {
     fs.appendFileSync(claudeMdPath, injectionContent);
     console.log(`  ${c.green}✓${c.reset} Injected into existing ${c.cyan}CLAUDE.md${c.reset}`);
   } else {
     fs.writeFileSync(claudeMdPath, injectionContent.trim());
-    console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}CLAUDE.md${c.reset} with Apex Agents protocols`);
+    console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}CLAUDE.md${c.reset}`);
   }
 
-  // Write to .cursorrules
   if (fs.existsSync(cursorRulesPath)) {
     fs.appendFileSync(cursorRulesPath, injectionContent);
     console.log(`  ${c.green}✓${c.reset} Injected into existing ${c.cyan}.cursorrules${c.reset}`);
   } else {
     fs.writeFileSync(cursorRulesPath, injectionContent.trim());
-    console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}.cursorrules${c.reset} with Apex Agents protocols`);
+    console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}.cursorrules${c.reset}`);
   }
 
   console.log(`\n${c.green}${c.bold}✓ Project successfully supercharged with Apex Agents instincts!${c.reset}\n`);
@@ -195,14 +223,25 @@ function handleDoctor() {
     { name: 'Node.js Runtime', status: process.version },
     { name: 'OS Platform', status: `${os.platform()} (${os.arch()})` },
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
-    { name: 'Cursor Configs', status: fs.existsSync(path.join(homeDir, '.cursor')) ? 'Found' : 'Not detected' },
+    { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
     { name: 'Universal Agents Path', status: fs.existsSync(path.join(homeDir, '.agents')) ? 'Found' : 'Ready to create' },
+    { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' }
   ];
 
   for (const check of checks) {
     console.log(`  • ${check.name.padEnd(25)}: ${c.cyan}${check.status}${c.reset}`);
   }
   console.log(`\n${c.green}✓ Apex Agents engine is ready for deployment.${c.reset}\n`);
+}
+
+function handleMcp() {
+  const mcpServerPath = path.join(__dirname, 'mcp-server.js');
+  const child = spawn(process.execPath, [mcpServerPath], {
+    stdio: 'inherit'
+  });
+  child.on('exit', (code) => {
+    process.exit(code || 0);
+  });
 }
 
 // Command dispatcher
@@ -218,6 +257,12 @@ switch (command) {
     break;
   case 'inject':
     handleInject();
+    break;
+  case 'cursor-rules':
+    handleCursorRules();
+    break;
+  case 'mcp':
+    handleMcp();
     break;
   case 'doctor':
     handleDoctor();
