@@ -244,7 +244,7 @@ zcmeAS@N?(olHy` + '0'.repeat(500);
 
       const initResp = responses.find(r => r.id === 1);
       assert.ok(initResp, 'Must receive initialize response');
-      assert.strictEqual(initResp.result.serverInfo.version, '2.0.0');
+      assert.match(initResp.result.serverInfo.version, /^\d+\.\d+\.\d+$/);
 
       const traversalResp = responses.find(r => r.id === 2);
       assert.ok(traversalResp, 'Must receive tool response');

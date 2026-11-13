@@ -8,6 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
+let pkgVersion = '2.0.0';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
+  if (pkg.version) pkgVersion = pkg.version;
+} catch {}
+
 // Helper to read agent files
 function getAgentContent(agentId) {
   if (!agentId) return null;
@@ -140,7 +146,7 @@ function handleMessage(msg) {
       },
       serverInfo: {
         name: 'apex-agents-mcp',
-        version: '2.0.0'
+        version: pkgVersion
       }
     });
     return;

@@ -16,11 +16,13 @@ function stripAnsi(str) {
 
 describe('CLI Integration Suite (bin/apex.js)', () => {
   test('should display version with -v and --version', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
+    const expectedVer = new RegExp(`apex-agents v${pkg.version.replace(/\./g, '\\.')}`);
     const outV = stripAnsi(execSync(`node "${APEX_BIN}" -v`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.match(outV, /apex-agents v2\.0\.0/);
+    assert.match(outV, expectedVer);
 
     const outVersion = stripAnsi(execSync(`node "${APEX_BIN}" --version`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.match(outVersion, /apex-agents v2\.0\.0/);
+    assert.match(outVersion, expectedVer);
   });
 
   test('should display help menu with --help', () => {
