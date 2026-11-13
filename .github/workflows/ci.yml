@@ -29,7 +29,11 @@ jobs:
       - name: Run Secret Leak Sentinel
         run: npm run scan-secrets
 
+      - name: Run Evaluation Benchmark Harness
+        run: node ./bin/apex.js eval
+
       - name: Run CLI Smoke Tests
         run: |
           node ./bin/apex.js list
           node ./bin/apex.js doctor
+          node ./bin/apex.js budget

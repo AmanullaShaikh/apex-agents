@@ -1,0 +1,49 @@
+name: Apex Zero-Slop PR Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  audit-diff:
+    runs-on: ubuntu-latest
+    name: Audit Pull Request Diff
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Apex Diff Reviewer
+        id: review
+        run: |
+          node ./bin/apex.js review --branch=origin/${{ github.base_ref }} --format=markdown > review_output.md
+          cat review_output.md
+
+      - name: Post Comment on PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('review_output.md')) {
+              const body = fs.readFileSync('review_output.md', 'utf-8');
+              if (body.trim()) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+              }
+            }

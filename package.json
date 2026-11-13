@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.2.0",
-  "description": "The Autonomous AI Engineering Agency: 34+ Elite Specialists, Git Worktree Sandboxes, Scope Drift Guards, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.4.0",
+  "description": "The Autonomous AI Engineering Agency: 34+ Elite Specialists, AST Context Compactor, Git Worktree Sandboxes, Scope Drift Guards, Zero-Slop PR Reviewer, Context Budget Optimizer, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -10,6 +10,13 @@
   "type": "module",
   "scripts": {
     "test": "node ./scripts/validate-agents.js",
+    "eval": "node ./bin/apex.js eval",
+    "benchmark": "node ./bin/apex.js eval",
+    "review": "node ./bin/apex.js review",
+    "budget": "node ./bin/apex.js budget",
+    "compact": "node ./bin/apex.js compact",
+    "export-all": "node ./bin/apex.js export-all",
+    "studio": "node ./bin/apex.js studio",
     "scan-secrets": "node ./scripts/scan-secrets.js",
     "analyze-bundle": "node ./scripts/analyze-bundle.js",
     "scope-guard": "node ./scripts/scope-enforcer.js",

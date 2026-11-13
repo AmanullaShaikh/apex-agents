@@ -32,7 +32,7 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
   ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 34+ Specialists${c.reset}
-  ${c.dim}Native MCP Server • Git Worktrees • Pre-Commit Hooks • Swarm Planner${c.reset}
+  ${c.dim}AST Context Compactor • Interactive Terminal Studio • Multi-IDE Exporter${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -43,6 +43,12 @@ function printHelp() {
   console.log(`  npx apex-agents <command> [options]\n`);
   console.log(`${c.bold}COMMANDS:${c.reset}`);
   console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
+  console.log(`  ${c.green}studio | tui${c.reset}    Launch the interactive keyboard-driven terminal studio`);
+  console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks & AI slop`);
+  console.log(`  ${c.green}budget${c.reset}          Analyze context window token bloat & generate .cursorignore`);
+  console.log(`  ${c.green}eval | benchmark${c.reset} Run automated verification benchmark suite across agency`);
+  console.log(`  ${c.green}compact${c.reset}         Run AST Context Compactor to shrink codebase tokens by 85%+`);
+  console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
@@ -220,6 +226,24 @@ function handleInject() {
   console.log(`\n${c.green}${c.bold}✓ Project successfully supercharged with Apex Agents instincts!${c.reset}\n`);
 }
 
+function handleCompact(args) {
+  const compactorScript = path.join(ROOT_DIR, 'scripts', 'compact-context.js');
+  const child = spawn(process.execPath, [compactorScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleExportAll(args) {
+  const exporterScript = path.join(ROOT_DIR, 'scripts', 'export-all.js');
+  const child = spawn(process.execPath, [exporterScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleStudio() {
+  const tuiScript = path.join(__dirname, 'tui.js');
+  const child = spawn(process.execPath, [tuiScript], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handlePlan(args) {
   const orchestratorScript = path.join(__dirname, 'orchestrator.js');
   const child = spawn(process.execPath, [orchestratorScript, ...args], { stdio: 'inherit' });
@@ -282,6 +306,9 @@ function handleDoctor() {
     { name: 'OS Platform', status: `${os.platform()} (${os.arch()})` },
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
     { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
+    { name: 'Multi-IDE Exporter', status: 'Available (npx apex-agents export-all)' },
+    { name: 'AST Context Compactor', status: 'Available (npx apex-agents compact)' },
+    { name: 'Terminal Studio (TUI)', status: 'Available (npx apex-agents studio)' },
     { name: 'Git Worktree Sandbox', status: 'Available (npx apex-agents sandbox)' },
     { name: 'Pre-Commit Safety Hooks', status: 'Available (npx apex-agents install-hooks)' },
     { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
@@ -294,6 +321,24 @@ function handleDoctor() {
     console.log(`  • ${check.name.padEnd(25)}: ${c.cyan}${check.status}${c.reset}`);
   }
   console.log(`\n${c.green}✓ Apex Agents engine is ready for deployment.${c.reset}\n`);
+}
+
+function handleReview(args) {
+  const reviewScript = path.join(ROOT_DIR, 'scripts', 'audit-diff.js');
+  const child = spawn(process.execPath, [reviewScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleBudget(args) {
+  const budgetScript = path.join(ROOT_DIR, 'scripts', 'token-budget.js');
+  const child = spawn(process.execPath, [budgetScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleEval(args) {
+  const evalScript = path.join(ROOT_DIR, 'scripts', 'benchmark-eval.js');
+  const child = spawn(process.execPath, [evalScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
 }
 
 function handleMcp() {
@@ -316,6 +361,27 @@ switch (command) {
     break;
   case 'list':
     handleList();
+    break;
+  case 'review':
+  case 'diff':
+    handleReview(args.slice(1));
+    break;
+  case 'budget':
+    handleBudget(args.slice(1));
+    break;
+  case 'eval':
+  case 'benchmark':
+    handleEval(args.slice(1));
+    break;
+  case 'compact':
+    handleCompact(args.slice(1));
+    break;
+  case 'export-all':
+    handleExportAll(args.slice(1));
+    break;
+  case 'studio':
+  case 'tui':
+    handleStudio();
     break;
   case 'plan':
     handlePlan(args.slice(1));
