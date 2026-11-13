@@ -1,0 +1,35 @@
+name: CI & Agent Integrity Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run Agent Schema & Zero-Slop Validator
+        run: npm test
+
+      - name: Run Secret Leak Sentinel
+        run: npm run scan-secrets
+
+      - name: Run CLI Smoke Tests
+        run: |
+          node ./bin/apex.js list
+          node ./bin/apex.js doctor

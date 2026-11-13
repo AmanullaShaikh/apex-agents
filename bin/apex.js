@@ -31,7 +31,7 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  / /_\\ \\| |_| | |__  | ' /    / /_\\ \\ |  __| |__ | . ' | | | \\___ \\ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
-  ${c.gray}Autonomous AI Engineering Agency • 8 Divisions, 27+ Specialists${c.reset}
+  ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 34+ Specialists${c.reset}
   ${c.dim}Native MCP Server • Universal Claude / Cursor / Antigravity Support${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
@@ -44,9 +44,11 @@ function printHelp() {
   console.log(`${c.bold}COMMANDS:${c.reset}`);
   console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
   console.log(`  ${c.green}list${c.reset}            List all available divisions, agents, and instincts`);
-  console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
+  console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
+  console.log(`  ${c.green}dashboard${c.reset}       Open the interactive visual Agent Explorer in browser`);
   console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
+  console.log(`  ${c.green}test${c.reset}            Run the automated schema and zero-slop validation suite`);
   console.log(`  ${c.green}doctor${c.reset}          Verify environment, permissions, and agent setups\n`);
 }
 
@@ -103,7 +105,7 @@ function handleList() {
     const divTitle = div.toUpperCase().replace('-', ' ');
     console.log(`\n${c.magenta}${c.bold}▶ [DIVISION: ${divTitle}] (${agents.length} Specialists)${c.reset}`);
     for (const ag of agents) {
-      console.log(`  ${c.green}• ${ag.id.padEnd(32)}${c.reset} ${c.gray}${ag.title}${c.reset}`);
+      console.log(`  ${c.green}• ${ag.id.padEnd(34)}${c.reset} ${c.gray}${ag.title}${c.reset}`);
     }
   }
   console.log(`\n${c.bold}Total Specialists:${c.reset} ${c.green}${totalAgents}${c.reset} across ${Object.keys(registry).length} divisions.`);
@@ -214,6 +216,28 @@ function handleInject() {
   console.log(`\n${c.green}${c.bold}✓ Project successfully supercharged with Apex Agents instincts!${c.reset}\n`);
 }
 
+function handleDashboard() {
+  const dashPath = path.join(ROOT_DIR, 'dashboard.html');
+  console.log(`\nOpening Apex Agents Explorer: ${dashPath}\n`);
+  
+  const platform = os.platform();
+  if (platform === 'win32') {
+    spawn('cmd.exe', ['/c', 'start', '""', dashPath], { detached: true });
+  } else if (platform === 'darwin') {
+    spawn('open', [dashPath], { detached: true });
+  } else {
+    spawn('xdg-open', [dashPath], { detached: true });
+  }
+}
+
+function handleTest() {
+  const validatorScript = path.join(ROOT_DIR, 'scripts', 'validate-agents.js');
+  const child = spawn(process.execPath, [validatorScript], { stdio: 'inherit' });
+  child.on('exit', (code) => {
+    process.exit(code || 0);
+  });
+}
+
 function handleDoctor() {
   banner();
   console.log(`${c.bold}Running Environment Diagnostics...${c.reset}\n`);
@@ -225,7 +249,8 @@ function handleDoctor() {
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
     { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
     { name: 'Universal Agents Path', status: fs.existsSync(path.join(homeDir, '.agents')) ? 'Found' : 'Ready to create' },
-    { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' }
+    { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
+    { name: 'Interactive Dashboard', status: 'Available (npx apex-agents dashboard)' }
   ];
 
   for (const check of checks) {
@@ -260,6 +285,12 @@ switch (command) {
     break;
   case 'cursor-rules':
     handleCursorRules();
+    break;
+  case 'dashboard':
+    handleDashboard();
+    break;
+  case 'test':
+    handleTest();
     break;
   case 'mcp':
     handleMcp();

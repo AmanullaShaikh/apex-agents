@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.0.0",
-  "description": "The Autonomous AI Engineering Agency: Elite Specialized Agents, Skills, and Production Instincts for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.1.0",
+  "description": "The Autonomous AI Engineering Agency: 34+ Elite Specialists, Operational Instincts, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -9,15 +9,21 @@
   },
   "type": "module",
   "scripts": {
+    "test": "node ./scripts/validate-agents.js",
+    "scan-secrets": "node ./scripts/scan-secrets.js",
+    "analyze-bundle": "node ./scripts/analyze-bundle.js",
     "install-global": "node ./bin/apex.js install",
     "list": "node ./bin/apex.js list",
-    "doctor": "node ./bin/apex.js doctor"
+    "doctor": "node ./bin/apex.js doctor",
+    "mcp": "node ./bin/mcp-server.js"
   },
   "keywords": [
     "agents",
     "claude-code",
     "cursor",
     "antigravity",
+    "mcp",
+    "mcp-server",
     "skills",
     "ai-agents",
     "engineering-agency",
