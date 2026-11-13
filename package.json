@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.9.0",
-  "description": "Industrial-Grade Autonomous AI Engineering Agency: Babel AST Context Compaction, Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Memory, Physical Worktree Sandboxes, Scope Drift Guards, Pre-Commit Hooks, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "2.0.0",
+  "description": "The Sovereign AI Engineering Agency: Babel AST Context Compactor, Codebase Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Cross-Session Memory, Physical Worktree Sandboxes, Pre-Commit Hardened Gates, and Native MCP Server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -51,6 +51,16 @@
   ],
   "author": "Amanulla Shaikh <businessamanulla@gmail.com>",
   "license": "MIT",
+  "files": [
+    "bin",
+    "scripts",
+    "agents",
+    "instincts",
+    "design-systems",
+    "dashboard.html",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@babel/generator": "^8.1.2",
     "@babel/parser": "^8.1.2",

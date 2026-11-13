@@ -31,8 +31,8 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  / /_\\ \\| |_| | |__  | ' /    / /_\\ \\ |  __| |__ | . ' | | | \\___ \\ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
-  ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 38+ Specialists • 12 Instincts${c.reset}
-  ${c.dim}AST Compactor • Design Systems • Caveman Token Reducer • TUI Studio • Native MCP${c.reset}
+  ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 38+ Specialists • 13 Instincts${c.reset}
+  ${c.dim}AST Compactor • Dependency Graph • Handoff Engine • Studio TUI • Native MCP${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -327,10 +327,15 @@ function handleDoctor() {
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
     { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
     { name: 'Multi-IDE Exporter', status: 'Available (npx apex-agents export-all)' },
-    { name: 'AST Context Compactor', status: 'Available (npx apex-agents compact)' },
+    { name: 'AST Context Compactor', status: 'Available (Babel AST Engine)' },
+    { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
+    { name: 'Architecture Diagram', status: 'Available (npx apex-agents diagram)' },
+    { name: 'Session Handoff Engine', status: 'Available (npx apex-agents handoff)' },
+    { name: 'Persistent Session Memory', status: 'Available (npx apex-agents memory)' },
+    { name: 'Anti-Cheat Test Guard', status: 'Active (.git/hooks/pre-commit)' },
     { name: 'Terminal Studio (TUI)', status: 'Available (npx apex-agents studio)' },
     { name: 'Git Worktree Sandbox', status: 'Available (npx apex-agents sandbox)' },
-    { name: 'Pre-Commit Safety Hooks', status: 'Available (npx apex-agents install-hooks)' },
+    { name: 'Pre-Commit Safety Hooks', status: 'Installed (.git/hooks/pre-commit)' },
     { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
     { name: 'Swarm Orchestrator', status: 'Available (npx apex-agents plan)' },
     { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
@@ -407,11 +412,30 @@ function handleMcp() {
   });
 }
 
+function printVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
+    console.log(`apex-agents v${pkg.version}`);
+  } catch {
+    console.log('apex-agents v2.0.0');
+  }
+}
+
 // Command dispatcher
 const args = process.argv.slice(2);
 const command = args[0] || 'help';
 
 switch (command) {
+  case '-v':
+  case '--version':
+  case 'version':
+    printVersion();
+    break;
+  case '-h':
+  case '--help':
+  case 'help':
+    printHelp();
+    break;
   case 'install':
     handleInstall();
     break;

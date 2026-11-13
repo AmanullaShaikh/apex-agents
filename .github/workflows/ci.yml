@@ -2,16 +2,17 @@ name: CI & Agent Integrity Suite
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [18.x, 20.x, 22.x]
 
     steps:
@@ -22,6 +23,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Install Dependencies
+        run: npm ci
 
       - name: Run Agent Schema & Zero-Slop Validator
         run: npm test
@@ -34,6 +38,7 @@ jobs:
 
       - name: Run CLI Smoke Tests
         run: |
+          node ./bin/apex.js --version
           node ./bin/apex.js list
           node ./bin/apex.js doctor
           node ./bin/apex.js budget

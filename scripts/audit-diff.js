@@ -253,7 +253,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-diff.js')) {
         console.log(`    ${c.dim}Snippet: ${iss.snippet}${c.reset}\n`);
       }
 
-      if (isStrict || result.stats.secrets > 0 || result.stats.slop > 0) {
+      if (isStrict || result.stats.secrets > 0 || result.stats.slop > 0 || result.stats.tampering > 0) {
         console.log(`  ${c.red}${c.bold}FAILED: Zero-slop or secret-protection thresholds violated.${c.reset}\n`);
         process.exit(1);
       }

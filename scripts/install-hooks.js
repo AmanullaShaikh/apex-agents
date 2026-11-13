@@ -35,9 +35,14 @@ if [ -f "./scripts/scan-secrets.js" ]; then
   }
 fi
 
-# Run Zero-Slop & Test Tampering Diff Auditor if available
+# Run Zero-Slop & Test Tampering Diff Auditor
 if [ -f "./scripts/audit-diff.js" ]; then
   node "./scripts/audit-diff.js" --staged --strict || {
+    echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
+    exit 1
+  }
+elif command -v npx >/dev/null 2>&1; then
+  npx apex-agents review --staged --strict || {
     echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
     exit 1
   }
