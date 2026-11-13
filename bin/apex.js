@@ -53,6 +53,7 @@ function printHelp() {
   console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
   console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
   console.log(`  ${c.green}compact${c.reset}         Run AST Context Compactor to shrink codebase tokens by 85%+`);
+  console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
@@ -195,21 +196,35 @@ ${ag.content}
   console.log(`\n${c.green}${c.bold}Cursor is now fully powered by Apex Agents specialists!${c.reset}\n`);
 }
 
-function handleInject() {
+function handleInject(args = []) {
   banner();
   const cwd = process.cwd();
   const claudeMdPath = path.join(cwd, 'CLAUDE.md');
   const cursorRulesPath = path.join(cwd, '.cursorrules');
-
-  const instincts = getInstincts();
+  const isFull = args.includes('--full');
 
   let injectionContent = `\n\n<!-- APEX-AGENTS AUTONOMOUS AGENCY INJECTION -->\n`;
   injectionContent += `# Apex Agents Operational Directives\n`;
   injectionContent += `This repository is governed by the Apex Agents Autonomous Engineering Agency protocols.\n\n`;
-  
-  injectionContent += `## Mandatory Operational Instincts:\n`;
-  for (const inst of instincts) {
-    injectionContent += `### ${inst.title}\n${inst.content}\n\n`;
+
+  if (isFull) {
+    const instincts = getInstincts();
+    injectionContent += `## Mandatory Operational Instincts (Full Inlined):\n`;
+    for (const inst of instincts) {
+      injectionContent += `### ${inst.title}\n${inst.content}\n\n`;
+    }
+  } else {
+    // Lean router (<120 tokens) to prevent context inflation trap
+    injectionContent += `## Core Zero-Slop Execution Directives:
+1. Zero-Slop Contract: Strictly forbids TODO and FIXME placeholders, empty handlers, and cosmetic stubs.
+2. Anti-Test-Tampering: Never skip tests (it.skip/xit) or comment out assertions to fake success. Fix the code, never weaken the test.
+3. Verification Gate: Run compilers, linters, and test suites physically before claiming completion.
+4. Minimal Diffs: The best code is code never written. Delete before adding. Standard library over npm dependencies.
+
+## Dynamic Specialists & Memory:
+- For deep tasks, summon domain specialists: @frontend-architect, @database-tuner, @appsec-auditor, @system-design-architect, @typescript-pro.
+- Track project decisions with 'npx apex-agents memory record <type> "<text>"'.
+- Generate lean codebase context with 'npx apex-agents compact'.\n\n`;
   }
 
   if (fs.existsSync(claudeMdPath)) {
@@ -376,6 +391,12 @@ function handleDiagram(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleHandoff() {
+  const handoffScript = path.join(ROOT_DIR, 'scripts', 'handoff.js');
+  const child = spawn(process.execPath, [handoffScript], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleMcp() {
   const mcpServerPath = path.join(__dirname, 'mcp-server.js');
   const child = spawn(process.execPath, [mcpServerPath], {
@@ -437,7 +458,10 @@ switch (command) {
     handlePlan(args.slice(1));
     break;
   case 'inject':
-    handleInject();
+    handleInject(args.slice(1));
+    break;
+  case 'handoff':
+    handleHandoff();
     break;
   case 'cursor-rules':
     handleCursorRules();

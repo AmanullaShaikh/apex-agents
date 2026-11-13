@@ -4,6 +4,7 @@ node_modules/
 .env
 .env.local
 APEX_CONTEXT.md
+APEX_HANDOFF.md
 ARCHITECTURE.html
 .worktrees/
 .agents/

@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.8.0",
-  "description": "Industrial-Grade Autonomous AI Engineering Agency: Babel AST Context Compaction, Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Persistent Session Memory, Physical Git Worktree Sandboxes, Scope Drift Guards, Pre-Commit Security Hooks, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.9.0",
+  "description": "Industrial-Grade Autonomous AI Engineering Agency: Babel AST Context Compaction, Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Memory, Physical Worktree Sandboxes, Scope Drift Guards, Pre-Commit Hooks, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -19,6 +19,7 @@
     "graph": "node ./bin/apex.js graph",
     "diagram": "node ./bin/apex.js diagram",
     "memory": "node ./bin/apex.js memory",
+    "handoff": "node ./bin/apex.js handoff",
     "design": "node ./bin/apex.js design",
     "caveman": "node ./bin/apex.js caveman",
     "compact": "node ./bin/apex.js compact",
