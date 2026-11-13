@@ -38,6 +38,7 @@ npx apex-agents <command>
 
 | Command | Action |
 | :--- | :--- |
+| `npx apex-agents init` | One-shot setup: injects router, exports Cursor rules, and installs pre-commit hooks |
 | `npx apex-agents studio` | Launch the interactive keyboard-driven Terminal Studio |
 | `npx apex-agents compact` | Run Babel AST Context Compactor to shrink codebase tokens by 70-88% |
 | `npx apex-agents handoff` | Generate lean session handoff to kill context degradation (>120k tokens) |
@@ -230,7 +231,7 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 
 ---
 
-## ⚡ The 12 Operational Instincts
+## ⚡ The 13 Operational Instincts
 
 1. **Zero-Slop Contract**: Strictly forbids `// TODO` stubs, empty handlers, and cosmetic skinning.
 2. **Verification Before Completion**: Mandates compiler checks, linters, and tests before claiming success.
@@ -244,6 +245,7 @@ Connect all 38+ specialists and 12 instincts directly to Claude Desktop, Cursor,
 10. **Ponytail Minimal-Code**: "The best code is the code you never wrote." Deletes before adding.
 11. **Caveman Token Discipline**: 65% token drop telegraphic brevity mode for long autonomous loops.
 12. **Editorial Diagram Rules**: Clean self-contained HTML/SVG cards without messy Mermaid spaghetti.
+13. **Anti-Cheat Test Tampering**: Strictly forbids skipping tests (`it.skip`, `xit`) or commenting out assertions to fake green builds. Fix code, never weaken tests.
 
 ---
 

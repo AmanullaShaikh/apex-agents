@@ -51,6 +51,14 @@
   ],
   "author": "Amanulla Shaikh <businessamanulla@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AmanullaShaikh/apex-agents.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AmanullaShaikh/apex-agents/issues"
+  },
+  "homepage": "https://github.com/AmanullaShaikh/apex-agents#readme",
   "files": [
     "bin",
     "scripts",

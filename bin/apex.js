@@ -42,6 +42,7 @@ function printHelp() {
   console.log(`${c.bold}USAGE:${c.reset}`);
   console.log(`  npx apex-agents <command> [options]\n`);
   console.log(`${c.bold}COMMANDS:${c.reset}`);
+  console.log(`  ${c.green}init | setup${c.reset}    One-shot setup: injects router, exports Cursor rules & pre-commit hooks`);
   console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
   console.log(`  ${c.green}studio | tui${c.reset}    Launch the interactive keyboard-driven terminal studio`);
   console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks & AI slop`);
@@ -270,6 +271,33 @@ function handlePlan(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleInit(args) {
+  banner();
+  console.log(`${c.bold}⚡ Initializing Apex Agents Full Agency Suite in Project...${c.reset}\n`);
+
+  console.log(`${c.cyan}1. Injecting Lean Agent Directives (CLAUDE.md & .cursorrules)...${c.reset}`);
+  handleInject(args);
+
+  console.log(`${c.cyan}2. Exporting Modern .cursor/rules/*.mdc Specialists...${c.reset}`);
+  handleCursorRules();
+
+  console.log(`${c.cyan}3. Installing Pre-Commit Hardened Safety Hooks...${c.reset}`);
+  const gitDir = path.join(process.cwd(), '.git');
+  if (fs.existsSync(gitDir)) {
+    const hooksScript = path.join(ROOT_DIR, 'scripts', 'install-hooks.js');
+    spawn(process.execPath, [hooksScript], { stdio: 'inherit' });
+  } else {
+    console.log(`  ${c.yellow}! Skipped git hook installation (no .git directory in current workspace)${c.reset}`);
+  }
+
+  console.log(`\n${c.green}${c.bold}🚀 APEX AGENTS SUITE FULLY INITIALIZED!${c.reset}`);
+  console.log(`${c.bold}Your repository is now shielded by:${c.reset}`);
+  console.log(`  • 38 Domain Specialists ready in Cursor & Claude Code`);
+  console.log(`  • Pre-commit anti-test-tampering and secret leak gates`);
+  console.log(`  • Type-level context compactor ('npx apex-agents compact')`);
+  console.log(`  • Cross-session persistent memory ('npx apex-agents memory')\n`);
+}
+
 function handleInstallHooks() {
   const hooksScript = path.join(ROOT_DIR, 'scripts', 'install-hooks.js');
   const child = spawn(process.execPath, [hooksScript], { stdio: 'inherit' });
@@ -435,6 +463,10 @@ switch (command) {
   case '--help':
   case 'help':
     printHelp();
+    break;
+  case 'init':
+  case 'setup':
+    handleInit(args.slice(1));
     break;
   case 'install':
     handleInstall();

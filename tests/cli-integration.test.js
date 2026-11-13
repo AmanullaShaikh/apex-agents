@@ -53,4 +53,20 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /APEX AGENTS CONTEXT BUDGET OPTIMIZER/);
     assert.match(out, /CONTEXT SUMMARY/);
   });
+
+  test('should initialize agency suite with apex-agents init', async () => {
+    const fs = await import('fs');
+    const tempDir = path.join(ROOT_DIR, '.test_tmp_init');
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      const out = stripAnsi(execSync(`node "${APEX_BIN}" init`, { encoding: 'utf-8', cwd: tempDir }));
+      assert.match(out, /APEX AGENTS SUITE FULLY INITIALIZED/);
+      assert.ok(fs.existsSync(path.join(tempDir, 'CLAUDE.md')), 'Must generate CLAUDE.md');
+      assert.ok(fs.existsSync(path.join(tempDir, '.cursorrules')), 'Must generate .cursorrules');
+      assert.ok(fs.existsSync(path.join(tempDir, '.cursor', 'rules')), 'Must export .cursor/rules');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
