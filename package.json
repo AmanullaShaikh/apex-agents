@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
-  "version": "1.1.0",
-  "description": "The Autonomous AI Engineering Agency: 34+ Elite Specialists, Operational Instincts, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
+  "version": "1.2.0",
+  "description": "The Autonomous AI Engineering Agency: 34+ Elite Specialists, Git Worktree Sandboxes, Scope Drift Guards, and Native MCP Server for Claude Code, Cursor, Codex, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "./bin/apex.js",
@@ -12,6 +12,9 @@
     "test": "node ./scripts/validate-agents.js",
     "scan-secrets": "node ./scripts/scan-secrets.js",
     "analyze-bundle": "node ./scripts/analyze-bundle.js",
+    "scope-guard": "node ./scripts/scope-enforcer.js",
+    "orphans": "node ./scripts/detect-orphans.js",
+    "sandbox": "node ./scripts/worktree-sandbox.js",
     "install-global": "node ./bin/apex.js install",
     "list": "node ./bin/apex.js list",
     "doctor": "node ./bin/apex.js doctor",

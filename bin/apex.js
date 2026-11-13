@@ -32,7 +32,7 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
   ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 34+ Specialists${c.reset}
-  ${c.dim}Native MCP Server • Universal Claude / Cursor / Antigravity Support${c.reset}
+  ${c.dim}Native MCP Server • Git Worktree Isolation • Anti-Drift Scope Guard${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -46,6 +46,9 @@ function printHelp() {
   console.log(`  ${c.green}list${c.reset}            List all available divisions, agents, and instincts`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
+  console.log(`  ${c.green}sandbox${c.reset}         Manage isolated Git Worktree sandboxes [start|clean|status]`);
+  console.log(`  ${c.green}scope-guard${c.reset}     Detect and prevent unintended agent file drift`);
+  console.log(`  ${c.green}orphans${c.reset}         Scan repository for unwired or orphaned source files`);
   console.log(`  ${c.green}dashboard${c.reset}       Open the interactive visual Agent Explorer in browser`);
   console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
   console.log(`  ${c.green}test${c.reset}            Run the automated schema and zero-slop validation suite`);
@@ -216,6 +219,24 @@ function handleInject() {
   console.log(`\n${c.green}${c.bold}✓ Project successfully supercharged with Apex Agents instincts!${c.reset}\n`);
 }
 
+function handleSandbox(subAction, name) {
+  const sandboxScript = path.join(ROOT_DIR, 'scripts', 'worktree-sandbox.js');
+  const child = spawn(process.execPath, [sandboxScript, subAction, name || ''], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleScopeGuard() {
+  const scopeScript = path.join(ROOT_DIR, 'scripts', 'scope-enforcer.js');
+  const child = spawn(process.execPath, [scopeScript], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleOrphans() {
+  const orphansScript = path.join(ROOT_DIR, 'scripts', 'detect-orphans.js');
+  const child = spawn(process.execPath, [orphansScript], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleDashboard() {
   const dashPath = path.join(ROOT_DIR, 'dashboard.html');
   console.log(`\nOpening Apex Agents Explorer: ${dashPath}\n`);
@@ -248,7 +269,8 @@ function handleDoctor() {
     { name: 'OS Platform', status: `${os.platform()} (${os.arch()})` },
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
     { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
-    { name: 'Universal Agents Path', status: fs.existsSync(path.join(homeDir, '.agents')) ? 'Found' : 'Ready to create' },
+    { name: 'Git Worktree Sandbox', status: 'Available (npx apex-agents sandbox)' },
+    { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
     { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
     { name: 'Interactive Dashboard', status: 'Available (npx apex-agents dashboard)' }
   ];
@@ -285,6 +307,15 @@ switch (command) {
     break;
   case 'cursor-rules':
     handleCursorRules();
+    break;
+  case 'sandbox':
+    handleSandbox(args[1], args[2]);
+    break;
+  case 'scope-guard':
+    handleScopeGuard();
+    break;
+  case 'orphans':
+    handleOrphans();
     break;
   case 'dashboard':
     handleDashboard();
