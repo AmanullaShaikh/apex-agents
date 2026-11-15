@@ -1,0 +1,45 @@
+name: "💡 Feature Request"
+description: "Propose a new capability, specialist persona, or AST engine for Apex Agents"
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make Apex Agents stronger? Let us know what you want to build or improve!
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or Need"
+      description: "Is your feature request related to a specific developer pain point? Please describe."
+      placeholder: "e.g., When refactoring large monorepos, I need..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution & CLI Command"
+      description: "Describe how this feature should work and what command users would run."
+      placeholder: "e.g., Add `npx apex-agents analyze-monorepo` that..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "Describe any workarounds or alternative designs you have considered."
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Target Subsystem"
+      options:
+        - "AST Tooling & Compactor"
+        - "Agent Protocols & System Prompts"
+        - "Operational Instincts"
+        - "Self-Healing Test-Loop"
+        - "Security & Secret Leak Sentinel"
+        - "CLI & Terminal Studio"
+        - "MCP Protocol Server"
+        - "Other"
+    validations:
+      required: true

@@ -1,0 +1,66 @@
+name: "🐛 Bug Report"
+description: "File an actionable, reproducible bug report for Apex Agents"
+title: "fix: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide as much detail as possible so we can reproduce and fix it quickly.
+  - type: input
+    id: version
+    attributes:
+      label: "Apex Agents Version"
+      description: "Run `npx apex-agents -v` to check"
+      placeholder: "e.g., 2.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: "Operating System"
+      options:
+        - "Windows"
+        - "macOS (Apple Silicon)"
+        - "macOS (Intel)"
+        - "Linux (Ubuntu/Debian)"
+        - "Linux (Other)"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: "Node.js Version"
+      description: "Run `node -v`"
+      placeholder: "e.g., v20.18.0 or v22.11.0"
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: "Command Executed"
+      placeholder: "e.g., npx apex-agents compact --xml"
+    validations:
+      required: true
+  - type: textarea
+    id: error-log
+    attributes:
+      label: "Actual Behavior & Error Log / Stack Trace"
+      description: "Paste the full terminal output or error message"
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Behavior"
+      description: "What did you expect to happen instead?"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Minimal Reproduction Steps"
+      description: "1. Run ...\n2. See error ..."
+    validations:
+      required: true
