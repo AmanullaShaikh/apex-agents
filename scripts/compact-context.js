@@ -103,6 +103,9 @@ export function compactSourceCode(code, options = {}) {
   }
 }
 
+// Backward compatibility alias for legacy callers
+export const compactJavaScript = compactSourceCode;
+
 /**
  * Multi-Language Compactor: Python (.py)
  * Preserves def/class signatures, type hints, docstrings, imports; replaces bodies with pass.

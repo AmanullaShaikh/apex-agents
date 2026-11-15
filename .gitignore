@@ -4,7 +4,11 @@ node_modules/
 .env
 .env.local
 APEX_CONTEXT.md
+APEX_CONTEXT.xml
+APEX_CONTEXT.json
 APEX_HANDOFF.md
+APEX_EVAL_REPORT.json
+APEX_FIX_PROMPT.md
 ARCHITECTURE.html
 .worktrees/
 .agents/
