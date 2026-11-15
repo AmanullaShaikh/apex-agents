@@ -21,11 +21,27 @@ export function detectTestRunner(projectDir = process.cwd()) {
   if (fs.existsSync(pkgPath)) {
     try {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-      if (pkg.scripts?.['test:unit']) return 'npm run test:unit';
-      if (pkg.scripts?.test) return 'npm test';
+      const hasBun = fs.existsSync(path.join(projectDir, 'bun.lockb')) || fs.existsSync(path.join(projectDir, 'bun.lock'));
+      const hasPnpm = fs.existsSync(path.join(projectDir, 'pnpm-lock.yaml'));
+      const hasYarn = fs.existsSync(path.join(projectDir, 'yarn.lock'));
+      const runner = hasBun ? 'bun test' : (hasPnpm ? 'pnpm test' : (hasYarn ? 'yarn test' : 'npm test'));
+
+      if (pkg.scripts?.['test:unit']) return hasBun ? 'bun run test:unit' : (hasPnpm ? 'pnpm run test:unit' : (hasYarn ? 'yarn run test:unit' : 'npm run test:unit'));
+      if (pkg.scripts?.test) return runner;
     } catch {
       // fallback
     }
+  }
+
+  // Non-Node environments
+  if (fs.existsSync(path.join(projectDir, 'Cargo.toml')) && !fs.existsSync(pkgPath)) {
+    return 'cargo test';
+  }
+  if (fs.existsSync(path.join(projectDir, 'pytest.ini')) || (fs.existsSync(path.join(projectDir, 'pyproject.toml')) && !fs.existsSync(pkgPath))) {
+    return 'pytest';
+  }
+  if (fs.existsSync(path.join(projectDir, 'go.mod')) && !fs.existsSync(pkgPath)) {
+    return 'go test ./...';
   }
 
   // Fallbacks

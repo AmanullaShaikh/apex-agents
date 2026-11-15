@@ -30,6 +30,22 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
       fs.unlinkSync(path.join(tmpDir, 'vitest.config.ts'));
       fs.writeFileSync(path.join(tmpDir, 'jest.config.js'), 'module.exports = {}');
       assert.strictEqual(detectTestRunner(tmpDir), 'npx jest');
+
+      // 5. Cargo.toml (Rust)
+      fs.unlinkSync(path.join(tmpDir, 'jest.config.js'));
+      fs.writeFileSync(path.join(tmpDir, 'Cargo.toml'), '[package]\nname = "test"');
+      assert.strictEqual(detectTestRunner(tmpDir), 'cargo test');
+
+      // 6. pytest.ini (Python)
+      fs.unlinkSync(path.join(tmpDir, 'Cargo.toml'));
+      fs.writeFileSync(path.join(tmpDir, 'pytest.ini'), '[pytest]');
+      assert.strictEqual(detectTestRunner(tmpDir), 'pytest');
+
+      // 7. pnpm detection
+      fs.unlinkSync(path.join(tmpDir, 'pytest.ini'));
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ scripts: { test: 'vitest' } }));
+      fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), 'lockfileVersion: 5.4');
+      assert.strictEqual(detectTestRunner(tmpDir), 'pnpm test');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

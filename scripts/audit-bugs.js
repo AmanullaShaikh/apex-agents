@@ -58,7 +58,17 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
   try {
     ast = parse(code, {
       sourceType: 'module',
-      plugins: ['typescript', 'jsx', 'decorators-legacy', 'classProperties', 'asyncGenerators']
+      plugins: [
+        'typescript',
+        'jsx',
+        'classProperties',
+        'decorators-legacy',
+        'dynamicImport',
+        'exportDefaultFrom',
+        'exportNamespaceFrom',
+        'topLevelAwait',
+        'asyncGenerators'
+      ]
     });
   } catch (err) {
     return issues; // Skip unparseable files

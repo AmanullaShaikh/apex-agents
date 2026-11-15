@@ -74,7 +74,17 @@ export function traceSymbol(symbolName, projectDir = process.cwd()) {
     try {
       ast = parse(code, {
         sourceType: 'module',
-        plugins: ['typescript', 'jsx', 'decorators-legacy', 'classProperties', 'asyncGenerators']
+        plugins: [
+          'typescript',
+          'jsx',
+          'classProperties',
+          'decorators-legacy',
+          'dynamicImport',
+          'exportDefaultFrom',
+          'exportNamespaceFrom',
+          'topLevelAwait',
+          'asyncGenerators'
+        ]
       });
     } catch {
       continue;
