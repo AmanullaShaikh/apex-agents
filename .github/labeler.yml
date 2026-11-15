@@ -1,0 +1,29 @@
+'area: agents':
+  - changed-files:
+      - any-glob-to-any-file: 'agents/**'
+
+'area: instincts':
+  - changed-files:
+      - any-glob-to-any-file: 'instincts/**'
+
+'area: cli':
+  - changed-files:
+      - any-glob-to-any-file: 'bin/**'
+
+'area: scripts':
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/**'
+
+'area: tests':
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**'
+
+'area: docs':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.md'
+          - 'docs/**'
+
+'area: ci':
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
