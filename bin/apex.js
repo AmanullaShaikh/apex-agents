@@ -53,7 +53,8 @@ function printHelp() {
   console.log(`  ${c.green}caveman [on|off]${c.reset} Toggle Caveman 65% token drop telegraphic mode`);
   console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
   console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
-  console.log(`  ${c.green}compact${c.reset}         Run AST Context Compactor to shrink codebase tokens by 85%+`);
+  console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens by 85%+ with AST PageRank & callers [--xml|--json|--top|--budget]`);
+  console.log(`  ${c.green}test-loop${c.reset}       Run self-healing test loop & synthesize APEX_FIX_PROMPT.md on failure`);
   console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
@@ -253,6 +254,12 @@ function handleCompact(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleTestLoop(args) {
+  const testLoopScript = path.join(ROOT_DIR, 'scripts', 'test-loop.js');
+  const child = spawn(process.execPath, [testLoopScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleExportAll(args) {
   const exporterScript = path.join(ROOT_DIR, 'scripts', 'export-all.js');
   const child = spawn(process.execPath, [exporterScript, ...args], { stdio: 'inherit' });
@@ -355,6 +362,8 @@ function handleDoctor() {
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
     { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
     { name: 'Multi-IDE Exporter', status: 'Available (npx apex-agents export-all)' },
+    { name: 'AST PageRank Compactor', status: 'Ready (npx apex-agents compact)' },
+    { name: 'Self-Healing Test-Loop', status: 'Ready (npx apex-agents test-loop)' },
     { name: 'AST Context Compactor', status: 'Available (Babel AST Engine)' },
     { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
     { name: 'Architecture Diagram', status: 'Available (npx apex-agents diagram)' },
@@ -502,6 +511,9 @@ switch (command) {
     break;
   case 'compact':
     handleCompact(args.slice(1));
+    break;
+  case 'test-loop':
+    handleTestLoop(args.slice(1));
     break;
   case 'export-all':
     handleExportAll(args.slice(1));

@@ -54,4 +54,58 @@ describe('Babel AST Context Compactor', () => {
     const fallback = compactSourceCode(invalid);
     assert.strictEqual(typeof fallback, 'string');
   });
+
+  test('should annotate reverse callers when provided in options', () => {
+    const input = `export function calculateTax(amount: number): number { return amount * 0.15; }`;
+    const callers = {
+      calculateTax: [{ file: 'src/checkout.ts', line: 42 }]
+    };
+    const result = compactSourceCode(input, { callers });
+    assert.match(result, /🔗 Callers \(1\): src\/checkout\.ts:42/);
+    assert.match(result, /calculateTax\(amount: number\): number/);
+  });
+
+  test('should compact Python code preserving def signatures and replacing bodies with pass', () => {
+    const input = `
+import os
+class DataPipeline:
+    def process_data(self, records: list) -> bool:
+        for r in records:
+            print("Processing", r)
+        return True
+    `;
+    const result = compactSourceCode(input, { ext: 'py' });
+    assert.match(result, /import os/);
+    assert.match(result, /class DataPipeline:/);
+    assert.match(result, /def process_data\(self, records: list\) -> bool:/);
+    assert.match(result, /pass/);
+    assert.doesNotMatch(result, /print\("Processing"/);
+  });
+
+  test('should compact Go and Rust code cleanly', () => {
+    const goInput = `
+package service
+func ProcessOrder(id string) error {
+    log.Println("Order", id)
+    return nil
+}
+    `;
+    const goResult = compactSourceCode(goInput, { ext: 'go' });
+    assert.match(goResult, /package service/);
+    assert.match(goResult, /func ProcessOrder\(id string\) error/);
+    assert.doesNotMatch(goResult, /log\.Println/);
+
+    const rsInput = `
+use std::collections::HashMap;
+pub fn calculate_hash(key: &str) -> u64 {
+    let mut map = HashMap::new();
+    map.insert(key, 1);
+    42
+}
+    `;
+    const rsResult = compactSourceCode(rsInput, { ext: 'rs' });
+    assert.match(rsResult, /use std::collections::HashMap;/);
+    assert.match(rsResult, /pub fn calculate_hash\(key: &str\) -> u64/);
+    assert.doesNotMatch(rsResult, /HashMap::new/);
+  });
 });

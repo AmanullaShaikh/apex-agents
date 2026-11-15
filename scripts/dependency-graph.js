@@ -21,7 +21,7 @@ const c = {
 
 const IGNORED = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.agents', '.worktrees', 'coverage']);
 
-function resolveImportPath(sourceFile, importString, rootDir) {
+export function resolveImportPath(sourceFile, importString, rootDir) {
   if (!importString.startsWith('.')) {
     // Third-party package import (e.g. 'express', 'react')
     return { type: 'external', name: importString };
@@ -31,7 +31,7 @@ function resolveImportPath(sourceFile, importString, rootDir) {
   let resolved = path.resolve(dir, importString);
 
   // Try file as-is, or with extensions
-  const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.js'];
+  const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.js', '/index.tsx', '/index.jsx'];
   for (const ext of extensions) {
     const candidate = resolved + ext;
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
@@ -40,6 +40,173 @@ function resolveImportPath(sourceFile, importString, rootDir) {
   }
 
   return { type: 'internal', path: path.relative(rootDir, resolved).replace(/\\/g, '/') };
+}
+
+/**
+ * Standard PageRank power-iteration algorithm for graph centrality ranking.
+ * High-centrality hub modules (e.g. schema, types, auth) bubble to the top.
+ */
+export function computePageRank(graph, damping = 0.85, iterations = 20) {
+  const nodes = Array.from(graph.keys());
+  const N = nodes.length;
+  if (N === 0) return new Map();
+
+  let rank = new Map();
+  for (const node of nodes) {
+    rank.set(node, 1 / N);
+  }
+
+  const incoming = new Map();
+  const outDegree = new Map();
+  for (const node of nodes) {
+    incoming.set(node, []);
+    outDegree.set(node, graph.get(node)?.size || 0);
+  }
+
+  for (const [node, edges] of graph.entries()) {
+    for (const dep of edges) {
+      if (incoming.has(dep)) {
+        incoming.get(dep).push(node);
+      }
+    }
+  }
+
+  for (let it = 0; it < iterations; it++) {
+    const nextRank = new Map();
+    for (const node of nodes) {
+      let sum = 0;
+      for (const caller of incoming.get(node) || []) {
+        const out = outDegree.get(caller) || 1;
+        sum += rank.get(caller) / out;
+      }
+      nextRank.set(node, ((1 - damping) / N) + (damping * sum));
+    }
+    rank = nextRank;
+  }
+
+  return rank;
+}
+
+/**
+ * Cross-File Call-Site and Usage Extractor.
+ * Scans codebase to map which external files and lines call or import exported symbols.
+ */
+export function extractSymbolCallers(rootDir = process.cwd()) {
+  const files = [];
+
+  function walk(current) {
+    if (!fs.existsSync(current)) return;
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const e of entries) {
+      if (IGNORED.has(e.name)) continue;
+      const full = path.join(current, e.name);
+      if (e.isDirectory()) {
+        walk(full);
+      } else if (/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(e.name) && !e.name.endsWith('.d.ts')) {
+        files.push(full);
+      }
+    }
+  }
+
+  walk(rootDir);
+
+  // file -> { localImportName: { sourceFile, originalName } }
+  const fileImports = new Map();
+  // sourceFile -> { symbolName: [ { file, line } ] }
+  const callersMap = new Map();
+
+  for (const f of files) {
+    const rel = path.relative(rootDir, f).replace(/\\/g, '/');
+    callersMap.set(rel, new Map());
+    fileImports.set(rel, new Map());
+
+    try {
+      const code = fs.readFileSync(f, 'utf-8');
+      const ast = parse(code, {
+        sourceType: 'module',
+        plugins: ['typescript', 'jsx', 'classProperties', 'decorators-legacy', 'dynamicImport', 'exportDefaultFrom', 'exportNamespaceFrom', 'topLevelAwait']
+      });
+
+      traverse(ast, {
+        ImportDeclaration(p) {
+          if (!p.node.source?.value) return;
+          const resolved = resolveImportPath(f, p.node.source.value, rootDir);
+          if (resolved.type !== 'internal') return;
+
+          for (const spec of p.node.specifiers || []) {
+            if (spec.type === 'ImportSpecifier') {
+              fileImports.get(rel).set(spec.local.name, {
+                sourceFile: resolved.path,
+                originalName: spec.imported.name
+              });
+            } else if (spec.type === 'ImportDefaultSpecifier') {
+              fileImports.get(rel).set(spec.local.name, {
+                sourceFile: resolved.path,
+                originalName: 'default'
+              });
+            }
+          }
+        }
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Second pass: track call sites
+  for (const f of files) {
+    const rel = path.relative(rootDir, f).replace(/\\/g, '/');
+    const imports = fileImports.get(rel);
+    if (!imports || imports.size === 0) continue;
+
+    try {
+      const code = fs.readFileSync(f, 'utf-8');
+      const ast = parse(code, {
+        sourceType: 'module',
+        plugins: ['typescript', 'jsx', 'classProperties', 'decorators-legacy', 'dynamicImport', 'exportDefaultFrom', 'exportNamespaceFrom', 'topLevelAwait']
+      });
+
+      traverse(ast, {
+        CallExpression(p) {
+          let calleeName = null;
+          if (p.node.callee.type === 'Identifier') {
+            calleeName = p.node.callee.name;
+          } else if (p.node.callee.type === 'MemberExpression' && p.node.callee.property.type === 'Identifier') {
+            calleeName = p.node.callee.property.name;
+          }
+
+          if (calleeName && imports.has(calleeName)) {
+            const { sourceFile, originalName } = imports.get(calleeName);
+            if (callersMap.has(sourceFile)) {
+              const fileMap = callersMap.get(sourceFile);
+              if (!fileMap.has(originalName)) {
+                fileMap.set(originalName, []);
+              }
+              const list = fileMap.get(originalName);
+              const loc = p.node.loc?.start?.line || 0;
+              // Avoid duplicate identical caller references
+              if (!list.some(c => c.file === rel && c.line === loc)) {
+                list.push({ file: rel, line: loc });
+              }
+            }
+          }
+        }
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
+  // Convert Map to plain object for easy consumption
+  const result = {};
+  for (const [sourceFile, symMap] of callersMap.entries()) {
+    result[sourceFile] = {};
+    for (const [sym, list] of symMap.entries()) {
+      result[sourceFile][sym] = list;
+    }
+  }
+
+  return result;
 }
 
 export function buildDependencyGraph(rootDir = process.cwd()) {
@@ -138,6 +305,9 @@ export function buildDependencyGraph(rootDir = process.cwd()) {
     }
   }
 
+  // Calculate PageRank Centrality
+  const pageRank = computePageRank(graph);
+
   // Detect Circular Dependencies (Cycles) using DFS
   const cycles = [];
   const visited = new Set();
@@ -175,15 +345,16 @@ export function buildDependencyGraph(rootDir = process.cwd()) {
     graph,
     externalDeps: Array.from(externalDeps),
     cycles,
-    inDegree
+    inDegree,
+    pageRank
   };
 }
 
 export function printDependencyGraph(rootDir = process.cwd(), exportJson = false) {
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: AST CODEBASE DEPENDENCY GRAPH ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: AST CODEBASE DEPENDENCY GRAPH & PAGERANK ═════${c.reset}`);
   console.log(`Analyzing modules and import topology in: ${c.cyan}${rootDir}${c.reset}...\n`);
 
-  const { modulesCount, graph, externalDeps, cycles, inDegree } = buildDependencyGraph(rootDir);
+  const { modulesCount, graph, externalDeps, cycles, inDegree, pageRank } = buildDependencyGraph(rootDir);
 
   let totalEdges = 0;
   for (const edges of graph.values()) {
@@ -204,16 +375,16 @@ export function printDependencyGraph(rootDir = process.cwd(), exportJson = false
     console.log();
   }
 
-  // Top Most Depended-Upon Core Modules
-  const sortedByDep = Array.from(inDegree.entries())
-    .filter(([_, count]) => count > 0)
+  // Top Ranked Core Architectural Modules by PageRank Centrality
+  const sortedByPageRank = Array.from(pageRank.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  if (sortedByDep.length > 0) {
-    console.log(`${c.bold}MOST DEPENDED-UPON CORE MODULES:${c.reset}`);
-    for (const [mod, count] of sortedByDep) {
-      console.log(`  ${c.cyan}• ${mod.padEnd(35)}${c.reset} (imported by ${c.green}${count}${c.reset} files)`);
+  if (sortedByPageRank.length > 0) {
+    console.log(`${c.bold}CORE ARCHITECTURAL HUBS (PAGERANK CENTRALITY):${c.reset}`);
+    for (const [mod, pr] of sortedByPageRank) {
+      const dependents = inDegree.get(mod) || 0;
+      console.log(`  ${c.cyan}• ${mod.padEnd(35)}${c.reset} (PageRank: ${c.green}${(pr * 100).toFixed(2)}%${c.reset}, imported by ${c.yellow}${dependents}${c.reset} files)`);
     }
     console.log();
   }
@@ -230,7 +401,8 @@ export function printDependencyGraph(rootDir = process.cwd(), exportJson = false
     for (const [k, v] of graph.entries()) {
       serializable.modules[k] = {
         imports: Array.from(v),
-        dependedByCount: inDegree.get(k) || 0
+        dependedByCount: inDegree.get(k) || 0,
+        pageRankScore: pageRank.get(k) || 0
       };
     }
     fs.writeFileSync(exportPath, JSON.stringify(serializable, null, 2));

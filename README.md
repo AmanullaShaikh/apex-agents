@@ -70,8 +70,9 @@ npx apex-agents init
 | Command | Category | Physical Action |
 | :--- | :--- | :--- |
 | `npx apex-agents init` | Setup | Copies agent rules into `.cursor/rules` and installs pre-commit hooks in `.git/hooks/` |
-| `npx apex-agents compact` | Performance | Runs Babel AST engine to compact JS/TS files down to signatures, saving 70-88% tokens |
-| `npx apex-agents graph` | Architecture | Traces AST imports/exports and detects circular dependency cycles across your repository |
+| `npx apex-agents compact` | Performance | Runs Babel AST engine to compact JS/TS/Py/Go/Rust files down to signatures with PageRank & Callers |
+| `npx apex-agents test-loop` | Self-Healing | Executes test suite and synthesizes failure traces into zero-slop `APEX_FIX_PROMPT.md` |
+| `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
 | `npx apex-agents handoff` | Context | Serializes active git state and blockers into a clean ~85 token `<session_handoff>` XML block |
 | `npx apex-agents memory [cmd]` | State | Stores technical architecture decisions in `.agents/memory.json` and syncs to `CLAUDE.md` |
@@ -90,10 +91,20 @@ npx apex-agents init
 
 Raw source code floods LLM context windows with implementation details that the model doesn't need to understand architecture. 
 
-The **Babel AST Context Compactor** parses TypeScript, JavaScript, and JSX files, stripping internal function bodies down to `{}` while preserving **100% syntactically valid interfaces, types, exports, and parameter signatures**:
+The **Babel AST Context Compactor** parses TypeScript, JavaScript, JSX, Python (`.py`), Go (`.go`), and Rust (`.rs`) files, stripping internal function bodies down to signatures (`{}` or `pass`) while preserving **100% syntactically valid interfaces, types, exports, and parameter signatures**:
 
 ```bash
+# Basic compaction across repository -> APEX_CONTEXT.md
 npx apex-agents compact
+
+# Pack as structured XML (optimized for Claude & Gemini prompt formatting)
+npx apex-agents compact --xml
+
+# Filter to top 10 architectural hubs by PageRank centrality
+npx apex-agents compact --top=10
+
+# Limit compacted context to a strict token budget (e.g. 8,000 tokens)
+npx apex-agents compact --budget=8000
 ```
 
 ```
@@ -103,8 +114,58 @@ npx apex-agents compact
 │ Original Token Size : ~12,931 tokens (48.9 KB)         │
 │ Compacted Token Size: ~1,490 tokens (5.6 KB)          │
 │ Token Reduction     : 88.5% SAVINGS                    │
-│ Output Artifact     : APEX_CONTEXT.md                  │
+│ Output Artifact     : APEX_CONTEXT.md / XML / JSON     │
 └────────────────────────────────────────────────────────┘
+```
+
+### Advanced AST Engineering Features (v2.1.0)
+1. **🔗 Reverse Caller Annotation**: Solves the common LLM trap where modifying a compacted signature breaks distant callers. Injects reverse caller references directly above signatures:
+   ```typescript
+   // 🔗 Callers (2): src/controllers/user.ts:45, src/routes/auth.ts:12
+   export function authenticateUser(token: string): Promise<Session>;
+   ```
+2. **🌐 PageRank Graph Centrality**: Ranks codebase modules by architectural importance using Google's PageRank algorithm on your AST dependency graph. High-degree dependency hubs (`schema.ts`, `types.ts`, `auth.ts`) are prioritized when packing strict context budgets (`--top`, `--budget`).
+3. **📁 Multi-Format Context Packing**: Supports Markdown (`APEX_CONTEXT.md`), XML (`APEX_CONTEXT.xml` with CDATA blocks for Claude), and JSON (`APEX_CONTEXT.json`).
+4. **⚡ Multi-Language Compaction**: Skeletons TypeScript, JavaScript, Python (`def foo(): pass`), Go (`func Foo() {}`), and Rust (`fn foo() {}`).
+
+---
+
+## 🔁 Autonomous Self-Healing Test Loop (`apex-agents test-loop`)
+
+When AI coding agents write code that breaks unit tests, manual copy-pasting of error traces wastes developer time and causes hallucination loops.
+
+`apex-agents test-loop` executes your project's test suite, detects failures, and **automatically synthesizes failure traces into a zero-slop `APEX_FIX_PROMPT.md`**:
+
+```bash
+# Automatically detects test runner (Jest, Vitest, Node test) and verifies code
+npx apex-agents test-loop
+
+# Or specify custom test command
+npx apex-agents test-loop "npm run test:e2e"
+```
+
+### Self-Healing Test Flow:
+```
+┌─────────────────┐       Pass (Exit 0)       ┌────────────────────────┐
+│  Run Test Suite ├──────────────────────────►│ Clean verification     │
+└────────┬────────┘                           │ (Removes fix prompt)   │
+         │ Fail (Exit > 0)                    └────────────────────────┘
+         ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Parse failures: extracts failing test names, file paths, lines,     │
+│  and AssertionError stack traces                                     │
+└────────┬─────────────────────────────────────────────────────────────┘
+         ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Synthesize APEX_FIX_PROMPT.md with STRICT NEGATIVE CONSTRAINTS:     │
+│  • FORBIDDEN: Deleting or disabling tests (it.skip, test.only)       │
+│  • FORBIDDEN: Commenting out assertions or modifying test bounds     │
+│  • REQUIRED: Repairing implementation code in the target module      │
+└────────┬─────────────────────────────────────────────────────────────┘
+         ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Feed APEX_FIX_PROMPT.md to Cursor / Claude Code for instant repair   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
