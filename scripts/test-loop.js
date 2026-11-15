@@ -38,25 +38,33 @@ export function detectTestRunner(projectDir = process.cwd()) {
   return 'npm test';
 }
 
+export function stripAnsi(str) {
+  if (!str) return '';
+  return str.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '');
+}
+
 /**
  * Parses test output to extract failing suites, test names, errors, and files.
  */
 export function parseTestFailures(output) {
   const failures = [];
-  const lines = output.split('\n');
+  const cleanOutput = stripAnsi(output);
+  const lines = cleanOutput.split('\n');
 
   let currentFailure = null;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const rawLine = lines[i];
+    const line = rawLine.trim();
+    if (!line) continue;
 
     // Skip summary lines from test reporters
-    if (line.trim().startsWith('ℹ') || /^(?:Tests:|Suites:|Summary:)/i.test(line.trim())) {
+    if (line.startsWith('ℹ') || /^(?:Tests:|Suites:|Summary:)/i.test(line)) {
       continue;
     }
 
     // Detect failing test indicators (Jest / Vitest / Node test runner)
-    const failMatch = line.match(/^\s*(?:✖|FAIL\b|✕|not ok\b)\s+(.+)/i);
+    const failMatch = line.match(/^(?:✖|FAIL\b|✕|not ok\b)\s+(.+)/i);
     if (failMatch) {
       if (currentFailure) failures.push(currentFailure);
       currentFailure = {

@@ -114,14 +114,68 @@ export function compactPythonCode(code) {
   const lines = code.split('\n');
   const compacted = [];
   let inFunc = false;
+  let inSignature = false;
+  let inDocstring = false;
+  let docstringToken = null;
   let funcIndent = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (!trimmed) continue;
 
-    // Preserved headers
+    // Preserve empty lines outside function bodies
+    if (!trimmed) {
+      if (!inFunc) compacted.push(line);
+      continue;
+    }
+
+    // Track multi-line triple-quoted docstrings
+    const hasTripleDouble = trimmed.includes('"""');
+    const hasTripleSingle = trimmed.includes("'''");
+    if (hasTripleDouble || hasTripleSingle) {
+      const token = hasTripleDouble ? '"""' : "'''";
+      const count = (trimmed.match(new RegExp(token, 'g')) || []).length;
+      if (count % 2 === 1) {
+        if (!inDocstring) {
+          inDocstring = true;
+          docstringToken = token;
+        } else if (docstringToken === token) {
+          inDocstring = false;
+          docstringToken = null;
+        }
+      }
+      if (!inFunc) compacted.push(line);
+      continue;
+    }
+
+    if (inDocstring) {
+      if (!inFunc) compacted.push(line);
+      continue;
+    }
+
+    // Check if we are inside a multi-line def signature: def foo(\n a,\n b\n):
+    if (inSignature) {
+      compacted.push(line);
+      if (trimmed.endsWith(':')) {
+        inSignature = false;
+        inFunc = true;
+        compacted.push(' '.repeat(funcIndent + 4) + 'pass');
+      }
+      continue;
+    }
+
+    // Check if function body is ending based on indentation
+    if (inFunc) {
+      const currentIndent = (line.match(/^(\s*)/) || ['', ''])[1].length;
+      if (currentIndent > funcIndent) {
+        // Skip function implementation line
+        continue;
+      } else {
+        inFunc = false;
+      }
+    }
+
+    // Preserved class, import, decorator, and comment headers
     if (
       trimmed.startsWith('import ') ||
       trimmed.startsWith('from ') ||
@@ -134,24 +188,23 @@ export function compactPythonCode(code) {
       continue;
     }
 
+    // Function definition start
     if (/^(async\s+)?def\s+[a-zA-Z0-9_]+\s*\(/.test(trimmed)) {
       compacted.push(line);
       const indentMatch = line.match(/^(\s*)/);
       funcIndent = indentMatch ? indentMatch[1].length : 0;
-      inFunc = true;
-      // Add pass placeholder
-      compacted.push(' '.repeat(funcIndent + 4) + 'pass');
-      continue;
-    }
 
-    if (inFunc) {
-      const currentIndent = line.match(/^(\s*)/)?.[1].length || 0;
-      if (currentIndent > funcIndent) {
-        // Skip function body
-        continue;
+      if (trimmed.endsWith(':')) {
+        // Single-line def signature
+        inFunc = true;
+        inSignature = false;
+        compacted.push(' '.repeat(funcIndent + 4) + 'pass');
       } else {
+        // Multi-line def signature
+        inSignature = true;
         inFunc = false;
       }
+      continue;
     }
 
     if (!inFunc) {
