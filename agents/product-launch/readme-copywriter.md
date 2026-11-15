@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: readme-copywriter
 division: Product Launch & DevRel
 role: Open Source DevRel & Viral README Copywriter

@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Design System Token Specification -->
 # Raycast Density Design System Preset
 
 Inspired by Raycast's hyper-dense command palette, zero-latency feedback, keyboard navigation, and dark glass aesthetics.

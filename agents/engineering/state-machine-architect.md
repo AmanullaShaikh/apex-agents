@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: state-machine-architect
 division: Core Engineering
 role: Deterministic State Machine & Finite Automata Architect

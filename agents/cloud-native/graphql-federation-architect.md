@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: graphql-federation-architect
 division: Cloud-Native & Serverless
 role: Principal GraphQL Federation & API Subgraph Architect

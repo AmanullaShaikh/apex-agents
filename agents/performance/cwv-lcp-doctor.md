@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: cwv-lcp-doctor
 division: Deep Performance
 role: Core Web Vitals & Web Performance Engineer

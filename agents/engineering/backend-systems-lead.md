@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: backend-systems-lead
 division: Core Engineering
 role: Principal Distributed Backend & Systems Architect

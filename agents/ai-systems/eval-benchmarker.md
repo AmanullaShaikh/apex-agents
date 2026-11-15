@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: eval-benchmarker
 division: AI & Agentic Systems
 role: Principal LLM Evaluation & Alignment Specialist

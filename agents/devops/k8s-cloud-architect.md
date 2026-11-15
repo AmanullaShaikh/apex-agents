@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: k8s-cloud-architect
 division: DevOps & Cloud Infrastructure
 role: Principal Cloud Infrastructure & Kubernetes Architect

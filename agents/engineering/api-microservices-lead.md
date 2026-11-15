@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: api-microservices-lead
 division: Core Engineering
 role: Senior Microservices & API Gateway Architect

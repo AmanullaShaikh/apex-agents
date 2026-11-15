@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Editorial Architecture Diagram Discipline
 
 Derived from Cathryn Lavery's *Diagram Design*: Professional, clean, editorial SVG and HTML architecture representations for coding agents.

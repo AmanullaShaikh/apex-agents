@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: ffmpeg-pipeline-master
 division: Media & Video Processing
 role: Headless FFmpeg Pipeline & Audio/Video Transcode Specialist

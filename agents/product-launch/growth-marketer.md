@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: growth-marketer
 division: Product Launch & DevRel
 role: Principal Growth Engineer & Technical Copywriter

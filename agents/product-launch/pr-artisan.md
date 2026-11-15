@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: pr-artisan
 division: Product Launch & DevRel
 role: Pull Request Artisan & Release Documentation Lead

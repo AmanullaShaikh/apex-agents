@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Caveman Token Discipline & Extreme Brevity
 
 Derived from Julius Brussee's *Caveman* ("why use many token when few token do trick"). Viral protocol that reduces conversational token consumption by up to 65% during large-scale autonomous agent loops.

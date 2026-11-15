@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Design System Token Specification -->
 # Stripe Design System Preset
 
 Inspired by Stripe's financial-grade precision, high-contrast typography, crisp layered elevations, and vibrant animated accents.

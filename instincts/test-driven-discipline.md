@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Test-Driven Discipline
 
 ## Principle

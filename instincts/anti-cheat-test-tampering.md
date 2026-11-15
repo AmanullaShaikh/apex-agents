@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Anti-Cheat & Test Integrity Protocol
 
 ## The Core Rule: Fix The Code, Never Weaken The Test

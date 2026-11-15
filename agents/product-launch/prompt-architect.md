@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: prompt-architect
 division: Product Launch & DevRel
 role: Principal AI Prompt Engineer & LLM Systems Architect

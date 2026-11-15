@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: edge-case-fuzzer
 division: Quality Assurance & Testing
 role: Chaos Engineer & Edge-Case Fuzzer

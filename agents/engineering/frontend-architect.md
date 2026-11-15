@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: frontend-architect
 division: Core Engineering
 role: Senior Frontend Architect & Design Systems Lead

@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: mcp-server-builder
 division: AI & Agentic Systems
 role: Model Context Protocol (MCP) Architect & Tooling Engineer

@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: typescript-pro
 division: Core Engineering
 role: Principal TypeScript & Type Systems Architect

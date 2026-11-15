@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: e2e-playwright-tester
 division: Quality Assurance & Testing
 role: Principal End-to-End Automation & Playwright Engineer

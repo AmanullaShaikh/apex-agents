@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: system-design-architect
 division: Cloud-Native & Serverless
 role: Principal Distributed Systems & Scale Architect

@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: serverless-edge-lead
 division: Cloud-Native & Serverless
 role: Principal Serverless & Edge Compute Architect

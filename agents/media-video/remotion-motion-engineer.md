@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: remotion-motion-engineer
 division: Media & Video Processing
 role: Programmatic Video & Remotion Motion Engineer

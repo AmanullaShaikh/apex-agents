@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Design System Token Specification -->
 # Apple Human Interface Guidelines (HIG) Preset
 
 Inspired by Apple's Human Interface Guidelines: dynamic system typography, fluid spring animations, translucent materials, and strict accessibility.

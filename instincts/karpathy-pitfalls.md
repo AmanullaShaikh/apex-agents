@@ -1,3 +1,4 @@
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # LLM Hallucination & Coding Pitfalls Antidotes
 
 Foundational engineering rules defending against common Large Language Model failure modes when writing code in autonomous harnesses.

@@ -1,4 +1,5 @@
 ---
+version: "2.1.0"
 name: fullstack-general
 division: Core Engineering
 role: Principal Fullstack Software Engineer

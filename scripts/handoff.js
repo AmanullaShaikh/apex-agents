@@ -47,12 +47,18 @@ export function generateHandoff(cwd = process.cwd()) {
   }
 
   // Format high-density, low-token handoff block
+  const displayFiles = modifiedFiles.slice(0, 15);
+  const remainingCount = modifiedFiles.length - displayFiles.length;
+  const filesListStr = displayFiles.length > 0 
+    ? displayFiles.map((f) => `  - ${f}`).join('\n') + (remainingCount > 0 ? `\n  - ... and ${remainingCount} more files` : '')
+    : '  - None (clean working tree)';
+
   const handoffContent = `
 <session_handoff timestamp="${new Date().toISOString()}" branch="${currentBranch}">
 <last_commit>${lastCommit}</last_commit>
 
 <modified_files count="${modifiedFiles.length}">
-${modifiedFiles.length > 0 ? modifiedFiles.map((f) => `  - ${f}`).join('\n') : '  - None (clean working tree)'}
+${filesListStr}
 </modified_files>
 
 <active_decisions count="${memoryData.decisions.length}">
