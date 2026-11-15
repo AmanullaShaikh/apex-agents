@@ -72,6 +72,13 @@ npx apex-agents init
 | `npx apex-agents init` | Setup | Copies agent rules into `.cursor/rules` and installs pre-commit hooks in `.git/hooks/` |
 | `npx apex-agents compact` | Performance | Runs Babel AST engine to compact JS/TS/Py/Go/Rust files down to signatures with PageRank & Callers |
 | `npx apex-agents test-loop` | Self-Healing | Executes test suite and synthesizes failure traces into zero-slop `APEX_FIX_PROMPT.md` |
+| `npx apex-agents checkpoint` | Safe State | Creates atomic git-native snapshot of working tree (`save <label>`, `list`, `rollback`) |
+| `npx apex-agents rollback` | Safe State | Restores codebase in 100ms if an AI coding agent corrupts files or breaks tests |
+| `npx apex-agents spec <feat>` | Architecture | Compiles 5-phase zero-slop architectural `SPEC.md` and contracts before coding |
+| `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
+| `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
+| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude 3.5 Sonnet, GPT-4o, DeepSeek, & Gemini |
+| `npx apex-agents swe-eval` | Benchmark | Runs SWE-bench mini 5-vector autonomous engineering benchmark suite (Grade A+) |
 | `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
 | `npx apex-agents handoff` | Context | Serializes active git state and blockers into a clean ~85 token `<session_handoff>` XML block |
@@ -166,6 +173,134 @@ npx apex-agents test-loop "npm run test:e2e"
 ┌──────────────────────────────────────────────────────────────────────┐
 │  Feed APEX_FIX_PROMPT.md to Cursor / Claude Code for instant repair   │
 └──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 💾 Git-Native Checkpoint & Instant Rollback (`apex-agents checkpoint` & `rollback`)
+
+When autonomous AI coding agents modify multiple files, hallucinate imports, or corrupt working state, developers struggle to revert changes safely without losing legitimate work.
+
+`apex-agents checkpoint` captures an atomic working tree snapshot into `.agents/checkpoints/`, allowing **sub-100ms instant rollback**:
+
+```bash
+# Save an atomic checkpoint before letting an agent refactor code
+npx apex-agents checkpoint "before auth refactor"
+
+# View all saved checkpoints with timestamp and modified file counts
+npx apex-agents checkpoints list
+
+# Instant rollback to previous checkpoint if the agent broke code
+npx apex-agents rollback
+```
+
+---
+
+## 📐 Spec-First Architectural Compiler (`apex-agents spec`)
+
+When developers ask an AI agent to build a feature, the agent often writes premature code based on flawed assumptions.
+
+`apex-agents spec` translates any feature intent into a rigorous, zero-slop `SPEC.md` using the 5-phase gstack / Roo architectural standard:
+
+```bash
+npx apex-agents spec "Stripe Webhook Subscription Sync with PostgreSQL"
+```
+
+### What `SPEC.md` Generates Before Code is Written:
+1. **Intent & Scope Boundaries**: Explicitly locks in-scope items and forbids scope creep.
+2. **TypeScript & DB Contracts**: Concrete domain interfaces, payload shapes, and migration schemas.
+3. **State Machine & Failure Transitions**: ASCII state diagrams with retry limits and idempotency keys.
+4. **Strict Negative Constraints**: Forbids TODO and FIXME stubs, untyped `any`, and test-cheating shortcuts.
+5. **TDD Acceptance Matrix**: Table of concrete test cases verifying happy paths and network failure recovery.
+6. **Sequential Execution Protocol**: Red-Green-Refactor checklist with verification gates.
+
+---
+
+## 🔍 Semantic Symbol Tracer & Call-Graph (`apex-agents trace`)
+
+Feeding entire files into LLMs just to refactor a single function burns thousands of unnecessary tokens.
+
+`apex-agents trace` uses AST parsing to instantly locate any function, interface, or class, map its parameters, and find all downstream callers across the codebase:
+
+```bash
+npx apex-agents trace authenticateUser
+```
+
+```text
+### 🔗 SYMBOL TRACE DOSSIER: `authenticateUser`
+- Declarations:
+  • src/auth/service.ts:42 ➔ function authenticateUser(token: string) [EXPORTED]
+- Call Sites & Dependents (3):
+  • src/routes/login.ts:18: authenticateUser(req.headers.authorization)
+  • src/middleware/guard.ts:55: await authenticateUser(jwt)
+  • tests/auth.test.ts:91: authenticateUser('mock-token')
+```
+
+---
+
+## 🪲 Production AST Bug Hunter (`apex-agents audit-bugs`)
+
+AI code often looks syntactically valid and passes basic linters, yet harbors critical runtime flaws.
+
+`apex-agents audit-bugs` parses your AST to catch deep production bugs before deployment:
+* **Raw SQL Injection**: Catches string concatenations (`"SELECT * FROM " + input`) and template literal interpolations in database query calls.
+* **React Hook Timer & Memory Leaks**: Detects `useEffect` setups (`setInterval`, `addEventListener`) missing cleanup return functions.
+* **Floating Promises**: Detects un-awaited async calls (`.save()`, `.fetch()`, `.delete()`) that risk unhandled promise crashes.
+
+```bash
+npx apex-agents audit-bugs
+```
+
+---
+
+## 💰 Multi-Model Token Cost & Window Predictor (`apex-agents cost`)
+
+Gain full visibility into token volume and pricing projections before loading codebases into LLMs:
+
+```bash
+npx apex-agents cost
+```
+
+```text
+═════ APEX AGENTS: MULTI-MODEL TOKEN COST AUDITOR ═════
+Scanned Files    : 45
+Raw Token Volume : ~101,691 tokens (382.8 KB)
+With AST Compact : ~18,305 tokens (82% reduction)
+
+MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):
+┌─────────────────────┬──────────────────┬──────────────┬──────────────┐
+│ Model               │ Context Window   │ Window Used  │ Single Cost  │
+├─────────────────────┼──────────────────┼──────────────┼──────────────┤
+│ Claude 3.5 Sonnet   │ 200k             │ 50.85%       │ $0.3051      │
+│ GPT-4o              │ 128k             │ 79.45%       │ $0.2542      │
+│ DeepSeek V3         │ 64k              │ 158.89%      │ $0.0142      │
+│ Gemini 1.5 Pro      │ 2000k            │ 5.08%        │ $0.1271      │
+└─────────────────────┴──────────────────┴──────────────┴──────────────┘
+
+💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude 3.5 Sonnet!
+```
+
+---
+
+## 🏆 SWE-Bench Mini Benchmark Harness (`apex-agents swe-eval`)
+
+Benchmark your local AI engineering harness across 5 standardized software engineering vectors inspired by SWE-bench Verified:
+
+```bash
+npx apex-agents swe-eval
+```
+
+```text
+  ✓ PASS [SWE-1: AST Skeleton Fidelity] - Preserved signatures, stripped internal bodies cleanly
+  ✓ PASS [SWE-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s)
+  ✓ PASS [SWE-3: Graph PageRank Centrality Convergence] - Hub ranked #1 with score 13.3%
+  ✓ PASS [SWE-4: Anti-Cheat Test Tampering Defense] - Detected skipping evasion in test diff
+  ✓ PASS [SWE-5: Autonomous Self-Healing Trace Diagnosis] - Extracted failing trace at tests/user.test.ts:33
+
+═════ BENCHMARK FINAL EVALUATION ═════
+  Total Vectors Passed: 5/5
+  Composite Score     : 100/100
+  Composite Grade     : A+ (Sovereign Tier)
 ```
 
 ---

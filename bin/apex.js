@@ -55,6 +55,13 @@ function printHelp() {
   console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
   console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens by 85%+ with AST PageRank & callers [--xml|--json|--top|--budget]`);
   console.log(`  ${c.green}test-loop${c.reset}       Run self-healing test loop & synthesize APEX_FIX_PROMPT.md on failure`);
+  console.log(`  ${c.green}checkpoint${c.reset}      Save atomic git-native working tree snapshot [save <label>|list|rollback]`);
+  console.log(`  ${c.green}rollback${c.reset}        Instant restore to previous checkpoint if AI corrupted codebase`);
+  console.log(`  ${c.green}spec <feature>${c.reset}  Compile 5-phase zero-slop architectural SPEC.md before coding`);
+  console.log(`  ${c.green}trace <symbol>${c.reset}  Trace declaration & cross-file call sites with AST call-graph`);
+  console.log(`  ${c.green}audit-bugs${c.reset}      Deep AST scan for production bugs (SQL injection, hook leaks, floating promises)`);
+  console.log(`  ${c.green}cost${c.reset}            Multi-model context window usage & cost predictor (Claude, GPT-4o, DeepSeek, Gemini)`);
+  console.log(`  ${c.green}swe-eval${c.reset}        Run SWE-bench mini 5-vector autonomous engineering benchmark`);
   console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
@@ -260,6 +267,63 @@ function handleTestLoop(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function handleCheckpoint(args) {
+  const checkpointScript = path.join(ROOT_DIR, 'scripts', 'checkpoint.js');
+  let action = 'save';
+  let param = '';
+  if (args[0] === 'list' || args[0] === 'ls') {
+    action = 'list';
+  } else if (args[0] === 'rollback' || args[0] === 'restore') {
+    action = 'rollback';
+    param = args[1] || '';
+  } else if (args[0] === 'save' || args[0] === 'create') {
+    action = 'save';
+    param = args.slice(1).join(' ') || 'manual-save';
+  } else {
+    action = 'save';
+    param = args.join(' ') || 'manual-save';
+  }
+  const child = spawn(process.execPath, [checkpointScript, action, param], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleRollback(args) {
+  const checkpointScript = path.join(ROOT_DIR, 'scripts', 'checkpoint.js');
+  const param = args.join(' ') || '';
+  const child = spawn(process.execPath, [checkpointScript, 'rollback', param], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleSpec(args) {
+  const specScript = path.join(ROOT_DIR, 'scripts', 'spec-compiler.js');
+  const child = spawn(process.execPath, [specScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleTrace(args) {
+  const traceScript = path.join(ROOT_DIR, 'scripts', 'symbol-tracer.js');
+  const child = spawn(process.execPath, [traceScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleAuditBugs(args) {
+  const auditBugsScript = path.join(ROOT_DIR, 'scripts', 'audit-bugs.js');
+  const child = spawn(process.execPath, [auditBugsScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleCost(args) {
+  const costScript = path.join(ROOT_DIR, 'scripts', 'token-cost.js');
+  const child = spawn(process.execPath, [costScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleSweEval(args) {
+  const sweScript = path.join(ROOT_DIR, 'scripts', 'swe-eval.js');
+  const child = spawn(process.execPath, [sweScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
 function handleExportAll(args) {
   const exporterScript = path.join(ROOT_DIR, 'scripts', 'export-all.js');
   const child = spawn(process.execPath, [exporterScript, ...args], { stdio: 'inherit' });
@@ -364,6 +428,12 @@ function handleDoctor() {
     { name: 'Multi-IDE Exporter', status: 'Available (npx apex-agents export-all)' },
     { name: 'AST PageRank Compactor', status: 'Ready (npx apex-agents compact)' },
     { name: 'Self-Healing Test-Loop', status: 'Ready (npx apex-agents test-loop)' },
+    { name: 'Git-Native Checkpoints', status: 'Ready (npx apex-agents checkpoint)' },
+    { name: 'Spec-First Compiler', status: 'Ready (npx apex-agents spec)' },
+    { name: 'Semantic Symbol Tracer', status: 'Ready (npx apex-agents trace)' },
+    { name: 'AST Production Bug Hunter', status: 'Ready (npx apex-agents audit-bugs)' },
+    { name: 'Multi-Model Cost Auditor', status: 'Ready (npx apex-agents cost)' },
+    { name: 'SWE-Bench Mini Benchmark', status: 'Ready (npx apex-agents swe-eval)' },
     { name: 'AST Context Compactor', status: 'Available (Babel AST Engine)' },
     { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
     { name: 'Architecture Diagram', status: 'Available (npx apex-agents diagram)' },
@@ -398,6 +468,9 @@ function handleBudget(args) {
 }
 
 function handleEval(args) {
+  if (args.includes('--swe')) {
+    return handleSweEval(args);
+  }
   const evalScript = path.join(ROOT_DIR, 'scripts', 'benchmark-eval.js');
   const child = spawn(process.execPath, [evalScript, ...args], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
@@ -514,6 +587,30 @@ switch (command) {
     break;
   case 'test-loop':
     handleTestLoop(args.slice(1));
+    break;
+  case 'checkpoint':
+  case 'checkpoints':
+    handleCheckpoint(args.slice(1));
+    break;
+  case 'rollback':
+  case 'restore':
+    handleRollback(args.slice(1));
+    break;
+  case 'spec':
+    handleSpec(args.slice(1));
+    break;
+  case 'trace':
+    handleTrace(args.slice(1));
+    break;
+  case 'audit-bugs':
+  case 'lint-ast':
+    handleAuditBugs(args.slice(1));
+    break;
+  case 'cost':
+    handleCost(args.slice(1));
+    break;
+  case 'swe-eval':
+    handleSweEval(args.slice(1));
     break;
   case 'export-all':
     handleExportAll(args.slice(1));

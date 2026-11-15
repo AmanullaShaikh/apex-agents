@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
   "version": "2.1.0",
-  "description": "The Sovereign AI Engineering Agency: Babel AST Context Compactor with PageRank & Caller Graph, Multi-Language Python/Go/Rust Compacting, Self-Healing Test-Loop, Codebase Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Cross-Session Memory, Physical Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity",
+  "description": "The Sovereign AI Engineering Agency: Babel AST Context Compactor with PageRank & Caller Graph, Git-Native Checkpoint & Instant Rollback, Spec-First Architectural Compiler, Semantic Symbol Tracer, Deep Production AST Bug Hunter, Multi-Model Token Cost Predictor, SWE-Bench Mini Benchmark, Self-Healing Test-Loop, Codebase Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Cross-Session Memory, Physical Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "bin/apex.js",
@@ -13,6 +13,13 @@
     "test:unit": "node ./scripts/run-tests.js",
     "test:agents": "node ./scripts/validate-agents.js",
     "test-loop": "node ./scripts/test-loop.js",
+    "checkpoint": "node ./bin/apex.js checkpoint",
+    "rollback": "node ./bin/apex.js rollback",
+    "spec": "node ./bin/apex.js spec",
+    "trace": "node ./bin/apex.js trace",
+    "audit-bugs": "node ./bin/apex.js audit-bugs",
+    "cost": "node ./bin/apex.js cost",
+    "swe-eval": "node ./bin/apex.js swe-eval",
     "eval": "node ./bin/apex.js eval",
     "benchmark": "node ./bin/apex.js eval",
     "review": "node ./bin/apex.js review",

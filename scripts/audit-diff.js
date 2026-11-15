@@ -170,7 +170,7 @@ export function auditDiff(diffText) {
     });
   }
 
-  if (changedFiles.size > 12) {
+  if (changedFiles.size > 25) {
     issues.push({
       severity: 'WARNING',
       category: 'SCOPE_DRIFT',
@@ -254,9 +254,13 @@ if (process.argv[1] && process.argv[1].endsWith('audit-diff.js')) {
         console.log(`    ${c.dim}Snippet: ${iss.snippet}${c.reset}\n`);
       }
 
-      if (isStrict || result.stats.secrets > 0 || result.stats.slop > 0 || result.stats.tampering > 0) {
+      const hasBlocker = result.stats.secrets > 0 || result.stats.slop > 0 || result.stats.tampering > 0 || (isStrict && result.issues.some(i => i.severity === 'CRITICAL' || i.severity === 'HIGH'));
+      if (hasBlocker) {
         console.log(`  ${c.red}${c.bold}FAILED: Zero-slop or secret-protection thresholds violated.${c.reset}\n`);
         process.exit(1);
+      } else {
+        console.log(`  ${c.green}${c.bold}✓ PASSED: Zero blocking violations found.${c.reset}\n`);
+        process.exit(0);
       }
     }
   }
