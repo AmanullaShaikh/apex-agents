@@ -31,7 +31,7 @@ jobs:
           cat review_output.md
 
       - name: Post Comment on PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         if: always()
         with:
           script: |
