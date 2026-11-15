@@ -81,32 +81,46 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         let isSqlCall = false;
         if (p.node.callee.type === 'MemberExpression') {
           const propName = p.node.callee.property.name;
-          if (['query', 'raw', '$queryRawUnsafe', 'execute'].includes(propName)) {
+          if (['query', 'raw', '$queryRawUnsafe', 'execute', 'exec', 'update'].includes(propName)) {
             isSqlCall = true;
           }
         }
 
         if (isSqlCall && p.node.arguments.length > 0) {
           const firstArg = p.node.arguments[0];
-          // Check for string concatenation (+)
-          if (firstArg.type === 'BinaryExpression' && firstArg.operator === '+') {
-            issues.push({
-              file: filePath,
-              line: firstArg.loc?.start.line || 1,
-              severity: 'CRITICAL',
-              category: 'SQL_INJECTION',
-              message: 'Raw SQL string concatenation detected in database query call. Use parameterized queries.'
-            });
-          }
-          // Check for template literals with expressions (${...})
-          if (firstArg.type === 'TemplateLiteral' && firstArg.expressions.length > 0) {
-            issues.push({
-              file: filePath,
-              line: firstArg.loc?.start.line || 1,
-              severity: 'CRITICAL',
-              category: 'SQL_INJECTION',
-              message: 'Raw SQL template literal interpolation detected in query. Use parameterized variables.'
-            });
+
+          const checkSqlVulnerability = (node) => {
+            if (!node) return;
+            // Check for string concatenation (+)
+            if (node.type === 'BinaryExpression' && node.operator === '+') {
+              issues.push({
+                file: filePath,
+                line: node.loc?.start.line || 1,
+                severity: 'CRITICAL',
+                category: 'SQL_INJECTION',
+                message: 'Raw SQL string concatenation detected in database query call. Use parameterized queries.'
+              });
+            }
+            // Check for template literals with expressions (${...})
+            if (node.type === 'TemplateLiteral' && node.expressions.length > 0) {
+              issues.push({
+                file: filePath,
+                line: node.loc?.start.line || 1,
+                severity: 'CRITICAL',
+                category: 'SQL_INJECTION',
+                message: 'Raw SQL template literal interpolation detected in query. Use parameterized variables.'
+              });
+            }
+          };
+
+          checkSqlVulnerability(firstArg);
+
+          // Variable-based concatenation trace (e.g. const sql = "..." + id; db.query(sql))
+          if (firstArg.type === 'Identifier') {
+            const binding = p.scope.getBinding(firstArg.name);
+            if (binding && binding.path && binding.path.node && binding.path.node.init) {
+              checkSqlVulnerability(binding.path.node.init);
+            }
           }
         }
 
@@ -146,10 +160,15 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           const callName = p.node.callee.name || p.node.callee.property?.name;
           const objName = p.node.callee.object?.name || '';
 
-          // Exclude synchronous Set/Map operations
-          const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers'].some(s => objName.toLowerCase().includes(s));
-          const isKnownAsyncMethod = ['save', 'fetch', 'sendMail', 'publish'].includes(callName) ||
-            (callName === 'delete' && !isSyncCollection && ['db', 'prisma', 'client', 'repo', 'collection', 'model'].some(db => objName.toLowerCase().includes(db)));
+          // Exclude synchronous collections (cache, map, set, headers, cookie, etc.)
+          const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers', 'cookie', 'session', 'params'].some(s => objName.toLowerCase().includes(s));
+          const isKnownDbClient = ['db', 'prisma', 'client', 'repo', 'collection', 'model', 'knex', 'orm'].some(db => objName.toLowerCase().includes(db));
+
+          const isKnownAsyncMethod = !isSyncCollection && (
+            ['sendMail', 'publish'].includes(callName) ||
+            (isKnownDbClient && ['save', 'delete', 'update', 'insert', 'execute'].includes(callName)) ||
+            (callName === 'fetch' && !objName) // global fetch()
+          );
 
           if (isKnownAsyncMethod) {
             // Check if call is an expression statement not awaited and not returned

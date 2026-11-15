@@ -16,6 +16,16 @@ const c = {
   gray: '\x1b[90m'
 };
 
+const IGNORED_SNAPSHOT_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.agents',
+  'dist',
+  'build',
+  '.next',
+  'coverage'
+]);
+
 export function getCheckpointsDir(projectDir = process.cwd()) {
   const dir = path.join(projectDir, '.agents', 'checkpoints');
   if (!fs.existsSync(dir)) {
@@ -24,8 +34,37 @@ export function getCheckpointsDir(projectDir = process.cwd()) {
   return dir;
 }
 
+function isGitRepository(projectDir = process.cwd()) {
+  try {
+    const res = execSync('git rev-parse --is-inside-work-tree', {
+      cwd: projectDir,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore']
+    }).trim();
+    return res === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function getNonGitFiles(dir, baseDir = dir, acc = []) {
+  if (!fs.existsSync(dir)) return acc;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (IGNORED_SNAPSHOT_DIRS.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      getNonGitFiles(full, baseDir, acc);
+    } else if (entry.isFile()) {
+      acc.push(path.relative(baseDir, full).replace(/\\/g, '/'));
+    }
+  }
+  return acc;
+}
+
 /**
  * Creates an atomic checkpoint of the working tree.
+ * Uses -uall to avoid folder collapse, and snapshots all working changes.
  */
 export function createCheckpoint(label = 'manual-checkpoint', projectDir = process.cwd()) {
   const checkpointsDir = getCheckpointsDir(projectDir);
@@ -37,32 +76,58 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
 
   let gitCommit = 'non-git';
   let branch = 'unknown';
-  let modifiedFiles = [];
+  let isGit = isGitRepository(projectDir);
+  const modifiedFiles = [];
+  const untrackedFiles = [];
+  const capturedFiles = [];
 
-  try {
-    gitCommit = execSync('git rev-parse HEAD', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-    branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-    const statusOutput = execSync('git status --porcelain', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-    
-    const lines = statusOutput.split('\n').filter(Boolean);
-    for (const line of lines) {
-      const filePath = line.slice(3).trim();
-      // Skip checkpoints folder itself
-      if (filePath.includes('.agents/checkpoints') || filePath.includes('.agents\\checkpoints')) continue;
-      modifiedFiles.push({
-        status: line.slice(0, 2).trim(),
-        path: filePath
-      });
+  if (isGit) {
+    try {
+      gitCommit = execSync('git rev-parse HEAD', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
 
-      const fullSource = path.join(projectDir, filePath);
-      if (fs.existsSync(fullSource) && fs.statSync(fullSource).isFile()) {
-        const dest = path.join(filesFolder, filePath);
-        fs.mkdirSync(path.dirname(dest), { recursive: true });
-        fs.copyFileSync(fullSource, dest);
+      // Use -uall so nested untracked files are never collapsed as '?? dir/'
+      const statusOutput = execSync('git status --porcelain -uall', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+      const lines = statusOutput.split('\n').filter(Boolean);
+
+      for (const line of lines) {
+        const status = line.slice(0, 2).trim();
+        const filePath = line.slice(3).trim();
+
+        if (filePath.includes('.agents/checkpoints') || filePath.includes('.agents\\checkpoints')) continue;
+
+        if (status === '??') {
+          untrackedFiles.push(filePath);
+        }
+
+        modifiedFiles.push({ status, path: filePath });
+        capturedFiles.push(filePath);
+
+        const fullSource = path.join(projectDir, filePath);
+        if (fs.existsSync(fullSource) && fs.statSync(fullSource).isFile()) {
+          const dest = path.join(filesFolder, filePath);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.copyFileSync(fullSource, dest);
+        }
       }
+    } catch {
+      isGit = false;
     }
-  } catch {
-    // If not a git repo, fallback to manual files snapshot
+  }
+
+  // Non-git fallback: capture current working directory files
+  if (!isGit) {
+    const allFiles = getNonGitFiles(projectDir);
+    for (const relFile of allFiles) {
+      modifiedFiles.push({ status: '??', path: relFile });
+      untrackedFiles.push(relFile);
+      capturedFiles.push(relFile);
+
+      const fullSource = path.join(projectDir, relFile);
+      const dest = path.join(filesFolder, relFile);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(fullSource, dest);
+    }
   }
 
   const meta = {
@@ -70,10 +135,13 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
     label,
     timestamp,
     iso: new Date(timestamp).toISOString(),
+    isGit,
     gitCommit,
     branch,
     modifiedFilesCount: modifiedFiles.length,
-    modifiedFiles
+    modifiedFiles,
+    untrackedFiles,
+    capturedFiles
   };
 
   fs.writeFileSync(path.join(chkFolder, 'meta.json'), JSON.stringify(meta, null, 2));
@@ -85,6 +153,8 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
  */
 export function listCheckpoints(projectDir = process.cwd()) {
   const checkpointsDir = getCheckpointsDir(projectDir);
+  if (!fs.existsSync(checkpointsDir)) return [];
+
   const entries = fs.readdirSync(checkpointsDir, { withFileTypes: true });
   const list = [];
 
@@ -107,6 +177,8 @@ export function listCheckpoints(projectDir = process.cwd()) {
 
 /**
  * Restores the working tree to a specified checkpoint.
+ * Robustly reverts corrupted clean files, deletes newly spawned untracked files,
+ * and restores snapshot files.
  */
 export function rollbackToCheckpoint(checkpointId = null, projectDir = process.cwd()) {
   const list = listCheckpoints(projectDir);
@@ -124,7 +196,60 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
 
   const chkFolder = path.join(getCheckpointsDir(projectDir), target.id);
   const filesFolder = path.join(chkFolder, 'files');
+  const isGit = isGitRepository(projectDir);
 
+  // 1. If Git: revert all currently modified/corrupted tracked files back to git base commit
+  if (isGit && target.isGit !== false) {
+    try {
+      execSync('git checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+    } catch {
+      // safe fallback
+    }
+
+    // 2. Identify currently untracked files and delete any that were created AFTER this checkpoint
+    try {
+      const currentStatus = execSync('git status --porcelain -uall', {
+        cwd: projectDir,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      });
+
+      const knownUntracked = new Set(target.untrackedFiles || []);
+      const currentLines = currentStatus.split('\n').filter(Boolean);
+
+      for (const line of currentLines) {
+        const status = line.slice(0, 2).trim();
+        const relPath = line.slice(3).trim();
+
+        if (relPath.includes('.agents/checkpoints') || relPath.includes('.agents\\checkpoints')) continue;
+
+        if (status === '??' && !knownUntracked.has(relPath)) {
+          const fullPath = path.join(projectDir, relPath);
+          if (fs.existsSync(fullPath)) {
+            if (fs.statSync(fullPath).isDirectory()) {
+              fs.rmSync(fullPath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(fullPath);
+            }
+          }
+        }
+      }
+    } catch {
+      // safe fallback
+    }
+  } else {
+    // Non-git cleanup: remove newly created files that were not in target's capturedFiles
+    const knownCaptured = new Set(target.capturedFiles || []);
+    const currentFiles = getNonGitFiles(projectDir);
+    for (const cur of currentFiles) {
+      if (!knownCaptured.has(cur)) {
+        const p = path.join(projectDir, cur);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+    }
+  }
+
+  // 3. Restore files that were modified or captured at the time of the checkpoint
   let restoredCount = 0;
   if (fs.existsSync(filesFolder)) {
     const copyRecursive = (src, destBase, rel = '') => {
@@ -154,9 +279,14 @@ if (process.argv[1] && process.argv[1].endsWith('checkpoint.js')) {
   const param = process.argv[3];
 
   if (action === 'create' || action === 'save') {
-    const meta = createCheckpoint(param || 'manual-save');
-    console.log(`\n${c.green}${c.bold}✓ CHECKPOINT SAVED:${c.reset} ${c.cyan}${meta.id}${c.reset} ("${meta.label}")`);
-    console.log(`  Modified files preserved: ${c.yellow}${meta.modifiedFilesCount}${c.reset}\n`);
+    try {
+      const meta = createCheckpoint(param || 'manual-save');
+      console.log(`\n${c.green}${c.bold}✓ CHECKPOINT SAVED:${c.reset} ${c.cyan}${meta.id}${c.reset} ("${meta.label}")`);
+      console.log(`  Modified files preserved: ${c.yellow}${meta.modifiedFilesCount}${c.reset}\n`);
+    } catch (err) {
+      console.error(`\n${c.red}✖ Checkpoint save failed:${c.reset}`, err.message);
+      process.exit(1);
+    }
   } else if (action === 'list') {
     const list = listCheckpoints();
     console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: GIT-NATIVE CHECKPOINTS (${list.length}) ═════${c.reset}`);
@@ -168,7 +298,7 @@ if (process.argv[1] && process.argv[1].endsWith('checkpoint.js')) {
     try {
       const res = rollbackToCheckpoint(param);
       console.log(`\n${c.green}${c.bold}✓ ROLLBACK COMPLETE:${c.reset} Restored to ${c.cyan}${res.target.id}${c.reset} ("${res.target.label}")`);
-      console.log(`  Files restored: ${c.yellow}${res.restoredCount}${c.reset}\n`);
+      console.log(`  Files restored / reconciled: ${c.yellow}${res.restoredCount}${c.reset}\n`);
     } catch (err) {
       console.error(`\n${c.red}✖ Rollback failed:${c.reset}`, err.message);
       process.exit(1);

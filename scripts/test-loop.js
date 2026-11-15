@@ -87,6 +87,8 @@ export function parseTestFailures(output) {
         name: failMatch[1].trim(),
         file: null,
         error: '',
+        expected: null,
+        actual: null,
         stack: []
       };
       continue;
@@ -103,6 +105,12 @@ export function parseTestFailures(output) {
     if (currentFailure) {
       if (line.includes('AssertionError') || line.includes('Error:') || line.includes('Expected') || line.includes('Received')) {
         currentFailure.error += line.trim() + '\n';
+      }
+      if (/^(?:expected|Expected):/i.test(line)) {
+        currentFailure.expected = line.replace(/^(?:expected|Expected):\s*/i, '').trim();
+      }
+      if (/^(?:actual|actual value|received|Received):/i.test(line)) {
+        currentFailure.actual = line.replace(/^(?:actual|actual value|received|Received):\s*/i, '').trim();
       }
       if (line.trim().startsWith('at ')) {
         currentFailure.stack.push(line.trim());
@@ -142,6 +150,11 @@ export function generateFixPrompt(projectDir, failures, fullOutput) {
   failures.forEach((f, idx) => {
     md += `### ${idx + 1}. Failing Test: \`${f.name}\`\n`;
     if (f.file) md += `- **File**: \`${f.file}\`${f.line ? ` (Line ${f.line})` : ''}\n`;
+    if (f.expected || f.actual) {
+      md += `- **Expected vs Actual Comparison**:\n`;
+      if (f.expected) md += `  - **Expected**: \`${f.expected}\`\n`;
+      if (f.actual) md += `  - **Received / Actual**: \`${f.actual}\`\n`;
+    }
     if (f.error) {
       md += `- **Assertion / Error**:\n\`\`\`text\n${f.error.trim()}\n\`\`\`\n`;
     }

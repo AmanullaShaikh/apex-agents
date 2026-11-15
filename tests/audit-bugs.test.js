@@ -61,4 +61,21 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     const issues = auditCodeBugs(cleanCode, 'src/safe.tsx');
     assert.strictEqual(issues.length, 0);
   });
+
+  test('should detect variable-based SQL injection and not false positive on sync cache operations', () => {
+    const varSqlCode = `
+      export function search(id) {
+        const sql = "SELECT * FROM items WHERE id = " + id;
+        db.query(sql);
+      }
+      export function syncOps() {
+        cache.fetch('item-1');
+        cache.save('item-1', { ok: true });
+      }
+    `;
+
+    const issues = auditCodeBugs(varSqlCode, 'src/api/search.ts');
+    assert.strictEqual(issues.length, 1);
+    assert.strictEqual(issues[0].category, 'SQL_INJECTION');
+  });
 });

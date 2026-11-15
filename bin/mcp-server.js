@@ -129,7 +129,8 @@ process.stdin.on('data', (chunk) => {
       const message = JSON.parse(trimmed);
       handleMessage(message);
     } catch (err) {
-      // Invalid JSON
+      // Return standard JSON-RPC 2.0 parse error on malformed/garbage input
+      sendError(null, -32700, 'Parse error: Invalid JSON was received by the server.');
     }
   }
 });

@@ -20,7 +20,7 @@
 
 ## 💡 The Core Problem: Why Autonomous Coding Agents Fail
 
-Leading AI coding models (Claude 3.7 Sonnet, OpenAI o3-mini/o1, DeepSeek R1/V3, Gemini 2.5 Pro, Qwen 2.5 Coder) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
+Leading AI coding models (Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, DeepSeek V4-Pro, Grok 4.7) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -111,7 +111,7 @@ npx apex-agents init
 | `npx apex-agents spec <feat>` | Architecture | Compiles 5-phase zero-slop architectural `SPEC.md` and contracts before coding |
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
 | `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
-| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude 3.7/3.5, OpenAI o3-mini/GPT-4o, DeepSeek R1/V3, & Gemini 2.5 |
+| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, & DeepSeek V4 |
 | `npx apex-agents swe-eval` | Benchmark | Runs SWE-bench mini 5-vector autonomous engineering benchmark suite (Grade A+) |
 | `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
@@ -266,17 +266,19 @@ MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):
 ┌─────────────────────┬──────────────────┬──────────────┬──────────────┐
 │ Model               │ Context Window   │ Window Used  │ Single Cost  │
 ├─────────────────────┼──────────────────┼──────────────┼──────────────┤
-│ Claude 3.7 Sonnet   │ 200k             │ 50.85%       │ $0.3051      │
-│ OpenAI o3-mini      │ 200k             │ 50.85%       │ $0.1119      │
-│ DeepSeek R1         │ 128k             │ 79.45%       │ $0.0559      │
-│ Gemini 2.5 Pro      │ 2000k            │ 5.08%        │ $0.1271      │
-│ Claude 3.5 Sonnet   │ 200k             │ 50.85%       │ $0.3051      │
-│ GPT-4o              │ 128k             │ 79.45%       │ $0.2542      │
-│ DeepSeek V3         │ 64k              │ 158.89%      │ $0.0142      │
-│ Qwen 2.5 Coder 32B  │ 128k             │ 79.45%       │ $0.0071      │
+│ Claude Sonnet 5.5   │ 1000k            │ 10.17%       │ $0.3051      │
+│ Claude Opus 5.5     │ 1000k            │ 10.17%       │ $1.5254      │
+│ GPT-6 Astra         │ 1000k            │ 10.17%       │ $0.2034      │
+│ GPT-6.1 Sol         │ 500k             │ 20.34%       │ $0.1119      │
+│ Gemini 4 Argon      │ 5000k            │ 2.03%        │ $0.1271      │
+│ Gemini 4 Hydrogen   │ 2000k            │ 5.08%        │ $0.0153      │
+│ Grok 4.7            │ 2000k            │ 5.08%        │ $0.2034      │
+│ DeepSeek V4-Pro     │ 500k             │ 20.34%       │ $0.0559      │
+│ DeepSeek V4.1-Flash │ 256k             │ 39.72%       │ $0.0142      │
+│ Meta Muse Spark     │ 512k             │ 19.86%       │ $0.0203      │
 └─────────────────────┴──────────────────┴──────────────┴──────────────┘
 
-💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude 3.7 & 3.5 Sonnet!
+💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude Sonnet 5.5!
 ```
 
 ---
@@ -438,7 +440,7 @@ Apex Agents includes a native Model Context Protocol (JSON-RPC 2.0 stdio) server
 
 ### 10. 🚀 Product Launch & DevRel
 - **Growth Marketer** (`@growth-marketer`): Conversion Rate Optimization (CRO), technical copywriting, and launch playbooks.
-- **Prompt Architect** (`@prompt-architect`): 6-step hierarchical system prompts for Claude, GPT-4o, and Gemini.
+- **Prompt Architect** (`@prompt-architect`): 6-step hierarchical system prompts for Claude Sonnet 5.5, GPT-6, and Gemini 4.
 - **PR Artisan** (`@pr-artisan`): Creates clean, conventional pull request documentation and changelogs.
 - **README Copywriter** (`@readme-copywriter`): Authors clear, authentic, high-converting open-source documentation.
 

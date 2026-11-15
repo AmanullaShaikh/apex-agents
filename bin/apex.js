@@ -60,7 +60,7 @@ function printHelp() {
   console.log(`  ${c.green}spec <feature>${c.reset}  Compile 5-phase zero-slop architectural SPEC.md before coding`);
   console.log(`  ${c.green}trace <symbol>${c.reset}  Trace declaration & cross-file call sites with AST call-graph`);
   console.log(`  ${c.green}audit-bugs${c.reset}      Deep AST scan for production bugs (SQL injection, hook leaks, floating promises)`);
-  console.log(`  ${c.green}cost${c.reset}            Multi-model context window usage & cost predictor (Claude 3.7, o3-mini, DeepSeek R1, Gemini 2.5)`);
+  console.log(`  ${c.green}cost${c.reset}            Multi-model context window usage & cost predictor (Claude Sonnet 5.5, GPT-6, Gemini 4, DeepSeek V4)`);
   console.log(`  ${c.green}swe-eval${c.reset}        Run SWE-bench mini 5-vector autonomous engineering benchmark`);
   console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);

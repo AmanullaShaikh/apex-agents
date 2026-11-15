@@ -49,4 +49,37 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should revert corrupted clean files and delete rogue untracked files on rollback', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-adv-'));
+    try {
+      const cleanFile = path.join(tmpDir, 'app.js');
+      fs.writeFileSync(cleanFile, 'export const version = "clean";');
+
+      const chk = createCheckpoint('clean-save', tmpDir);
+
+      // Rogue agent corrupts app.js
+      fs.writeFileSync(cleanFile, 'CORRUPTED');
+
+      // Rogue agent creates a new file in a nested folder
+      const rogueFolder = path.join(tmpDir, 'rogue', 'nested');
+      fs.mkdirSync(rogueFolder, { recursive: true });
+      const rogueFile = path.join(rogueFolder, 'bad.js');
+      fs.writeFileSync(rogueFile, 'export const rogue = true;');
+
+      assert.strictEqual(fs.existsSync(rogueFile), true);
+      assert.strictEqual(fs.readFileSync(cleanFile, 'utf-8'), 'CORRUPTED');
+
+      // Rollback
+      rollbackToCheckpoint(chk.id, tmpDir);
+
+      // Verify cleanFile was restored to clean state
+      assert.strictEqual(fs.readFileSync(cleanFile, 'utf-8'), 'export const version = "clean";');
+
+      // Verify rogue file was deleted
+      assert.strictEqual(fs.existsSync(rogueFile), false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

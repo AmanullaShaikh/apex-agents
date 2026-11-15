@@ -24,6 +24,15 @@ const c = {
 
 const IGNORED = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.agents', '.worktrees', 'coverage']);
 
+const BINARY_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico',
+  'exe', 'dll', 'so', 'dylib', 'bin', 'obj', 'o',
+  'zip', 'tar', 'gz', '7z', 'rar',
+  'pdf', 'doc', 'docx',
+  'mp4', 'mp3', 'wav', 'mov', 'avi',
+  'wasm', 'node', 'pyc', 'class'
+]);
+
 /**
  * Production-Grade AST Token Compactor using Babel.
  * Preserves exports, types, interfaces, and function signatures.
@@ -34,7 +43,12 @@ export function compactSourceCode(code, options = {}) {
   if (!code || !code.trim()) return '';
 
   const callers = options.callers || {}; // { [symbolName]: [ { file, line } ] }
-  const ext = options.ext || 'ts';
+  const ext = (options.ext || 'ts').replace(/^\./, '').toLowerCase();
+
+  // Reject binary files or buffers with null bytes
+  if (BINARY_EXTENSIONS.has(ext) || code.includes('\0')) {
+    return `// [Apex Compactor: Binary asset (${ext}) excluded from text context]`;
+  }
 
   if (ext === 'py') {
     return compactPythonCode(code);
@@ -270,11 +284,43 @@ export function compactGoCode(code) {
 export function compactRustCode(code) {
   const lines = code.split('\n');
   const compacted = [];
+  let inFnBody = false;
+  let fnBraceDepth = 0;
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
+    // Inside function body, count braces until function finishes
+    if (inFnBody) {
+      const openCount = (line.match(/{/g) || []).length;
+      const closeCount = (line.match(/}/g) || []).length;
+      fnBraceDepth += openCount - closeCount;
+      if (fnBraceDepth <= 0) {
+        inFnBody = false;
+        fnBraceDepth = 0;
+      }
+      continue;
+    }
+
+    // Function signatures
+    if (/^(pub\s+)?(async\s+)?(unsafe\s+)?fn\s+[a-zA-Z0-9_]+/.test(trimmed)) {
+      if (trimmed.includes('{')) {
+        const sig = line.slice(0, line.indexOf('{') + 1);
+        compacted.push(sig + ' /* stripped */ }');
+        const openCount = (line.match(/{/g) || []).length;
+        const closeCount = (line.match(/}/g) || []).length;
+        if (openCount > closeCount) {
+          inFnBody = true;
+          fnBraceDepth = openCount - closeCount;
+        }
+      } else {
+        compacted.push(line);
+      }
+      continue;
+    }
+
+    // Preserve module, struct, enum, trait, impl, use, and attributes
     if (
       trimmed.startsWith('use ') ||
       trimmed.startsWith('pub use ') ||
@@ -287,24 +333,12 @@ export function compactRustCode(code) {
       trimmed.startsWith('trait ') ||
       trimmed.startsWith('pub trait ') ||
       trimmed.startsWith('impl ') ||
+      trimmed.startsWith('pub ') ||
       trimmed.startsWith('#[') ||
-      trimmed.startsWith('//')
+      trimmed.startsWith('//') ||
+      trimmed === '}'
     ) {
       compacted.push(line);
-      continue;
-    }
-
-    if (/^(pub\s+)?(async\s+)?(unsafe\s+)?fn\s+[a-zA-Z0-9_]+/.test(trimmed)) {
-      if (trimmed.includes('{')) {
-        const sig = line.slice(0, line.indexOf('{') + 1);
-        compacted.push(sig + ' /* stripped */ }');
-      } else {
-        compacted.push(line);
-      }
-      continue;
-    }
-
-    if (trimmed === '}') {
       continue;
     }
   }

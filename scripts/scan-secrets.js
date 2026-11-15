@@ -5,14 +5,17 @@ import path from 'path';
 
 // High-confidence regex signatures for sensitive credentials
 const SECRET_PATTERNS = [
-  { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/g },
-  { name: 'Stripe Publishable Key', regex: /pk_live_[0-9a-zA-Z]{24}/g },
-  { name: 'OpenAI API Key', regex: /sk-proj-[0-9a-zA-Z-_]{48,}/g },
-  { name: 'Anthropic API Key', regex: /sk-ant-api03-[0-9a-zA-Z-_]{80,}/g },
-  { name: 'AWS Access Key ID', regex: /AKIA[0-9A-Z]{16}/g },
-  { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/g },
-  { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/g },
-  { name: 'Private SSH Key', regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----/g }
+  { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
+  { name: 'Stripe Publishable Key', regex: /pk_live_[0-9a-zA-Z]{24}/ },
+  { name: 'OpenAI API Key', regex: /sk-proj-[0-9a-zA-Z-_]{48,}/ },
+  { name: 'Anthropic API Key', regex: /sk-ant-api03-[0-9a-zA-Z-_]{80,}/ },
+  { name: 'AWS Access Key ID', regex: /\bAKIA[0-9A-Z]{16}\b/ },
+  { name: 'Base64 Encoded AWS Key', regex: /\bQUtJQS[0-9a-zA-Z+/=]{16,}\b/ },
+  { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
+  { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
+  { name: 'Private SSH Key', regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----/ },
+  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
+  { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next']);
@@ -37,12 +40,11 @@ function scanDirectory(dir, findings = []) {
       try {
         const content = fs.readFileSync(fullPath, 'utf-8');
         for (const { name, regex } of SECRET_PATTERNS) {
-          const matches = content.match(regex);
-          if (matches) {
-            for (const match of matches) {
-              const masked = match.slice(0, 7) + '...' + match.slice(-4);
-              findings.push({ file: fullPath, pattern: name, match: masked });
-            }
+          const match = regex.exec(content);
+          if (match) {
+            const matchedText = match[0];
+            const masked = matchedText.slice(0, 7) + '...' + matchedText.slice(-4);
+            findings.push({ file: fullPath, pattern: name, match: masked });
           }
         }
       } catch {
