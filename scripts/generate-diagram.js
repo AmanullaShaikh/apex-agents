@@ -35,7 +35,7 @@ export function generateArchitectureDiagram(rootDir = process.cwd(), openInBrows
 
   // Read package.json if present
   let pkgName = path.basename(rootDir);
-  let pkgVersion = '1.0.0';
+  let pkgVersion = '2.1.0';
   const pkgPath = path.join(rootDir, 'package.json');
   if (fs.existsSync(pkgPath)) {
     try {

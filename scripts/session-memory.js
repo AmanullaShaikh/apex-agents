@@ -21,7 +21,7 @@ function getMemoryFile(targetDir = process.cwd()) {
 
 function loadMemory(filePath) {
   const fallback = {
-    version: '1.0.0',
+    version: '2.1.0',
     lastUpdated: new Date().toISOString(),
     decisions: [],
     architecturalRules: [],
@@ -36,7 +36,7 @@ function loadMemory(filePath) {
       return fallback;
     }
     return {
-      version: parsed.version || '1.0.0',
+      version: parsed.version || '2.1.0',
       lastUpdated: parsed.lastUpdated || new Date().toISOString(),
       decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
       architecturalRules: Array.isArray(parsed.architecturalRules) ? parsed.architecturalRules : [],

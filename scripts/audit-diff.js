@@ -108,16 +108,19 @@ export function auditDiff(diffText) {
         }
       }
 
-      // Check AI slop
-      for (const slp of SLOP_PATTERNS) {
-        if (slp.regex.test(addedText)) {
-          issues.push({
-            severity: 'HIGH',
-            category: 'AI_SLOP',
-            file: currentFile,
-            description: `Found ${slp.name}`,
-            snippet: addedText.trim().slice(0, 80)
-          });
+      // Check AI slop (only in code files, not rule manifests or docs)
+      const isDocOrRule = /\.(md|mdc|txt)$/i.test(currentFile) || ['CLAUDE.md', '.cursorrules', '.windsurfrules'].some(f => currentFile.endsWith(f));
+      if (!isDocOrRule) {
+        for (const slp of SLOP_PATTERNS) {
+          if (slp.regex.test(addedText)) {
+            issues.push({
+              severity: 'HIGH',
+              category: 'AI_SLOP',
+              file: currentFile,
+              description: `Found ${slp.name}`,
+              snippet: addedText.trim().slice(0, 80)
+            });
+          }
         }
       }
 

@@ -34,4 +34,30 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     assert.strictEqual(result.clean, false);
     assert.strictEqual(result.stats.tampering, 1);
   });
+
+  test('should not trigger false AI slop on markdown or rule files explaining TODOs', () => {
+    const docDiff = [
+      'diff --git a/CLAUDE.md b/CLAUDE.md',
+      '--- a/CLAUDE.md',
+      '+++ b/CLAUDE.md',
+      '@@ -1,2 +1,2 @@',
+      '+1. **Forbidden Placeholders:** Strictly forbid `// ' + 'TODO: implement later`'
+    ].join('\n');
+
+    const result = auditDiff(docDiff);
+    assert.strictEqual(result.stats.slop, 0);
+  });
+
+  test('should detect real AI slop in source code files', () => {
+    const codeDiff = [
+      'diff --git a/src/service.ts b/src/service.ts',
+      '--- a/src/service.ts',
+      '+++ b/src/service.ts',
+      '@@ -5,2 +5,2 @@',
+      '+// ' + 'TODO: implement later'
+    ].join('\n');
+
+    const result = auditDiff(codeDiff);
+    assert.strictEqual(result.stats.slop, 1);
+  });
 });

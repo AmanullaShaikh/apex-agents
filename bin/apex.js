@@ -527,7 +527,7 @@ function printVersion() {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
     console.log(`apex-agents v${pkg.version}`);
   } catch {
-    console.log('apex-agents v2.0.0');
+    console.log('apex-agents v2.1.0');
   }
 }
 

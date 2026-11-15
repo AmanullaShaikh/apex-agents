@@ -23,17 +23,24 @@ Apex Agents is designed with **100% architectural transparency**. It consists of
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        APEX AGENTS ARCHITECTURE                        │
+│                   APEX AGENTS v2.1.0 ARCHITECTURE                      │
 ├────────────────────────────────────────────────────────────────────────┤
 │                                                                        │
 │  LAYER 1: EXECUTABLE TOOLING ENGINE (100% Real Node.js Code)           │
 │  ┌───────────────────────┬──────────────────────┬────────────────────┐ │
-│  │ Babel AST Compactor   │ Dependency Graph     │ Pre-Commit Auditor │ │
-│  │ (70-88% token shrink) │ (Cycle detection)    │ (Secrets & Anti-   │ │
-│  │                       │                      │  Cheat Guard)      │ │
+│  │ AST Context Compactor │ Checkpoint & Rollback│ Spec Compiler      │ │
+│  │ (PageRank & Callers)  │ (Git-native sub-100ms│ (5-Phase Zero-Slop │ │
+│  │  85%+ Token Drop)     │  Instant Recovery)   │  SPEC.md Contracts)│ │
+│  ├───────────────────────┼──────────────────────┼────────────────────┤ │
+│  │ Symbol Tracer Dossier │ Production Bug Hunter│ Multi-Model Costs  │ │
+│  │ (Cross-file AST graph │ (SQLi, hook leaks,   │ (Claude, GPT,      │ │
+│  │  ~100t Call-Sites)    │  floating promises)  │  DeepSeek, Gemini) │ │
+│  ├───────────────────────┼──────────────────────┼────────────────────┤ │
+│  │ Self-Healing TestLoop │ Pre-Commit Auditor   │ Dependency Graph   │ │
+│  │ (Autonomous APEX_FIX) │ (Secrets & AntiCheat)│ (Cycles & PageRank)│ │
 │  ├───────────────────────┼──────────────────────┼────────────────────┤ │
 │  │ Session Handoff (~85t)│ Persistent Memory    │ Git Worktree       │ │
-│  │ (XML context defense) │ (.agents/memory.json)│ Sandboxes          │ │
+│  │ (XML Context Defense) │ (.agents/memory.json)│ Sandboxes          │ │
 │  └───────────────────────┴──────────────────────┴────────────────────┘ │
 │                                                                        │
 │  LAYER 2: AGENTIC SYSTEM INSTRUCTIONS (38 Personas + 13 Instincts)     │

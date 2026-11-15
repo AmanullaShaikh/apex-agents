@@ -44,6 +44,12 @@ for (const div of divisions) {
   }
 }
 
+let pkgVersion = '2.1.0';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
+  if (pkg.version) pkgVersion = pkg.version;
+} catch {}
+
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,9 +77,9 @@ const html = `<!DOCTYPE html>
         <div>
           <h1 class="font-bold text-slate-100 text-sm tracking-tight flex items-center gap-2">
             Apex Agents Explorer
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">v1.1.0</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">v${pkgVersion}</span>
           </h1>
-          <p class="text-xs text-slate-400">34 Autonomous Specialists across 10 Divisions • MIT Open Source</p>
+          <p class="text-xs text-slate-400">${allAgents.length} Autonomous Specialists across ${divisions.length} Divisions • MIT Open Source</p>
         </div>
       </div>
 
