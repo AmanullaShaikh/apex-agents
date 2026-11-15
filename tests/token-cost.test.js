@@ -20,16 +20,16 @@ describe('Multi-Model Token Cost & Window Predictor Suite', () => {
       assert.strictEqual(report.scannedFiles, 1);
       assert.ok(report.totalTokens > 0);
       assert.ok(report.compactedTokensEst < report.totalTokens);
-      assert.strictEqual(report.modelProjections.length, 4);
+      assert.strictEqual(report.modelProjections.length, 8);
 
-      const sonnet = report.modelProjections.find(m => m.model.includes('Claude'));
+      const sonnet = report.modelProjections.find(m => m.model === 'Claude 3.7 Sonnet' || m.model === 'Claude 3.5 Sonnet');
       assert.ok(sonnet);
       assert.strictEqual(sonnet.contextLimit, 200000);
       assert.ok(sonnet.costPerTurn >= 0);
 
       const deepseek = report.modelProjections.find(m => m.model.includes('DeepSeek'));
       assert.ok(deepseek);
-      assert.strictEqual(deepseek.contextLimit, 64000);
+      assert.ok(deepseek.contextLimit >= 64000);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

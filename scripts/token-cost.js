@@ -17,6 +17,34 @@ const c = {
 
 const MODEL_PRICING = [
   {
+    name: 'Claude 3.7 Sonnet',
+    provider: 'Anthropic',
+    contextWindow: 200000,
+    inputPricePerMillion: 3.00,
+    outputPricePerMillion: 15.00
+  },
+  {
+    name: 'OpenAI o3-mini',
+    provider: 'OpenAI',
+    contextWindow: 200000,
+    inputPricePerMillion: 1.10,
+    outputPricePerMillion: 4.40
+  },
+  {
+    name: 'DeepSeek R1',
+    provider: 'DeepSeek',
+    contextWindow: 128000,
+    inputPricePerMillion: 0.55,
+    outputPricePerMillion: 2.19
+  },
+  {
+    name: 'Gemini 2.5 Pro',
+    provider: 'Google',
+    contextWindow: 2000000,
+    inputPricePerMillion: 1.25,
+    outputPricePerMillion: 5.00
+  },
+  {
     name: 'Claude 3.5 Sonnet',
     provider: 'Anthropic',
     contextWindow: 200000,
@@ -38,11 +66,11 @@ const MODEL_PRICING = [
     outputPricePerMillion: 0.28
   },
   {
-    name: 'Gemini 1.5 Pro',
-    provider: 'Google',
-    contextWindow: 2000000,
-    inputPricePerMillion: 1.25,
-    outputPricePerMillion: 5.00
+    name: 'Qwen 2.5 Coder 32B',
+    provider: 'Alibaba',
+    contextWindow: 128000,
+    inputPricePerMillion: 0.07,
+    outputPricePerMillion: 0.14
   }
 ];
 
