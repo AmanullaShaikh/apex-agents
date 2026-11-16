@@ -152,5 +152,13 @@ func (s *Server) Start() error {
     assert.match(goStructResult, /Addr string/);
     assert.match(goStructResult, /Port int/);
     assert.doesNotMatch(goStructResult, /secret := 42/);
+
+    // Verify single-line Rust impl method stripping (exact Claude benchmark case)
+    const singleLineRust = 'impl Cache { pub(crate) fn get(&self, k: &str) -> Option<&Value> { let secret = 42; self.map.get(k) } }';
+    const singleLineRustResult = compactSourceCode(singleLineRust, { ext: 'rs' });
+    assert.match(singleLineRustResult, /impl Cache/);
+    assert.match(singleLineRustResult, /pub\(crate\) fn get/);
+    assert.match(singleLineRustResult, /\/\* stripped \*\//);
+    assert.doesNotMatch(singleLineRustResult, /secret = 42/);
   });
 });

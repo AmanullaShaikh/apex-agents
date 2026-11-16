@@ -108,6 +108,11 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
       const res = await runTestLoop(tmpDir);
       assert.strictEqual(res.success, false);
       assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
+
+      // Verify custom non-existent command (: not found) does not produce fake prompt
+      const resMissing = await runTestLoop(tmpDir, 'non_existent_binary_tool_xyz_123');
+      assert.strictEqual(resMissing.success, false);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

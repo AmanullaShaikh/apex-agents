@@ -255,6 +255,13 @@ export function compactGoCode(code) {
       continue;
     }
 
+    // Single-line inline function (e.g. func (s *Server) Start() error { secret := 42; return nil })
+    if (/^func\s+(\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
+      const strippedLine = line.replace(/(\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*)\{[^}]*\}/g, '$1{ /* stripped */ }');
+      compacted.push(strippedLine);
+      continue;
+    }
+
     if (/^func\s+(\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/.test(trimmed)) {
       if (trimmed.includes('{')) {
         const sig = line.slice(0, line.indexOf('{') + 1);
@@ -324,6 +331,13 @@ export function compactRustCode(code) {
         inFnBody = false;
         fnBraceDepth = 0;
       }
+      continue;
+    }
+
+    // Single-line inline function / method (e.g. `impl Cache { pub(crate) fn get(...) { ... } }` or `fn foo() { ... }`)
+    if (/\bfn\s+[a-zA-Z0-9_]+/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
+      const strippedLine = line.replace(/(\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*)\{[^}]*\}/g, '$1{ /* stripped */ }');
+      compacted.push(strippedLine);
       continue;
     }
 

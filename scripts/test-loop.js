@@ -228,7 +228,7 @@ export function runTestLoop(projectDir = process.cwd(), customCmd = null) {
         }
         resolve({ success: true, code: 0 });
       } else {
-        const isNoRunner = /Missing script|no test specified|ENOENT.*package\.json|command not found|cannot find|not recognized/i.test(fullOutput);
+        const isNoRunner = /Missing script|no test specified|ENOENT.*package\.json|command not found|cannot find|not recognized|:\s*not found|\bnot found\b|No such file or directory/i.test(fullOutput);
         if (isNoRunner) {
           console.error(`\n${c.red}${c.bold}✖ NO TEST RUNNER CONFIGURED:${c.reset} No test script found or runner failed to launch.`);
           console.error(`Configure "scripts.test" in package.json or run with custom command: apex test-loop "<cmd>"\n`);
