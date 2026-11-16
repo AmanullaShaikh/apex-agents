@@ -17,74 +17,74 @@ const c = {
 
 export const MODEL_PRICING = [
   {
-    name: 'Claude 3.7 Sonnet',
+    name: 'Claude Sonnet 5.5',
     provider: 'Anthropic',
-    contextWindow: 200000,
+    contextWindow: 1000000,
     inputPricePerMillion: 3.00,
     outputPricePerMillion: 15.00
   },
   {
-    name: 'Claude 3.5 Haiku',
+    name: 'Claude Opus 5.5',
     provider: 'Anthropic',
-    contextWindow: 200000,
-    inputPricePerMillion: 0.80,
-    outputPricePerMillion: 4.00
+    contextWindow: 1000000,
+    inputPricePerMillion: 15.00,
+    outputPricePerMillion: 75.00
   },
   {
-    name: 'GPT-4o',
+    name: 'GPT-6 Astra',
     provider: 'OpenAI',
-    contextWindow: 128000,
-    inputPricePerMillion: 2.50,
-    outputPricePerMillion: 10.00
+    contextWindow: 1000000,
+    inputPricePerMillion: 2.00,
+    outputPricePerMillion: 8.00
   },
   {
-    name: 'GPT-4o mini',
+    name: 'GPT-6.1 Sol',
     provider: 'OpenAI',
-    contextWindow: 128000,
-    inputPricePerMillion: 0.15,
-    outputPricePerMillion: 0.60
-  },
-  {
-    name: 'o3-mini',
-    provider: 'OpenAI',
-    contextWindow: 200000,
+    contextWindow: 500000,
     inputPricePerMillion: 1.10,
     outputPricePerMillion: 4.40
   },
   {
-    name: 'Gemini 2.0 Flash',
+    name: 'Gemini 4 Argon',
     provider: 'Google',
-    contextWindow: 1000000,
-    inputPricePerMillion: 0.10,
-    outputPricePerMillion: 0.40
-  },
-  {
-    name: 'Gemini 2.0 Pro',
-    provider: 'Google',
-    contextWindow: 2000000,
+    contextWindow: 5000000,
     inputPricePerMillion: 1.25,
     outputPricePerMillion: 5.00
   },
   {
-    name: 'DeepSeek-V3',
-    provider: 'DeepSeek',
-    contextWindow: 64000,
-    inputPricePerMillion: 0.27,
-    outputPricePerMillion: 1.10
+    name: 'Gemini 4 Hydrogen',
+    provider: 'Google',
+    contextWindow: 2000000,
+    inputPricePerMillion: 0.15,
+    outputPricePerMillion: 0.60
   },
   {
-    name: 'DeepSeek-R1',
+    name: 'Grok 4.7',
+    provider: 'xAI',
+    contextWindow: 2000000,
+    inputPricePerMillion: 2.00,
+    outputPricePerMillion: 10.00
+  },
+  {
+    name: 'DeepSeek V4-Pro',
     provider: 'DeepSeek',
-    contextWindow: 64000,
+    contextWindow: 500000,
     inputPricePerMillion: 0.55,
     outputPricePerMillion: 2.19
   },
   {
-    name: 'Qwen 2.5 Coder (Local/Ollama)',
-    provider: 'Open-Source (Offline)',
-    contextWindow: 128000,
-    inputPricePerMillion: 0.00,
-    outputPricePerMillion: 0.00
+    name: 'DeepSeek V4.1-Flash',
+    provider: 'DeepSeek',
+    contextWindow: 256000,
+    inputPricePerMillion: 0.14,
+    outputPricePerMillion: 0.28
+  },
+  {
+    name: 'Meta Muse Spark',
+    provider: 'Meta',
+    contextWindow: 512000,
+    inputPricePerMillion: 0.20,
+    outputPricePerMillion: 0.80
   }
 ];
 

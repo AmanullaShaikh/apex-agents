@@ -9,9 +9,9 @@
 [![NPM Version](https://img.shields.io/npm/v/apex-agents.svg?style=flat-square&color=38bdf8)](https://www.npmjs.com/package/apex-agents)
 [![CI & Integrity Suite](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml)
 [![Babel AST Engine](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
-[![Context Reduction](https://img.shields.io/badge/Context%20Reduction-85%25--88.5%25-6366f1.svg?style=flat-square)](#-ast-context-compactor-apex-agents-compact)
-[![Engine Benchmark](https://img.shields.io/badge/Engine%20Benchmark-Grade%20A%2B%20Verified-10b981.svg?style=flat-square)](#-7-architectural--ast-engine-benchmark-apex-agents-swe-eval)
-[![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#-native-model-context-protocol-mcp-server)
+[![Context Reduction](https://img.shields.io/badge/Context%20Reduction-85%25--88.5%25-6366f1.svg?style=flat-square)](#1-ast-context-compactor-apex-agents-compact)
+[![Engine Benchmark](https://img.shields.io/badge/Engine%20Benchmark-Grade%20A%2B%20Verified-10b981.svg?style=flat-square)](#7-architectural--ast-engine-benchmark-apex-agents-swe-eval)
+[![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#10-native-model-context-protocol-mcp-server)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/apex-agents/pulls)
 
 </div>
@@ -115,7 +115,8 @@ npx apex-agents init
 | `npx apex-agents spec <feat>` | Architecture | Compiles 5-phase zero-slop architectural `SPEC.md` and contracts before coding |
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
 | `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
-| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude 3.7, GPT-4o, Gemini 2.0, & DeepSeek V3/R1 |
+| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, & DeepSeek V4 |
+| `npx apex-agents plan <goal>` | Planning | Calculates dependency waves and scaffolds isolated git worktrees with contract specifications |
 | `npx apex-agents swe-eval` | Benchmark | Runs 5-vector AST & architectural engine benchmark suite (Grade A+ Verified) |
 | `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
@@ -267,19 +268,22 @@ Raw Token Volume : ~101,691 tokens (382.8 KB)
 With AST Compact : ~18,305 tokens (82% reduction)
 
 MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):
-┌─────────────────────┬──────────────────┬──────────────┬──────────────┐
-│ Model               │ Context Window   │ Window Used  │ Single Cost  │
-├─────────────────────┼──────────────────┼──────────────┼──────────────┤
-│ Claude 3.7 Sonnet   │ 200k             │ 15.25%       │ $0.0915      │
-│ Claude 3.5 Haiku    │ 200k             │ 15.25%       │ $0.0244      │
-│ GPT-4o              │ 128k             │ 23.82%       │ $0.0762      │
-│ GPT-4o-mini         │ 128k             │ 23.82%       │ $0.0046      │
-│ Gemini 2.0 Flash    │ 1000k            │ 3.05%        │ $0.0031      │
-│ DeepSeek-V3         │ 128k             │ 23.82%       │ $0.0043      │
-│ DeepSeek-R1         │ 128k             │ 23.82%       │ $0.0168      │
-└─────────────────────┴──────────────────┴──────────────┴──────────────┘
+┌───────────────────────┬──────────────────┬──────────────┬──────────────┐
+│ Model                 │ Context Window   │ Window Used  │ Single Cost  │
+├───────────────────────┼──────────────────┼──────────────┼──────────────┤
+│ Claude Sonnet 5.5     │ 1000k            │ 3.05%        │ $0.0915      │
+│ Claude Opus 5.5       │ 1000k            │ 3.05%        │ $0.4576      │
+│ GPT-6 Astra           │ 1000k            │ 3.05%        │ $0.0610      │
+│ GPT-6.1 Sol           │ 500k             │ 6.10%        │ $0.0336      │
+│ Gemini 4 Argon        │ 5000k            │ 0.61%        │ $0.0381      │
+│ Gemini 4 Hydrogen     │ 2000k            │ 1.53%        │ $0.0046      │
+│ Grok 4.7              │ 2000k            │ 1.53%        │ $0.0610      │
+│ DeepSeek V4-Pro       │ 500k             │ 6.10%        │ $0.0168      │
+│ DeepSeek V4.1-Flash   │ 256k             │ 11.92%       │ $0.0043      │
+│ Meta Muse Spark       │ 512k             │ 5.96%        │ $0.0061      │
+└───────────────────────┴──────────────────┴──────────────┴──────────────┘
 
-💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude 3.7 Sonnet!
+💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude Sonnet 5.5!
 ```
 
 ---
@@ -333,14 +337,11 @@ npx apex-agents test-loop "npm run test:e2e"
 └────────┬─────────────────────────────────────────────────────────────┘
          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Synthesize APEX_FIX_PROMPT.md with STRICT NEGATIVE CONSTRAINTS:     │
-│  • FORBIDDEN: Deleting or disabling tests (it.skip, test.only)       │
-│  • FORBIDDEN: Commenting out assertions or modifying test bounds     │
-│  • REQUIRED: Repairing implementation code in the target module      │
-└────────┬─────────────────────────────────────────────────────────────┘
-         ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  Feed APEX_FIX_PROMPT.md to Cursor / Claude Code for instant repair  │
+│  4-Tier Sovereign Self-Healing Engine (--heal):                      │
+│  1. Deterministic AST Patcher: local literal/export swap (0 API key) │
+│  2. Local Ollama: offline qwen2.5-coder patch (0 API key)            │
+│  3. IDE Agent Handoff: structured APEX_FIX_PROMPT.md for Cursor      │
+│  4. Optional Cloud API: Gemini/Claude/OpenAI if explicitly configured│
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
