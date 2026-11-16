@@ -100,4 +100,16 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should not generate fake fix prompt when no test runner or script is configured', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-notest-'));
+    try {
+      const { runTestLoop } = await import('../scripts/test-loop.js');
+      const res = await runTestLoop(tmpDir);
+      assert.strictEqual(res.success, false);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

@@ -107,5 +107,50 @@ pub fn calculate_hash(key: &str) -> u64 {
     assert.match(rsResult, /use std::collections::HashMap;/);
     assert.match(rsResult, /pub fn calculate_hash\(key: &str\) -> u64/);
     assert.doesNotMatch(rsResult, /HashMap::new/);
+
+    // Verify Rust struct fields and impl method body stripping
+    const rsStruct = `
+pub struct Cache {
+    map: HashMap<String, Value>,
+    cap: usize,
+}
+
+impl Cache {
+    pub(crate) fn get_val(&self, k: &str) -> Option<&Value> {
+        let secret = 42;
+        self.map.get(k)
+    }
+}
+    `;
+    const rsStructResult = compactSourceCode(rsStruct, { ext: 'rs' });
+    assert.match(rsStructResult, /map: HashMap<String, Value>/);
+    assert.match(rsStructResult, /cap: usize/);
+    assert.match(rsStructResult, /pub\(crate\) fn get_val/);
+    assert.doesNotMatch(rsStructResult, /secret = 42/);
+
+    // Verify Go multiline imports and struct fields
+    const goStruct = `
+package main
+
+import (
+    "net/http"
+    "fmt"
+)
+
+type Server struct {
+    Addr string
+    Port int
+}
+
+func (s *Server) Start() error {
+    secret := 42
+    return nil
+}
+    `;
+    const goStructResult = compactSourceCode(goStruct, { ext: 'go' });
+    assert.match(goStructResult, /"net\/http"/);
+    assert.match(goStructResult, /Addr string/);
+    assert.match(goStructResult, /Port int/);
+    assert.doesNotMatch(goStructResult, /secret := 42/);
   });
 });

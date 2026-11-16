@@ -111,8 +111,11 @@ if (process.argv[1] && process.argv[1].endsWith('worktree-sandbox.js')) {
       handleClean(taskName);
       break;
     case 'status':
-    default:
       handleStatus();
       break;
+    default:
+      console.error(`\n${c.red}Error: Unknown sandbox action "${action}".${c.reset}`);
+      console.error(`Allowed actions: start, clean, status.\n`);
+      process.exit(1);
   }
 }

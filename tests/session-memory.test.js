@@ -23,6 +23,12 @@ describe('Persistent Session Memory Engine', () => {
     assert.match(data.architecturalRules[0].text, /strict mode/);
     assert.match(data.decisions[0].text, /PostgreSQL/);
 
+    // Test with -k and -v flags
+    handleMemory(['record', '-k', 'RULE', '-v', 'Use native fetch everywhere'], tmpDir);
+    const updatedData = JSON.parse(fs.readFileSync(memPath, 'utf-8'));
+    assert.strictEqual(updatedData.architecturalRules.length, 2);
+    assert.match(updatedData.architecturalRules[1].text, /native fetch/);
+
     // Clean up
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

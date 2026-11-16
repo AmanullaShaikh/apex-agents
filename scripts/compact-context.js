@@ -237,20 +237,21 @@ export function compactGoCode(code) {
   const lines = code.split('\n');
   const compacted = [];
   let inFunc = false;
+  let braceDepth = 0;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    if (
-      trimmed.startsWith('package ') ||
-      trimmed.startsWith('import ') ||
-      trimmed.startsWith('type ') ||
-      trimmed.startsWith('//') ||
-      trimmed.startsWith('/*') ||
-      trimmed.startsWith('*')
-    ) {
-      compacted.push(line);
+    if (inFunc) {
+      const openCount = (line.match(/{/g) || []).length;
+      const closeCount = (line.match(/}/g) || []).length;
+      braceDepth += openCount - closeCount;
+      if (braceDepth <= 0) {
+        inFunc = false;
+        braceDepth = 0;
+      }
       continue;
     }
 
@@ -258,20 +259,42 @@ export function compactGoCode(code) {
       if (trimmed.includes('{')) {
         const sig = line.slice(0, line.indexOf('{') + 1);
         compacted.push(sig + ' /* stripped */ }');
+        const openCount = (line.match(/{/g) || []).length;
+        const closeCount = (line.match(/}/g) || []).length;
+        if (openCount > closeCount) {
+          inFunc = true;
+          braceDepth = openCount - closeCount;
+        }
       } else {
-        compacted.push(line);
+        let sigLines = [line];
+        let foundOpenBrace = false;
+        while (i + 1 < lines.length) {
+          i++;
+          const nextLine = lines[i];
+          sigLines.push(nextLine);
+          if (nextLine.includes('{')) {
+            foundOpenBrace = true;
+            const fullSig = sigLines.join('\n');
+            const idx = fullSig.indexOf('{');
+            compacted.push(fullSig.slice(0, idx + 1) + ' /* stripped */ }');
+            const openCount = (fullSig.match(/{/g) || []).length;
+            const closeCount = (fullSig.match(/}/g) || []).length;
+            if (openCount > closeCount) {
+              inFunc = true;
+              braceDepth = openCount - closeCount;
+            }
+            break;
+          }
+        }
+        if (!foundOpenBrace) {
+          compacted.push(...sigLines);
+        }
       }
       continue;
     }
 
-    if (trimmed === '}') {
-      inFunc = false;
-      continue;
-    }
-
-    if (!inFunc && (trimmed.startsWith('var ') || trimmed.startsWith('const '))) {
-      compacted.push(line);
-    }
+    // Preserve all declarations outside functions (package, imports, structs, fields, interfaces, types, consts, vars)
+    compacted.push(line);
   }
 
   return compacted.join('\n');
@@ -344,28 +367,8 @@ export function compactRustCode(code) {
       continue;
     }
 
-    // Preserve module, struct, enum, trait, impl, use, and attributes
-    if (
-      trimmed.startsWith('use ') ||
-      trimmed.startsWith('pub use ') ||
-      trimmed.startsWith('mod ') ||
-      trimmed.startsWith('pub mod ') ||
-      trimmed.startsWith('struct ') ||
-      trimmed.startsWith('pub struct ') ||
-      trimmed.startsWith('enum ') ||
-      trimmed.startsWith('pub enum ') ||
-      trimmed.startsWith('trait ') ||
-      trimmed.startsWith('pub trait ') ||
-      trimmed.startsWith('impl ') ||
-      trimmed.startsWith('impl<') ||
-      trimmed.startsWith('pub ') ||
-      trimmed.startsWith('#[') ||
-      trimmed.startsWith('//') ||
-      trimmed === '}'
-    ) {
-      compacted.push(line);
-      continue;
-    }
+    // Preserve all declarations outside functions (structs, struct fields, enums, variants, traits, impls, use, mod, attributes)
+    compacted.push(line);
   }
 
   return compacted.join('\n');
@@ -580,7 +583,7 @@ export function runContextCompactor(projectDir = process.cwd(), options = {}) {
     }
   }
 
-  const outputDir = fs.existsSync(projectDir) && fs.statSync(projectDir).isFile() ? path.dirname(path.resolve(projectDir)) : projectDir;
+  const outputDir = fs.existsSync(projectDir) && fs.statSync(projectDir).isFile() ? process.cwd() : projectDir;
   const outputPath = path.join(outputDir, outputFileName);
   fs.writeFileSync(outputPath, outputContent);
 
@@ -645,6 +648,20 @@ export function getAllSourceFiles(dir, acc = [], visited = new Set()) {
 // CLI Execution
 if (process.argv[1] && process.argv[1].endsWith('compact-context.js')) {
   const args = process.argv.slice(2);
+
+  // Validate flags
+  const knownFlags = ['--format', '--xml', '--json', '--md', '--top', '--budget', '--no-callers'];
+  for (const arg of args) {
+    if (arg.startsWith('--')) {
+      const flagName = arg.split('=')[0];
+      if (!knownFlags.includes(flagName)) {
+        console.error(`${c.red}Error: Unknown flag "${arg}".${c.reset}`);
+        console.error(`Allowed flags: ${knownFlags.join(', ')}`);
+        process.exit(1);
+      }
+    }
+  }
+
   const formatArg = args.find(a => a.startsWith('--format='));
   const format = formatArg ? formatArg.split('=')[1] : args.includes('--xml') ? 'xml' : args.includes('--json') ? 'json' : 'md';
   const topArg = args.find(a => a.startsWith('--top='));
@@ -653,6 +670,11 @@ if (process.argv[1] && process.argv[1].endsWith('compact-context.js')) {
   const budget = budgetArg ? budgetArg.split('=')[1] : null;
   const noCallers = args.includes('--no-callers');
 
-  const targetDir = args.find(a => !a.startsWith('--')) || process.cwd();
+  const rawTarget = args.find(a => !a.startsWith('--'));
+  if (rawTarget && !fs.existsSync(rawTarget)) {
+    console.error(`${c.red}Error: File or directory not found: "${rawTarget}".${c.reset}`);
+    process.exit(1);
+  }
+  const targetDir = rawTarget || process.cwd();
   runContextCompactor(targetDir, { format, top, budget, callers: !noCallers });
 }

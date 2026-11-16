@@ -228,21 +228,18 @@ export function runTestLoop(projectDir = process.cwd(), customCmd = null) {
         }
         resolve({ success: true, code: 0 });
       } else {
-        const failures = parseTestFailures(fullOutput);
-
-        if (failures.length === 0) {
-          const isNoRunner = /Missing script|no test specified|command not found|cannot find|not recognized/i.test(fullOutput);
-          if (isNoRunner) {
-            console.error(`\n${c.red}${c.bold}✖ NO TEST RUNNER CONFIGURED:${c.reset} No test script found or runner failed to launch.`);
-            console.error(`Configure "scripts.test" in package.json or run with custom command: apex test-loop "<cmd>"\n`);
-            resolve({ success: false, code, failures: [], fixPromptFile: null });
-            return;
-          }
+        const isNoRunner = /Missing script|no test specified|ENOENT.*package\.json|command not found|cannot find|not recognized/i.test(fullOutput);
+        if (isNoRunner) {
+          console.error(`\n${c.red}${c.bold}✖ NO TEST RUNNER CONFIGURED:${c.reset} No test script found or runner failed to launch.`);
+          console.error(`Configure "scripts.test" in package.json or run with custom command: apex test-loop "<cmd>"\n`);
+          resolve({ success: false, code, failures: [], fixPromptFile: null });
+          return;
         }
 
         console.log(`\n${c.red}${c.bold}✖ TESTS FAILED (Exit Code: ${code})${c.reset}`);
         console.log(`${c.yellow}Synthesizing failure traces into autonomous agent fix prompt...${c.reset}`);
 
+        const failures = parseTestFailures(fullOutput);
         const fixPromptFile = generateFixPrompt(projectDir, failures, fullOutput);
 
         console.log(`  ${c.green}✓${c.reset} Generated AI Fix Prompt: ${c.cyan}${fixPromptFile}${c.reset}`);

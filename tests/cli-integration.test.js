@@ -83,4 +83,34 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     const runnerScript = path.join(ROOT_DIR, 'scripts', 'run-tests.js');
     assert.ok(fs.existsSync(runnerScript), 'run-tests.js must exist');
   });
+
+  test('should reject unknown CLI commands with exit code 1', () => {
+    assert.throws(() => {
+      execSync(`node "${APEX_BIN}" foobar`, { stdio: 'pipe', cwd: ROOT_DIR });
+    }, /Command failed/);
+  });
+
+  test('should reject unknown sandbox actions with exit code 1', () => {
+    assert.throws(() => {
+      execSync(`node "${APEX_BIN}" sandbox bogus`, { stdio: 'pipe', cwd: ROOT_DIR });
+    }, /Command failed/);
+  });
+
+  test('should reject memory record without text with exit code 1', () => {
+    assert.throws(() => {
+      execSync(`node "${APEX_BIN}" memory record decision`, { stdio: 'pipe', cwd: ROOT_DIR });
+    }, /Command failed/);
+  });
+
+  test('should reject compact on non-existent file with exit code 1', () => {
+    assert.throws(() => {
+      execSync(`node "${APEX_BIN}" compact nope.js`, { stdio: 'pipe', cwd: ROOT_DIR });
+    }, /Command failed/);
+  });
+
+  test('should reject compact with unknown flag with exit code 1', () => {
+    assert.throws(() => {
+      execSync(`node "${APEX_BIN}" compact --bogusflag`, { stdio: 'pipe', cwd: ROOT_DIR });
+    }, /Command failed/);
+  });
 });

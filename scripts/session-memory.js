@@ -60,6 +60,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
   switch (subCommand) {
     case 'record':
     case 'add': {
+      const validCategories = ['decision', 'decisions', 'rule', 'rules', 'architecture', 'bug', 'bugs'];
       let category = 'decision';
       let entry = '';
 
@@ -80,11 +81,16 @@ export function handleMemory(args = [], cwd = process.cwd()) {
           category = args[1].toLowerCase();
           entry = args.slice(2).join(' ').trim();
         } else if (args.length === 2 && !args[1].startsWith('-')) {
-          entry = args[1].trim();
+          if (validCategories.includes(args[1].toLowerCase())) {
+            console.error(`\n${c.red}Error: Entry text is required for category "${args[1]}".${c.reset}`);
+            console.error(`Usage: npx apex-agents memory record <decision|rule|bug> "<text>"\n`);
+            process.exit(1);
+          } else {
+            entry = args[1].trim();
+          }
         }
       }
 
-      const validCategories = ['decision', 'decisions', 'rule', 'rules', 'architecture', 'bug', 'bugs'];
       if (!validCategories.includes(category)) {
         console.error(`\n${c.red}Error: Invalid category "${category}".${c.reset}`);
         console.error(`Allowed categories: ${c.cyan}decision${c.reset}, ${c.cyan}rule${c.reset}, ${c.cyan}bug${c.reset}`);

@@ -657,6 +657,13 @@ switch (command) {
     break;
   case 'help':
   default:
-    printHelp();
+    if (!command) {
+      printHelp();
+      process.exit(0);
+    } else {
+      console.error(`\n${c.red}Error: Unknown command "${command}".${c.reset}`);
+      console.error(`Run "${c.cyan}apex --help${c.reset}" to view all available commands.\n`);
+      process.exit(1);
+    }
     break;
 }
