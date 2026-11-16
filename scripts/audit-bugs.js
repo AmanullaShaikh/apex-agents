@@ -81,11 +81,16 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
     traverse(ast, {
       ImportDeclaration(p) {
         const src = p.node.source?.value?.toLowerCase() || '';
+        // Skip Node.js native runtime modules that have nothing to do with database queries
+        if (src === 'child_process' || src === 'node:child_process' || src === 'fs' || src === 'node:fs' || src === 'path' || src === 'node:path') {
+          return;
+        }
         const isDbSource = /db|sql|database|pg|mysql|sqlite|orm|prisma|knex|barrel|\.\//i.test(src);
         for (const spec of p.node.specifiers) {
           if (spec.type === 'ImportSpecifier') {
             const imported = spec.imported.name || spec.imported.value;
-            if (/query|raw|exec|sql/i.test(imported) || queryFnNames.has(imported)) {
+            if (['execSync', 'execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(imported)) continue;
+            if (queryFnNames.has(imported) || /^(query|raw|execute|runQuery|execSql|rawQuery)$/i.test(imported) || (isDbSource && /query|raw|exec|sql/i.test(imported))) {
               queryFnNames.add(spec.local.name);
             }
           } else if (spec.type === 'ImportNamespaceSpecifier' || spec.type === 'ImportDefaultSpecifier') {
@@ -132,6 +137,14 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
 
       // 1. Raw SQL Injection Detection
       CallExpression(p) {
+        // Skip native shell process execution calls
+        if (p.node.callee.type === 'Identifier' && ['execSync', 'execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.name)) {
+          return;
+        }
+        if (p.node.callee.type === 'MemberExpression' && ['execSync', 'execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name)) {
+          return;
+        }
+
         let isSqlCall = false;
         let sqlArg = null;
 
