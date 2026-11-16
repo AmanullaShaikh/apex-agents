@@ -74,14 +74,68 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
     return issues; // Skip unparseable files
   }
 
+  const queryFnNames = new Set(['query', 'raw', '$queryRawUnsafe', 'execute', 'exec', 'update', 'runQuery', 'execSql', 'executeSql', 'rawQuery', 'run']);
+  const dbClientIdentifiers = new Set(['db', 'client', 'sql', 'prisma', 'knex', 'sequelize', 'orm']);
+
   try {
     traverse(ast, {
+      ImportDeclaration(p) {
+        const src = p.node.source?.value?.toLowerCase() || '';
+        const isDbSource = /db|sql|database|pg|mysql|sqlite|orm|prisma|knex|barrel|\.\//i.test(src);
+        for (const spec of p.node.specifiers) {
+          if (spec.type === 'ImportSpecifier') {
+            const imported = spec.imported.name || spec.imported.value;
+            if (/query|raw|exec|sql/i.test(imported) || queryFnNames.has(imported)) {
+              queryFnNames.add(spec.local.name);
+            }
+          } else if (spec.type === 'ImportNamespaceSpecifier' || spec.type === 'ImportDefaultSpecifier') {
+            if (isDbSource || /db|orm|client|sql/i.test(spec.local.name)) {
+              dbClientIdentifiers.add(spec.local.name);
+            }
+          }
+        }
+      },
+
+      VariableDeclarator(p) {
+        if (p.node.id?.type === 'Identifier') {
+          const init = p.node.init;
+          if (init && init.type === 'NewExpression' && init.callee?.name === 'Proxy') {
+            dbClientIdentifiers.add(p.node.id.name);
+          }
+        }
+      },
+
+      TaggedTemplateExpression(p) {
+        let isSqlTag = false;
+        if (p.node.tag.type === 'MemberExpression') {
+          const prop = p.node.tag.property.name || p.node.tag.property.value;
+          const obj = p.node.tag.object?.name;
+          if (queryFnNames.has(prop) || dbClientIdentifiers.has(obj) || /query|raw|exec|sql/i.test(prop)) {
+            isSqlTag = true;
+          }
+        } else if (p.node.tag.type === 'Identifier') {
+          if (queryFnNames.has(p.node.tag.name) || /query|raw|exec|sql/i.test(p.node.tag.name)) {
+            isSqlTag = true;
+          }
+        }
+
+        if (isSqlTag && p.node.quasi?.expressions?.length > 0) {
+          issues.push({
+            file: filePath,
+            line: p.node.loc?.start.line || 1,
+            severity: 'CRITICAL',
+            category: 'SQL_INJECTION',
+            message: 'Raw SQL concatenation or template interpolation detected in database query call. Use parameterized queries.'
+          });
+        }
+      },
+
       // 1. Raw SQL Injection Detection
       CallExpression(p) {
         let isSqlCall = false;
         let sqlArg = null;
 
-        // 1. MemberExpression: db.query(...) OR db['query'](...) OR db[String('query')](...)
+        // 1. MemberExpression: db.query(...) OR db['query'](...) OR db[String('query')](...) OR orm.runQuery(...)
         if (p.node.callee.type === 'MemberExpression') {
           let propName = null;
           if (!p.node.callee.computed && p.node.callee.property.type === 'Identifier') {
@@ -96,30 +150,40 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               }
             }
           }
-          if (['query', 'raw', '$queryRawUnsafe', 'execute', 'exec', 'update'].includes(propName)) {
+          const objName = p.node.callee.object?.name;
+          if (
+            queryFnNames.has(propName) ||
+            /^(query|raw|\$queryRawUnsafe|execute|exec|update|runQuery|rawQuery|execSql|run)$/i.test(propName) ||
+            (dbClientIdentifiers.has(objName) && /query|raw|exec|run/i.test(propName))
+          ) {
             isSqlCall = true;
             sqlArg = p.node.arguments[0];
           }
         }
 
-        // 2. Method Destructuring: const { query } = db; query(sql);
+        // 2. Direct Identifier: query(...), runQuery(...)
         if (!isSqlCall && p.node.callee.type === 'Identifier') {
           const fnName = p.node.callee.name;
-          if (['query', 'raw', '$queryRawUnsafe', 'execute', 'exec'].includes(fnName)) {
-            const binding = p.scope.getBinding(fnName);
-            if (binding) {
-              if (binding.path.isVariableDeclarator() && binding.path.node.id.type === 'ObjectPattern') {
-                isSqlCall = true;
-                sqlArg = p.node.arguments[0];
-              } else if (binding.kind === 'module') {
-                isSqlCall = true;
-                sqlArg = p.node.arguments[0];
-              }
+          if (queryFnNames.has(fnName) || /^(query|raw|\$queryRawUnsafe|execute|exec|runQuery|execSql|rawQuery)$/i.test(fnName)) {
+            isSqlCall = true;
+            sqlArg = p.node.arguments[0];
+          }
+        }
+
+        // 3. Dynamic Reflection via Reflect.get: Reflect.get(db, 'query')(...)
+        if (!isSqlCall && p.node.callee.type === 'CallExpression') {
+          const inner = p.node.callee;
+          if (inner.callee?.type === 'MemberExpression' && inner.callee.object?.name === 'Reflect' && inner.callee.property?.name === 'get') {
+            const propArg = inner.arguments[1];
+            const propVal = propArg?.value || propArg?.name;
+            if (queryFnNames.has(propVal) || /query|raw|exec|run/i.test(propVal)) {
+              isSqlCall = true;
+              sqlArg = p.node.arguments[0];
             }
           }
         }
 
-        // 3. Reflection: Reflect.apply(db.query, db, [sql])
+        // 4. Reflection: Reflect.apply(db.query, db, [sql])
         if (!isSqlCall &&
             p.node.callee.type === 'MemberExpression' &&
             p.node.callee.object?.name === 'Reflect' &&
@@ -128,7 +192,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           const targetArgs = p.node.arguments[2];
           if (targetFn && (targetFn.type === 'MemberExpression' || targetFn.type === 'Identifier')) {
             const pName = targetFn.property?.name || targetFn.property?.value || targetFn.name;
-            if (['query', 'raw', 'execute', 'exec'].includes(pName)) {
+            if (queryFnNames.has(pName) || /query|raw|exec|run/i.test(pName)) {
               if (targetArgs && targetArgs.type === 'ArrayExpression' && targetArgs.elements.length > 0) {
                 isSqlCall = true;
                 sqlArg = targetArgs.elements[0];
@@ -137,12 +201,12 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           }
         }
 
-        // 4. Currying / Higher-Order runner: runner(db.query, sql)
+        // 5. Currying / Higher-Order runner: runner(db.query, sql)
         if (!isSqlCall && p.node.arguments.length >= 2) {
           const firstParam = p.node.arguments[0];
-          if (firstParam.type === 'MemberExpression') {
-            const prop = firstParam.property?.name || firstParam.property?.value;
-            if (['query', 'raw', 'execute', 'exec'].includes(prop)) {
+          if (firstParam.type === 'MemberExpression' || firstParam.type === 'Identifier') {
+            const prop = firstParam.property?.name || firstParam.property?.value || firstParam.name;
+            if (queryFnNames.has(prop) || /query|raw|exec|run/i.test(prop)) {
               isSqlCall = true;
               sqlArg = p.node.arguments[1];
             }
@@ -161,18 +225,40 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               return true;
             }
 
-            // 2. Direct template literal with interpolation (${...})
-            if (node.type === 'TemplateLiteral' && node.expressions.length > 0) {
+            // 2. Direct template literal or tagged template with interpolation (${...})
+            if ((node.type === 'TemplateLiteral' || node.type === 'TaggedTemplateExpression') && (node.expressions?.length > 0 || node.quasi?.expressions?.length > 0)) {
               return true;
             }
 
-            // 3. Identifier: recursively resolve aliases, assignments, and bindings
+            // 3. Identifier: recursively resolve aliases, assignments, bindings, and Promise parameters
             if (node.type === 'Identifier') {
               if (visited.has(node.name)) return false;
               visited.add(node.name);
 
               const binding = scope?.getBinding(node.name);
               if (binding) {
+                // Parameter in a Promise .then(...) callback
+                if (binding.kind === 'param') {
+                  const parentFn = binding.path.parentPath;
+                  if (parentFn && parentFn.parentPath?.isCallExpression()) {
+                    const call = parentFn.parentPath;
+                    if (call.node.callee?.type === 'MemberExpression' && call.node.callee.property?.name === 'then') {
+                      const obj = call.node.callee.object;
+                      if (obj?.type === 'CallExpression') {
+                        if (obj.callee?.type === 'MemberExpression' && obj.callee.object?.name === 'Promise' && obj.callee.property?.name === 'resolve') {
+                          if (isVulnerableSqlExpression(obj.arguments[0], scope, visited)) {
+                            return true;
+                          }
+                        } else {
+                          for (const a of obj.arguments) {
+                            if (isVulnerableSqlExpression(a, scope, visited)) return true;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
                 // A. Check declaration initialization: const x = init;
                 if (binding.path?.node?.init) {
                   if (isVulnerableSqlExpression(binding.path.node.init, binding.scope, visited)) {

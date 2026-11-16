@@ -100,8 +100,10 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
   const chkFolder = path.join(checkpointsDir, id);
   const filesFolder = path.join(chkFolder, 'files');
   const envFolder = path.join(chkFolder, 'env');
+  const hooksFolder = path.join(chkFolder, 'git_hooks');
   fs.mkdirSync(filesFolder, { recursive: true });
   fs.mkdirSync(envFolder, { recursive: true });
+  fs.mkdirSync(hooksFolder, { recursive: true });
 
   let gitCommit = 'non-git';
   let branch = 'unknown';
@@ -110,6 +112,7 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
   const untrackedFiles = [];
   const capturedFiles = [];
   const envFiles = [];
+  const gitHookFiles = [];
 
   // Snapshot all .env and gitignored local environment files
   try {
@@ -120,6 +123,22 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
         const destEnv = path.join(envFolder, entry.name);
         fs.copyFileSync(fullEnv, destEnv);
         envFiles.push(entry.name);
+      }
+    }
+  } catch {}
+
+  // Snapshot all .git/hooks to prevent rogue agent hook poisoning
+  try {
+    const gitHooksDir = path.join(projectDir, '.git', 'hooks');
+    if (fs.existsSync(gitHooksDir)) {
+      const hookEntries = fs.readdirSync(gitHooksDir, { withFileTypes: true });
+      for (const entry of hookEntries) {
+        if (entry.isFile()) {
+          const src = path.join(gitHooksDir, entry.name);
+          const dest = path.join(hooksFolder, entry.name);
+          fs.copyFileSync(src, dest);
+          gitHookFiles.push(entry.name);
+        }
       }
     }
   } catch {}
@@ -185,7 +204,8 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
     modifiedFiles,
     untrackedFiles,
     capturedFiles,
-    envFiles
+    envFiles,
+    gitHookFiles
   };
 
   fs.writeFileSync(path.join(chkFolder, 'meta.json'), JSON.stringify(meta, null, 2));
@@ -343,6 +363,34 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
         const envDest = path.join(projectDir, item);
         fs.copyFileSync(envSrc, envDest);
         restoredCount++;
+      }
+    } catch {}
+  }
+
+  // 6. Restore snapshotted .git/hooks and wipe poisoned rogue hooks
+  const hooksFolder = path.join(chkFolder, 'git_hooks');
+  const gitHooksDir = path.join(projectDir, '.git', 'hooks');
+  if (fs.existsSync(gitHooksDir)) {
+    try {
+      const targetHooks = new Set(target.gitHookFiles || []);
+      const currentHooks = fs.readdirSync(gitHooksDir, { withFileTypes: true });
+
+      // Delete rogue hooks created after checkpoint
+      for (const ch of currentHooks) {
+        if (ch.isFile() && !targetHooks.has(ch.name)) {
+          fs.rmSync(path.join(gitHooksDir, ch.name), { force: true });
+        }
+      }
+
+      // Restore original hooks from vault
+      if (fs.existsSync(hooksFolder)) {
+        const vaultHooks = fs.readdirSync(hooksFolder, { withFileTypes: true });
+        for (const vh of vaultHooks) {
+          if (vh.isFile()) {
+            fs.copyFileSync(path.join(hooksFolder, vh.name), path.join(gitHooksDir, vh.name));
+            restoredCount++;
+          }
+        }
       }
     } catch {}
   }

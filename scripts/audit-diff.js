@@ -15,6 +15,8 @@ const c = {
   gray: '\x1b[90m'
 };
 
+const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]|feff|00ad|2060|180e)/gi;
+
 const SECRET_PATTERNS = [
   { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
   { name: 'OpenAI API Key', regex: /sk-proj-[0-9a-zA-Z-_]{48,}/ },
@@ -33,7 +35,7 @@ const SLOP_PATTERNS = [
   { name: 'Generic Lazy Ellipsis', regex: /^\s*\.{3}\s*$/m },
   { name: 'Unimplemented Error Stub', regex: /throw new Error\(["'](Not implemented|TODO|stub)["']\)/i },
   { name: 'Empty Catch Block', regex: /catch\s*\([^)]*\)\s*\{\s*\}/ },
-  { name: 'Sleep Timer Bypass', regex: /(setTimeout|sleep)\s*\(\s*[0-9]{4,}\s*\)/ }
+  { name: 'Sleep Timer Bypass', regex: /(setTimeout|sleep)\s*\(\s*[0-9]+\s*\)/ }
 ];
 
 const DEBUG_PATTERNS = [
@@ -43,19 +45,22 @@ const DEBUG_PATTERNS = [
 ];
 
 const TEST_TAMPERING_PATTERNS = [
-  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)\s*(\.|\b)\s*(skip)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*['"`]skip['"`]\s*\]/ },
+  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)\s*(\.|\b)\s*(skip)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]/ },
   { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(todo)\s*\(/ },
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
   { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\.exit\s*\(\s*[0-9]*\s*\)/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
+  { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
+  { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
+  { name: 'Unhandled Asynchronous Timer in Test Execution', regex: /\b(setTimeout|setImmediate)\s*\(/ },
   { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(false|0|null|undefined)\s*\)\s*\{/ },
   { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^)]+\)\.toBe\s*\(\s*['"][^'"]+['"]\s*\)|\bexpect\s*\(\s*\[[^\]]*\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
 
 export function foldStringLiterals(text) {
-  let folded = text;
+  let folded = text.replace(ZERO_WIDTH_REGEX, '');
 
   // 1. Evaluate Buffer.from(hex, 'hex')
   folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
@@ -66,10 +71,16 @@ export function foldStringLiterals(text) {
     }
   });
 
-  // 2. Evaluate String.fromCharCode(...)
-  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,]+)\s*\)/g, (m, nums) => {
+  // 2. Evaluate String.fromCharCode(...) including bitwise and arithmetic expressions
+  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, nums) => {
     try {
-      const chars = nums.split(',').map(n => String.fromCharCode(parseInt(n.trim(), 10))).join('');
+      const chars = nums.split(',').map(expr => {
+        const trimmed = expr.trim();
+        if (/^[0-9\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
+          return String.fromCharCode(Function(`'use strict'; return (${trimmed});`)());
+        }
+        return '';
+      }).join('');
       return "'" + chars + "'";
     } catch {
       return m;
@@ -95,7 +106,20 @@ export function foldStringLiterals(text) {
   // 7. Fold template literals: `${'a'}${'b'}` -> 'ab'
   folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
 
-  // 8. Fold string concatenation in loop for arbitrary multi-part additions
+  // 8. Fold .replace() and .replaceAll() string transformations
+  folded = folded.replace(/(['"])([^'"]+)\1\.(replace|replaceAll)\s*\(\s*(['"])([^'"]+)\4\s*,\s*(['"])([^'"]*)\6\s*\)/g, (m, q1, str, method, q2, search, q3, repl) => {
+    try {
+      if (method === 'replaceAll') {
+        return q1 + str.replaceAll(search, repl) + q1;
+      } else {
+        return q1 + str.replace(search, repl) + q1;
+      }
+    } catch {
+      return m;
+    }
+  });
+
+  // 9. Fold string concatenation in loop for arbitrary multi-part additions
   let prev;
   let iterations = 0;
   do {
@@ -108,9 +132,10 @@ export function foldStringLiterals(text) {
 }
 
 export function inspectBase64Payloads(text) {
+  const normalized = text.replace(ZERO_WIDTH_REGEX, '');
   const b64Regex = /\b[A-Za-z0-9+/=]{16,}\b/g;
   let m;
-  while ((m = b64Regex.exec(text)) !== null) {
+  while ((m = b64Regex.exec(normalized)) !== null) {
     try {
       const decoded = Buffer.from(m[0], 'base64').toString('utf-8');
       if (/\bAKIA[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
@@ -203,23 +228,24 @@ export function auditDiff(rawDiff) {
 
       // Check secrets
       if (!isSelfAuditTest) {
-        const foldedText = foldStringLiterals(addedText);
+        const normalizedAdded = addedText.replace(ZERO_WIDTH_REGEX, '');
+        const foldedText = foldStringLiterals(normalizedAdded);
 
         for (const sp of SECRET_PATTERNS) {
-          if (sp.regex.test(addedText) || sp.regex.test(foldedText)) {
+          if (sp.regex.test(normalizedAdded) || sp.regex.test(foldedText)) {
             issues.push({
               severity: 'CRITICAL',
               category: 'SECRET_LEAK',
               file: currentFile,
               description: `Exposed ${sp.name}`,
-              snippet: addedText.trim().slice(0, 80)
+              snippet: normalizedAdded.trim().slice(0, 80)
             });
             break;
           }
         }
 
         // Base64 payload deep inspection
-        const b64Secret = inspectBase64Payloads(addedText) || inspectBase64Payloads(foldedText);
+        const b64Secret = inspectBase64Payloads(normalizedAdded) || inspectBase64Payloads(foldedText);
         if (b64Secret) {
           issues.push({
             severity: 'CRITICAL',
@@ -265,8 +291,9 @@ export function auditDiff(rawDiff) {
       // Check test tampering if modifying tests
       const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
+        const foldedText = foldStringLiterals(addedText);
         for (const ttp of TEST_TAMPERING_PATTERNS) {
-          if (ttp.regex.test(addedText)) {
+          if (ttp.regex.test(addedText) || ttp.regex.test(foldedText)) {
             issues.push({
               severity: 'CRITICAL',
               category: 'TEST_TAMPERING',

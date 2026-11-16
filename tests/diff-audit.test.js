@@ -239,4 +239,100 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(multiB64Diff).stats.secrets, 1);
   });
+
+  test('should detect zero-width Unicode secrets, bitwise XOR secrets, replaceAll secrets, and async test sabotage', () => {
+    // 1. Zero-width space injection
+    const zwDiff = [
+      'diff --git a/src/zw.ts b/src/zw.ts',
+      '--- a/src/zw.ts',
+      '+++ b/src/zw.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const key = "AK\\u200BIA1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(zwDiff).stats.secrets, 1);
+
+    // 2. BOM injection
+    const bomDiff = [
+      'diff --git a/src/bom.ts b/src/bom.ts',
+      '--- a/src/bom.ts',
+      '+++ b/src/bom.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const key = "AK\\uFEFFIA1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(bomDiff).stats.secrets, 1);
+
+    // 3. Bitwise XOR fromCharCode secret
+    const xorDiff = [
+      'diff --git a/src/xor.ts b/src/xor.ts',
+      '--- a/src/xor.ts',
+      '+++ b/src/xor.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const key = String.fromCharCode(65 ^ 0, 75 ^ 0, 73 ^ 0, 65 ^ 0) + "1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(xorDiff).stats.secrets, 1);
+
+    // 4. Dynamic replaceAll secret
+    const replDiff = [
+      'diff --git a/src/repl.ts b/src/repl.ts',
+      '--- a/src/repl.ts',
+      '+++ b/src/repl.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const key = "XKIX1234567890ABCDEF".replaceAll("X", "A");'
+    ].join('\n');
+    assert.strictEqual(auditDiff(replDiff).stats.secrets, 1);
+
+    // 5. Unhandled event loop timer in test
+    const timerDiff = [
+      'diff --git a/tests/eventloop.test.ts b/tests/eventloop.test.ts',
+      '--- a/tests/eventloop.test.ts',
+      '+++ b/tests/eventloop.test.ts',
+      '@@ -1,3 +1,5 @@',
+      '+it("unhandled event loop evasion", () => {',
+      '+  setTimeout(() => {',
+      '+    expect(false).toBe(true);',
+      '+  }, 100);',
+      '+});'
+    ].join('\n');
+    assert.strictEqual(auditDiff(timerDiff).stats.tampering, 1);
+
+    // 6. Dynamic string skip
+    const concatSkipDiff = [
+      'diff --git a/tests/concatskip.test.ts b/tests/concatskip.test.ts',
+      '--- a/tests/concatskip.test.ts',
+      '+++ b/tests/concatskip.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+it["sk" + "ip"]("auth test", () => { expect(false).toBe(true); });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(concatSkipDiff).stats.tampering, 1);
+
+    // 7. Constructor skip
+    const stringSkipDiff = [
+      'diff --git a/tests/strskip.test.ts b/tests/strskip.test.ts',
+      '--- a/tests/strskip.test.ts',
+      '+++ b/tests/strskip.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+it[String("skip")]("auth test", () => { expect(false).toBe(true); });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(stringSkipDiff).stats.tampering, 1);
+
+    // 8. Global runner monkey-patching
+    const patchDiff = [
+      'diff --git a/tests/patch.test.ts b/tests/patch.test.ts',
+      '--- a/tests/patch.test.ts',
+      '+++ b/tests/patch.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+globalThis.it = (name, fn) => orig(name, () => {});'
+    ].join('\n');
+    assert.strictEqual(auditDiff(patchDiff).stats.tampering, 1);
+
+    // 9. Matcher hijacking
+    const matcherDiff = [
+      'diff --git a/tests/matcher.test.ts b/tests/matcher.test.ts',
+      '--- a/tests/matcher.test.ts',
+      '+++ b/tests/matcher.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+expect.extend({ toBeTrue: () => ({ pass: true, message: () => "" }) });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(matcherDiff).stats.tampering, 1);
+  });
 });

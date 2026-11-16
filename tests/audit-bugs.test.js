@@ -162,4 +162,45 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     assert.strictEqual(sqli.length, 6);
     assert.strictEqual(leaks.length, 2);
   });
+
+  test('should detect tagged templates, renamed re-exports, barrel imports, Reflect.get, Promise chains, and Proxy SQLi', () => {
+    const advancedCode = `
+      import { query as runQuery } from './db';
+      import * as orm from './barrel';
+
+      export function testTaggedTemplate(id) {
+        db.query\`SELECT * FROM users WHERE id = \${id}\`;
+      }
+
+      export function testCustomTag(id) {
+        const sql = raw\`SELECT * FROM users WHERE id = \${id}\`;
+        db.query(sql);
+      }
+
+      export function testRenamedImport(id) {
+        runQuery("SELECT * FROM users WHERE id = " + id);
+      }
+
+      export function testBarrelImport(id) {
+        orm.runQuery("SELECT * FROM users WHERE id = " + id);
+      }
+
+      export function testReflectGet(id) {
+        Reflect.get(db, 'query')("SELECT * FROM users WHERE id = " + id);
+      }
+
+      export function testPromiseChain(id) {
+        Promise.resolve("SELECT * FROM users WHERE id = " + id).then(data => db.query(data));
+      }
+
+      export function testProxyTrap(id) {
+        const client = new Proxy(db, { get(t, p) { return (q) => t.query(q); } });
+        client.run("SELECT * FROM users WHERE id = " + id);
+      }
+    `;
+
+    const issues = auditCodeBugs(advancedCode, 'src/api/advanced.ts');
+    const sqli = issues.filter(i => i.category === 'SQL_INJECTION');
+    assert.strictEqual(sqli.length, 8);
+  });
 });

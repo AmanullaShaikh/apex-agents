@@ -18,8 +18,10 @@ const SECRET_PATTERNS = [
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
 
+const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]|feff|00ad|2060|180e)/gi;
+
 export function foldStringLiterals(text) {
-  let folded = text;
+  let folded = text.replace(ZERO_WIDTH_REGEX, '');
 
   // 1. Evaluate Buffer.from(hex, 'hex')
   folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
@@ -30,10 +32,16 @@ export function foldStringLiterals(text) {
     }
   });
 
-  // 2. Evaluate String.fromCharCode(...)
-  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,]+)\s*\)/g, (m, nums) => {
+  // 2. Evaluate String.fromCharCode(...) including bitwise and arithmetic expressions
+  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, nums) => {
     try {
-      const chars = nums.split(',').map(n => String.fromCharCode(parseInt(n.trim(), 10))).join('');
+      const chars = nums.split(',').map(expr => {
+        const trimmed = expr.trim();
+        if (/^[0-9\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
+          return String.fromCharCode(Function(`'use strict'; return (${trimmed});`)());
+        }
+        return '';
+      }).join('');
       return "'" + chars + "'";
     } catch {
       return m;
@@ -59,7 +67,20 @@ export function foldStringLiterals(text) {
   // 7. Fold template literals: `${'a'}${'b'}` -> 'ab'
   folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
 
-  // 8. Fold string concatenation in loop for arbitrary multi-part additions
+  // 8. Fold .replace() and .replaceAll() string transformations
+  folded = folded.replace(/(['"])([^'"]+)\1\.(replace|replaceAll)\s*\(\s*(['"])([^'"]+)\4\s*,\s*(['"])([^'"]*)\6\s*\)/g, (m, q1, str, method, q2, search, q3, repl) => {
+    try {
+      if (method === 'replaceAll') {
+        return q1 + str.replaceAll(search, repl) + q1;
+      } else {
+        return q1 + str.replace(search, repl) + q1;
+      }
+    } catch {
+      return m;
+    }
+  });
+
+  // 9. Fold string concatenation in loop for arbitrary multi-part additions
   let prev;
   let iterations = 0;
   do {
@@ -72,9 +93,10 @@ export function foldStringLiterals(text) {
 }
 
 export function inspectBase64Payloads(text) {
+  const normalized = text.replace(ZERO_WIDTH_REGEX, '');
   const b64Regex = /\b[A-Za-z0-9+/=]{16,}\b/g;
   let m;
-  while ((m = b64Regex.exec(text)) !== null) {
+  while ((m = b64Regex.exec(normalized)) !== null) {
     try {
       const decoded = Buffer.from(m[0], 'base64').toString('utf-8');
       if (/\bAKIA[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
@@ -125,7 +147,8 @@ function scanDirectory(dir, findings = [], visited = new Set()) {
 
       // Check text files
       try {
-        const content = fs.readFileSync(fullPath, 'utf-8');
+        const rawContent = fs.readFileSync(fullPath, 'utf-8');
+        const content = rawContent.replace(ZERO_WIDTH_REGEX, '');
         const folded = foldStringLiterals(content);
 
         for (const { name, regex } of SECRET_PATTERNS) {

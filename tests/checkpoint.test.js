@@ -126,4 +126,34 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should snapshot git hooks and wipe rogue poisoned hooks on rollback', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-hook-'));
+    try {
+      const hooksDir = path.join(tmpDir, '.git', 'hooks');
+      fs.mkdirSync(hooksDir, { recursive: true });
+
+      // Initial legitimate hook
+      const goodHook = path.join(hooksDir, 'prepare-commit-msg');
+      fs.writeFileSync(goodHook, '#!/bin/sh\n# good hook');
+
+      const chk = createCheckpoint('hook-save', tmpDir);
+
+      // Rogue agent injects malicious pre-commit hook and corrupts prepare-commit-msg
+      const evilHook = path.join(hooksDir, 'pre-commit');
+      fs.writeFileSync(evilHook, '#!/bin/sh\nexit 1');
+      fs.writeFileSync(goodHook, '#!/bin/sh\n# poisoned');
+
+      assert.strictEqual(fs.existsSync(evilHook), true);
+
+      // Rollback
+      rollbackToCheckpoint(chk.id, tmpDir);
+
+      // Verify poisoned hook was wiped and good hook was restored
+      assert.strictEqual(fs.existsSync(evilHook), false);
+      assert.strictEqual(fs.readFileSync(goodHook, 'utf-8'), '#!/bin/sh\n# good hook');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
