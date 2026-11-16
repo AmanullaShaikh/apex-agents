@@ -88,6 +88,10 @@ Apex Agents is engineered with **100% architectural transparency**. It separates
 | **Execution** | Dispatches tasks through Claude Code, Cursor Rules, or the built-in MCP server. | Not a closed proprietary LLM; it enhances your existing AI coding harness. |
 | **Quality Gate** | Enforces zero-slop discipline, pre-commit secret leak checks, and anti-test-tampering. | Not a black-box auto-coder that pushes untested changes. |
 
+> [!IMPORTANT]
+> **Engineering Transparency & Security Boundaries**:
+> Static analysis and AST inspection operate as a **Layer-1 heuristic gate** catching variable-based SQL injection, hook memory leaks, credential leaks, and test tampering within local developer workflows. For untrusted, autonomous external agents running arbitrary shell binaries, full sandbox containment requires containerized environments (Docker / microVMs) or Git Worktree isolation (`npx apex-agents sandbox`).
+
 ---
 
 ## 🚀 Quickstart

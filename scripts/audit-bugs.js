@@ -89,38 +89,103 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         if (isSqlCall && p.node.arguments.length > 0) {
           const firstArg = p.node.arguments[0];
 
-          const checkSqlVulnerability = (node) => {
-            if (!node) return;
-            // Check for string concatenation (+)
+          // Recursive AST Scope & Data-Flow Taint Resolver
+          const isVulnerableSqlExpression = (node, scope, visited = new Set()) => {
+            if (!node) return false;
+
+            // 1. Direct binary expression string concatenation (+)
             if (node.type === 'BinaryExpression' && node.operator === '+') {
-              issues.push({
-                file: filePath,
-                line: node.loc?.start.line || 1,
-                severity: 'CRITICAL',
-                category: 'SQL_INJECTION',
-                message: 'Raw SQL string concatenation detected in database query call. Use parameterized queries.'
-              });
+              return true;
             }
-            // Check for template literals with expressions (${...})
+
+            // 2. Direct template literal with interpolation (${...})
             if (node.type === 'TemplateLiteral' && node.expressions.length > 0) {
-              issues.push({
-                file: filePath,
-                line: node.loc?.start.line || 1,
-                severity: 'CRITICAL',
-                category: 'SQL_INJECTION',
-                message: 'Raw SQL template literal interpolation detected in query. Use parameterized variables.'
-              });
+              return true;
             }
+
+            // 3. Identifier: recursively resolve aliases, assignments, and bindings
+            if (node.type === 'Identifier') {
+              if (visited.has(node.name)) return false;
+              visited.add(node.name);
+
+              const binding = scope?.getBinding(node.name);
+              if (binding) {
+                // A. Check declaration initialization: const x = init;
+                if (binding.path?.node?.init) {
+                  if (isVulnerableSqlExpression(binding.path.node.init, binding.scope, visited)) {
+                    return true;
+                  }
+                }
+
+                // B. Check mutations and reassignments (e.g., sql += "..." or sql = sql + "...")
+                if (binding.constantViolations && binding.constantViolations.length > 0) {
+                  for (const cv of binding.constantViolations) {
+                    if (cv.isAssignmentExpression()) {
+                      if (cv.node.operator === '+=' && isVulnerableSqlExpression(cv.node.right, cv.scope, visited)) {
+                        return true;
+                      }
+                      if (cv.node.operator === '=' && isVulnerableSqlExpression(cv.node.right, cv.scope, visited)) {
+                        return true;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // 4. Call expression: e.g. db.query(getQuery(userId))
+            if (node.type === 'CallExpression') {
+              // Check arguments of the call
+              for (const arg of node.arguments) {
+                if (isVulnerableSqlExpression(arg, scope, visited)) return true;
+              }
+
+              // Check function return if defined in local scope
+              if (node.callee.type === 'Identifier') {
+                if (!visited.has(node.callee.name)) {
+                  visited.add(node.callee.name);
+                  const fnBinding = scope?.getBinding(node.callee.name);
+                  if (fnBinding) {
+                    const fnPath = fnBinding.path;
+                    let fnNode = null;
+                    if (fnPath.isFunctionDeclaration()) {
+                      fnNode = fnPath.node;
+                    } else if (fnPath.isVariableDeclarator() && fnPath.node.init) {
+                      fnNode = fnPath.node.init;
+                    }
+
+                    if (fnNode && fnNode.body) {
+                      if (fnNode.body.type === 'BlockStatement') {
+                        for (const s of fnNode.body.body) {
+                          if (s.type === 'ReturnStatement' && s.argument) {
+                            if (isVulnerableSqlExpression(s.argument, fnBinding.scope, visited)) {
+                              return true;
+                            }
+                          }
+                        }
+                      } else {
+                        // Concise body arrow function
+                        if (isVulnerableSqlExpression(fnNode.body, fnBinding.scope, visited)) {
+                          return true;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            return false;
           };
 
-          checkSqlVulnerability(firstArg);
-
-          // Variable-based concatenation trace (e.g. const sql = "..." + id; db.query(sql))
-          if (firstArg.type === 'Identifier') {
-            const binding = p.scope.getBinding(firstArg.name);
-            if (binding && binding.path && binding.path.node && binding.path.node.init) {
-              checkSqlVulnerability(binding.path.node.init);
-            }
+          if (isVulnerableSqlExpression(firstArg, p.scope)) {
+            issues.push({
+              file: filePath,
+              line: p.node.loc?.start.line || 1,
+              severity: 'CRITICAL',
+              category: 'SQL_INJECTION',
+              message: 'Raw SQL concatenation or template interpolation detected in database query call. Use parameterized queries.'
+            });
           }
         }
 
@@ -129,27 +194,39 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           const hookFn = p.node.arguments[0];
           if (hookFn && (hookFn.type === 'ArrowFunctionExpression' || hookFn.type === 'FunctionExpression')) {
             let hasListenerOrTimer = false;
-            let hasCleanupReturn = false;
+            let hasValidCleanupReturn = false;
 
             if (hookFn.body.type === 'BlockStatement') {
               hookFn.body.body.forEach(stmt => {
                 const stmtCode = code.slice(stmt.start, stmt.end);
-                if (stmtCode.includes('setInterval') || stmtCode.includes('addEventListener')) {
+                if (stmtCode.includes('setInterval') || stmtCode.includes('addEventListener') || stmtCode.includes('setTimeout')) {
                   hasListenerOrTimer = true;
                 }
                 if (stmt.type === 'ReturnStatement') {
-                  hasCleanupReturn = true;
+                  // Must return a callable function or identifier, not undefined, null, or primitive
+                  if (stmt.argument) {
+                    const arg = stmt.argument;
+                    const isInvalidLiteral = arg.type === 'NullLiteral' ||
+                      (arg.type === 'Identifier' && arg.name === 'undefined') ||
+                      arg.type === 'NumericLiteral' ||
+                      arg.type === 'StringLiteral' ||
+                      arg.type === 'BooleanLiteral';
+                    
+                    if (!isInvalidLiteral) {
+                      hasValidCleanupReturn = true;
+                    }
+                  }
                 }
               });
             }
 
-            if (hasListenerOrTimer && !hasCleanupReturn) {
+            if (hasListenerOrTimer && !hasValidCleanupReturn) {
               issues.push({
                 file: filePath,
                 line: p.node.loc?.start.line || 1,
                 severity: 'HIGH',
                 category: 'MEMORY_LEAK',
-                message: 'useEffect creates a timer or event listener without returning a cleanup function.'
+                message: 'useEffect creates a timer or event listener without returning a valid cleanup function.'
               });
             }
           }

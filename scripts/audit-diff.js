@@ -47,8 +47,56 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(todo)\s*\(/ },
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
-  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*(true|false|1|0)\s*\)\s*\.\s*(toBe|toEqual)\s*\(\s*\1\s*\)|\bassert\s*\(\s*true\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*(true|false|1|0)\s*,\s*\2\s*\)/i }
+  { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
+  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)/i }
 ];
+
+export function foldStringLiterals(text) {
+  let folded = text;
+  // 1. Fold string concatenation: 'a' + 'b' -> 'ab'
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,50})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\3/g, '$1$2$4$1');
+  // 2. Fold array joins: ['a', 'b', 'c'].join('') -> 'abc'
+  folded = folded.replace(/\[\s*(['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*,\s*)+['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*\]\.join\(['"`]['"`]\)/g, m => {
+    return "'" + m.replace(/\[|\]|\.join\(['"`]['"`]\)/g, '').split(',').map(s => s.trim().replace(/^['"`]|['"`]$/g, '')).join('') + "'";
+  });
+  // 3. Fold native .concat(): 'a'.concat('b') -> 'ab'
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\.concat\((['"`])([a-zA-Z0-9_\-\/+=$]+)\3\)/g, '$1$2$4$1');
+  // 4. Fold template literal: `${'a'}${'b'}` -> 'ab'
+  folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
+  return folded;
+}
+
+export function inspectBase64Payloads(text) {
+  const b64Regex = /\b[A-Za-z0-9+/=]{16,}\b/g;
+  let m;
+  while ((m = b64Regex.exec(text)) !== null) {
+    try {
+      const decoded = Buffer.from(m[0], 'base64').toString('utf-8');
+      if (/\bAKIA[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
+        return { matched: m[0], decodedSnippet: decoded.slice(0, 30) };
+      }
+    } catch {}
+  }
+  return null;
+}
+
+export function calculateShannonEntropy(str) {
+  const len = str.length;
+  if (len === 0) return 0;
+  const freq = {};
+  for (let i = 0; i < len; i++) {
+    const char = str[i];
+    freq[char] = (freq[char] || 0) + 1;
+  }
+  let entropy = 0;
+  for (const char in freq) {
+    const p = freq[char] / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
 
 function getGitDiff(targetBranch = null, stagedOnly = false) {
   try {
@@ -116,14 +164,44 @@ export function auditDiff(rawDiff) {
 
       // Check secrets
       if (!isSelfAuditTest) {
+        const foldedText = foldStringLiterals(addedText);
+
         for (const sp of SECRET_PATTERNS) {
-          if (sp.regex.test(addedText)) {
+          if (sp.regex.test(addedText) || sp.regex.test(foldedText)) {
             issues.push({
               severity: 'CRITICAL',
               category: 'SECRET_LEAK',
               file: currentFile,
               description: `Exposed ${sp.name}`,
               snippet: addedText.trim().slice(0, 80)
+            });
+            break;
+          }
+        }
+
+        // Base64 payload deep inspection
+        const b64Secret = inspectBase64Payloads(addedText);
+        if (b64Secret) {
+          issues.push({
+            severity: 'CRITICAL',
+            category: 'SECRET_LEAK',
+            file: currentFile,
+            description: 'Exposed Base64 Encoded Credential Payload',
+            snippet: b64Secret.matched.slice(0, 40)
+          });
+        }
+
+        // Shannon entropy scan for hardcoded tokens
+        const assignMatch = /\b(?:const|let|var|[a-zA-Z0-9_]+)\s*[:=]\s*['"]([A-Za-z0-9_\-\/+=$]{30,})['"]/.exec(addedText);
+        if (assignMatch) {
+          const val = assignMatch[1];
+          if (calculateShannonEntropy(val) > 4.5 && /[A-Z]/.test(val) && /[a-z]/.test(val) && /[0-9]/.test(val)) {
+            issues.push({
+              severity: 'CRITICAL',
+              category: 'SECRET_LEAK',
+              file: currentFile,
+              description: 'High-Entropy Secret / Token Detected (Shannon Entropy > 4.5)',
+              snippet: val.slice(0, 10) + '...' + val.slice(-4)
             });
           }
         }

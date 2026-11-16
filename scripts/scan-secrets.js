@@ -18,6 +18,33 @@ const SECRET_PATTERNS = [
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
 
+export function foldStringLiterals(text) {
+  let folded = text;
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,50})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\3/g, '$1$2$4$1');
+  folded = folded.replace(/\[\s*(['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*,\s*)+['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*\]\.join\(['"`]['"`]\)/g, m => {
+    return "'" + m.replace(/\[|\]|\.join\(['"`]['"`]\)/g, '').split(',').map(s => s.trim().replace(/^['"`]|['"`]$/g, '')).join('') + "'";
+  });
+  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\.concat\((['"`])([a-zA-Z0-9_\-\/+=$]+)\3\)/g, '$1$2$4$1');
+  folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
+  return folded;
+}
+
+export function inspectBase64Payloads(text) {
+  const b64Regex = /\b[A-Za-z0-9+/=]{16,}\b/g;
+  let m;
+  while ((m = b64Regex.exec(text)) !== null) {
+    try {
+      const decoded = Buffer.from(m[0], 'base64').toString('utf-8');
+      if (/\bAKIA[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
+        return { matched: m[0], decodedSnippet: decoded.slice(0, 30) };
+      }
+    } catch {}
+  }
+  return null;
+}
+
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next']);
 
 function scanDirectory(dir, findings = []) {
@@ -31,6 +58,11 @@ function scanDirectory(dir, findings = []) {
     if (entry.isDirectory()) {
       scanDirectory(fullPath, findings);
     } else if (entry.isFile()) {
+      // Exclude self and test files from false alarm scanning
+      if (entry.name === 'scan-secrets.js' || entry.name === 'audit-diff.js' || entry.name.includes('.test.')) {
+        continue;
+      }
+
       // Check .env files directly
       if (entry.name.startsWith('.env') && entry.name !== '.env.example') {
         findings.push({ file: fullPath, pattern: 'Exposed .env File', match: entry.name });
@@ -39,13 +71,21 @@ function scanDirectory(dir, findings = []) {
       // Check text files
       try {
         const content = fs.readFileSync(fullPath, 'utf-8');
+        const folded = foldStringLiterals(content);
+
         for (const { name, regex } of SECRET_PATTERNS) {
-          const match = regex.exec(content);
+          const match = regex.exec(content) || regex.exec(folded);
           if (match) {
             const matchedText = match[0];
             const masked = matchedText.slice(0, 7) + '...' + matchedText.slice(-4);
             findings.push({ file: fullPath, pattern: name, match: masked });
+            break;
           }
+        }
+
+        const b64 = inspectBase64Payloads(content);
+        if (b64) {
+          findings.push({ file: fullPath, pattern: 'Base64 Encoded AWS Key', match: b64.matched.slice(0, 8) + '...' });
         }
       } catch {
         // Binary or unreadable files skipped safely

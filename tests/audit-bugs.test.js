@@ -78,4 +78,42 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     assert.strictEqual(issues.length, 1);
     assert.strictEqual(issues[0].category, 'SQL_INJECTION');
   });
+
+  test('should detect multi-hop alias, mutation, function return SQLi, and bogus hook returns', () => {
+    const complexCode = `
+      export function multiHopAlias(id) {
+        const queryStr = "SELECT * FROM users WHERE id = " + id;
+        const alias1 = queryStr;
+        const finalQuery = alias1;
+        db.query(finalQuery);
+      }
+
+      export function mutatedSql(id) {
+        let sql = "SELECT * FROM users";
+        sql += " WHERE id = " + id;
+        db.query(sql);
+      }
+
+      export function builderSql(id) {
+        function getQuery(param) {
+          return "SELECT * FROM items WHERE id = " + param;
+        }
+        db.query(getQuery(id));
+      }
+
+      export const BadReturnHook = () => {
+        useEffect(() => {
+          setInterval(() => {}, 1000);
+          ${'return'} null;
+        });
+      };
+    `;
+
+    const issues = auditCodeBugs(complexCode, 'src/api/complex.ts');
+    assert.strictEqual(issues.length, 4);
+    assert.strictEqual(issues[0].category, 'SQL_INJECTION');
+    assert.strictEqual(issues[1].category, 'SQL_INJECTION');
+    assert.strictEqual(issues[2].category, 'SQL_INJECTION');
+    assert.strictEqual(issues[3].category, 'MEMORY_LEAK');
+  });
 });

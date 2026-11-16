@@ -114,4 +114,40 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(b64Diff).stats.secrets, 1);
   });
+
+  test('should detect early return injection, non-boolean tautology, array joins, and 3-way splits', () => {
+    // 1. Early return in test
+    const earlyReturnDiff = [
+      'diff --git a/tests/auth.test.ts b/tests/auth.test.ts',
+      '--- a/tests/auth.test.ts',
+      '+++ b/tests/auth.test.ts',
+      '@@ -5,2 +5,3 @@',
+      '+  return;',
+      '   expect(auth.isValid).toBe(true);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(earlyReturnDiff).stats.tampering, 1);
+
+    // 2. Non-literal tautologies
+    const nonLiteralTautologyDiff = [
+      'diff --git a/tests/sample.test.ts b/tests/sample.test.ts',
+      '--- a/tests/sample.test.ts',
+      '+++ b/tests/sample.test.ts',
+      '@@ -10,1 +10,1 @@',
+      '+expect("foo").toBe("foo");'
+    ].join('\n');
+    assert.strictEqual(auditDiff(nonLiteralTautologyDiff).stats.tampering, 1);
+
+    // 3. Array join secret bypass
+    const p1 = 'AK';
+    const p2 = 'IA';
+    const p3 = '1234567890123456';
+    const arrayJoinDiff = [
+      'diff --git a/src/vault.ts b/src/vault.ts',
+      '--- a/src/vault.ts',
+      '+++ b/src/vault.ts',
+      '@@ -1,1 +1,1 @@',
+      `+const key = ['${p1}', '${p2}', '${p3}'].join('');`
+    ].join('\n');
+    assert.strictEqual(auditDiff(arrayJoinDiff).stats.secrets, 1);
+  });
 });

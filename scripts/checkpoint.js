@@ -72,7 +72,9 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
   const id = `chk_${timestamp}`;
   const chkFolder = path.join(checkpointsDir, id);
   const filesFolder = path.join(chkFolder, 'files');
+  const envFolder = path.join(chkFolder, 'env');
   fs.mkdirSync(filesFolder, { recursive: true });
+  fs.mkdirSync(envFolder, { recursive: true });
 
   let gitCommit = 'non-git';
   let branch = 'unknown';
@@ -80,6 +82,20 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
   const modifiedFiles = [];
   const untrackedFiles = [];
   const capturedFiles = [];
+  const envFiles = [];
+
+  // Snapshot all .env and gitignored local environment files
+  try {
+    const dirEntries = fs.readdirSync(projectDir, { withFileTypes: true });
+    for (const entry of dirEntries) {
+      if (entry.isFile() && entry.name.startsWith('.env')) {
+        const fullEnv = path.join(projectDir, entry.name);
+        const destEnv = path.join(envFolder, entry.name);
+        fs.copyFileSync(fullEnv, destEnv);
+        envFiles.push(entry.name);
+      }
+    }
+  } catch {}
 
   if (isGit) {
     try {
@@ -141,7 +157,8 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
     modifiedFilesCount: modifiedFiles.length,
     modifiedFiles,
     untrackedFiles,
-    capturedFiles
+    capturedFiles,
+    envFiles
   };
 
   fs.writeFileSync(path.join(chkFolder, 'meta.json'), JSON.stringify(meta, null, 2));
@@ -198,15 +215,33 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
   const filesFolder = path.join(chkFolder, 'files');
   const isGit = isGitRepository(projectDir);
 
-  // 1. If Git: revert all currently modified/corrupted tracked files back to git base commit
+  // 1. If Git: revert any rogue agent commits by resetting to target.gitCommit, or checking out target.gitCommit
   if (isGit && target.isGit !== false) {
-    try {
-      execSync('git checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
-    } catch {
-      // safe fallback
+    if (target.gitCommit && target.gitCommit !== 'non-git') {
+      try {
+        // Reset working tree and branch back to exact checkpoint commit to undo rogue agent commits
+        execSync(`git reset --hard ${target.gitCommit}`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+      } catch {
+        try {
+          execSync(`git checkout ${target.gitCommit} -- .`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+        } catch {
+          try {
+            execSync('git checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+          } catch {}
+        }
+      }
+    } else {
+      try {
+        execSync('git checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+      } catch {}
     }
 
-    // 2. Identify currently untracked files and delete any that were created AFTER this checkpoint
+    // 2. Wipe rogue untracked files and folders with git clean
+    try {
+      execSync('git clean -fd -e .agents', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+    } catch {}
+
+    // 3. Fallback check for newly untracked files not in target snapshot
     try {
       const currentStatus = execSync('git status --porcelain -uall', {
         cwd: projectDir,
@@ -249,7 +284,7 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
     }
   }
 
-  // 3. Restore files that were modified or captured at the time of the checkpoint
+  // 4. Restore files that were modified or captured at the time of the checkpoint
   let restoredCount = 0;
   if (fs.existsSync(filesFolder)) {
     const copyRecursive = (src, destBase, rel = '') => {
@@ -268,6 +303,20 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
       }
     };
     copyRecursive(filesFolder, projectDir);
+  }
+
+  // 5. Restore snapshotted .env and gitignored config vault
+  const envFolder = path.join(chkFolder, 'env');
+  if (fs.existsSync(envFolder)) {
+    try {
+      const envItems = fs.readdirSync(envFolder);
+      for (const item of envItems) {
+        const envSrc = path.join(envFolder, item);
+        const envDest = path.join(projectDir, item);
+        fs.copyFileSync(envSrc, envDest);
+        restoredCount++;
+      }
+    } catch {}
   }
 
   return { target, restoredCount };

@@ -82,4 +82,25 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should snapshot and restore gitignored .env files on rollback', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-env-'));
+    try {
+      const envPath = path.join(tmpDir, '.env');
+      fs.writeFileSync(envPath, 'PORT=3000\nSECRET_KEY=initial_secret');
+
+      const chk = createCheckpoint('env-save', tmpDir);
+
+      // Rogue agent corrupts .env
+      fs.writeFileSync(envPath, 'PORT=CORRUPTED');
+
+      // Rollback
+      rollbackToCheckpoint(chk.id, tmpDir);
+
+      // Verify .env restored
+      assert.strictEqual(fs.readFileSync(envPath, 'utf-8'), 'PORT=3000\nSECRET_KEY=initial_secret');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
