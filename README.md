@@ -10,7 +10,7 @@
 [![CI & Integrity Suite](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml)
 [![Babel AST Engine](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
 [![Context Reduction](https://img.shields.io/badge/Context%20Reduction-85%25--88.5%25-6366f1.svg?style=flat-square)](#-ast-context-compactor-apex-agents-compact)
-[![SWE-Bench Mini](https://img.shields.io/badge/SWE--Bench%20Mini-100%2F100%20(A%2B)-10b981.svg?style=flat-square)](#-swe-bench-mini-benchmark-harness-apex-agents-swe-eval)
+[![Engine Benchmark](https://img.shields.io/badge/Engine%20Benchmark-Grade%20A%2B%20Verified-10b981.svg?style=flat-square)](#-7-architectural--ast-engine-benchmark-apex-agents-swe-eval)
 [![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#-native-model-context-protocol-mcp-server)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/apex-agents/pulls)
 
@@ -116,7 +116,7 @@ npx apex-agents init
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
 | `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
 | `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, & DeepSeek V4 |
-| `npx apex-agents swe-eval` | Benchmark | Runs SWE-bench mini 5-vector autonomous engineering benchmark suite (Grade A+) |
+| `npx apex-agents swe-eval` | Benchmark | Runs 5-vector AST & architectural engine benchmark suite (Grade A+ Verified) |
 | `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
 | `npx apex-agents handoff` | Context | Serializes active git state and blockers into a clean ~85 token `<session_handoff>` XML block |
@@ -287,9 +287,9 @@ MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):
 
 ---
 
-## 🏆 7. SWE-Bench Mini Benchmark Harness (`apex-agents swe-eval`)
+## 🏆 7. Architectural & AST Engine Benchmark (`apex-agents swe-eval`)
 
-Benchmark your local AI engineering harness across 5 standardized software engineering vectors inspired by SWE-bench Verified:
+Benchmark your local AI engineering harness across 5 standardized software engineering vectors verifying AST skeleton fidelity, cross-file caller resolution, graph PageRank convergence, anti-cheat test tampering defense, and autonomous trace diagnosis:
 
 ```bash
 npx apex-agents swe-eval
@@ -297,10 +297,10 @@ npx apex-agents swe-eval
 
 ```
   ✓ PASS [SWE-1: AST Skeleton Fidelity] - Preserved signatures, stripped internal bodies cleanly
-  ✓ PASS [SWE-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s)
+  ✓ PASS [SWE-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s) for auth()
   ✓ PASS [SWE-3: Graph PageRank Centrality Convergence] - Hub ranked #1 with score 13.3%
-  ✓ PASS [SWE-4: Anti-Cheat Test Tampering Defense] - Detected skipping evasion in test diff
-  ✓ PASS [SWE-5: Autonomous Self-Healing Trace Diagnosis] - Extracted failing trace at tests/user.test.ts:33
+  ✓ PASS [SWE-4: Anti-Cheat Test Tampering Defense] - Detected 2 test weakening issue(s) via AST diff engine
+  ✓ PASS [SWE-5: Autonomous Self-Healing Trace Diagnosis] - Extracted failing trace for UserService test at tests/user.test.ts:33
 
 ═════ BENCHMARK FINAL EVALUATION ═════
   Total Vectors Passed: 5/5
@@ -370,7 +370,16 @@ npx apex-agents review --staged --strict
 
 ## 🔌 10. Native Model Context Protocol (MCP) Server
 
-Apex Agents includes a native Model Context Protocol (JSON-RPC 2.0 stdio) server, allowing tools and agent personas to be summoned directly inside **Claude Desktop**, **Cursor**, and **Antigravity**.
+Apex Agents includes a native Model Context Protocol (JSON-RPC 2.0 stdio) server, exposing both physical AST engineering tools and agent personas directly inside **Claude Desktop**, **Cursor**, **Windsurf**, and **Antigravity**.
+
+### Physical MCP Tools Exposed:
+- `apex_compact_code`: Token-reducing Babel AST compactor (80-90% token reduction while preserving types and signatures).
+- `apex_audit_code_bugs`: Static AST vulnerability & bug hunter (SQLi, unhandled timer leaks, floating promises).
+- `apex_checkpoint`: Git-native working tree snapshot including untracked files, `.env`, and git hooks.
+- `apex_rollback`: Instant atomic rollback to previous checkpoint.
+- `apex_trace_symbol`: Cross-file symbol definition and caller site tracing.
+- `apex_audit_diff`: Diff auditor intercepting credential leaks and test tampering (`.skip`, commented assertions).
+- `list_specialists` / `summon_specialist`: Direct access to all 38 specialist instructions and operational instincts.
 
 ### Configuration (`claude_desktop_config.json`):
 ```json

@@ -92,6 +92,100 @@ const TOOLS = [
       },
       required: ['instinct_id']
     }
+  },
+  {
+    name: 'apex_compact_code',
+    description: 'Compacts JS, TS, React, Python, Go, or Rust source code using Babel AST. Strips method and function bodies down to {} or pass, preserving 100% of types, interfaces, struct fields, and signatures. Reduces token size by 80-90%.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'Raw source code to compact'
+        },
+        ext: {
+          type: 'string',
+          description: 'File extension (ts, js, py, go, rs). Defaults to ts'
+        }
+      },
+      required: ['code']
+    }
+  },
+  {
+    name: 'apex_audit_code_bugs',
+    description: 'Performs AST static analysis on code to detect critical bugs: SQL injections (template literals, concatenation, multi-hop aliases, .call/.apply/.bind), React timer leaks (useEffect missing cleanup), and unhandled floating promises (e.g. unawaited u.save()).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          description: 'Source code string to audit'
+        },
+        file_path: {
+          type: 'string',
+          description: 'Optional file path for reporting (e.g. "src/db.ts")'
+        }
+      },
+      required: ['code']
+    }
+  },
+  {
+    name: 'apex_checkpoint',
+    description: 'Creates an atomic Git snapshot of the current working tree, untracked files, gitignored .env files, and hooks. Essential safety gate before executing destructive code modifications.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        label: {
+          type: 'string',
+          description: 'Descriptive checkpoint label (e.g. "pre-refactor-auth")'
+        }
+      }
+    }
+  },
+  {
+    name: 'apex_rollback',
+    description: 'Instantly rolls back working tree to the latest checkpoint or a specific checkpoint label, cleaning rogue untracked files and restoring .env/hooks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        label: {
+          type: 'string',
+          description: 'Optional specific checkpoint label to restore. If omitted, restores most recent checkpoint.'
+        }
+      }
+    }
+  },
+  {
+    name: 'apex_trace_symbol',
+    description: 'Scans project AST to trace declarations and cross-file call sites of any symbol across TypeScript and JavaScript modules.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        symbol_name: {
+          type: 'string',
+          description: 'Function, class, or variable name to trace'
+        },
+        project_dir: {
+          type: 'string',
+          description: 'Optional root project directory. Defaults to cwd.'
+        }
+      },
+      required: ['symbol_name']
+    }
+  },
+  {
+    name: 'apex_audit_diff',
+    description: 'Audits a raw Git diff for leaked credentials (API keys, Stripe/AWS/GitHub keys, hex/unicode escape evasion), test tampering (.skip, .skipIf, microtasks, deleted assertions), and AI slop.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        diff: {
+          type: 'string',
+          description: 'Raw git diff string'
+        }
+      },
+      required: ['diff']
+    }
   }
 ];
 
@@ -135,7 +229,7 @@ process.stdin.on('data', (chunk) => {
   }
 });
 
-function handleMessage(msg) {
+async function handleMessage(msg) {
   if (!msg || typeof msg !== 'object') return;
   const { id, method, params } = msg;
 
@@ -220,6 +314,102 @@ function handleMessage(msg) {
           }
         ]
       });
+      return;
+    }
+
+    if (name === 'apex_compact_code') {
+      try {
+        const { compactSourceCode } = await import('../scripts/compact-context.js');
+        const compacted = compactSourceCode(args?.code || '', { ext: args?.ext || 'ts' });
+        sendResponse(id, {
+          content: [{ type: 'text', text: compacted }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error compacting code: ${err.message}` }]
+        });
+      }
+      return;
+    }
+
+    if (name === 'apex_audit_code_bugs') {
+      try {
+        const { auditCodeBugs } = await import('../scripts/audit-bugs.js');
+        const bugs = auditCodeBugs(args?.code || '', args?.file_path || 'virtual.ts');
+        sendResponse(id, {
+          content: [{ type: 'text', text: JSON.stringify(bugs, null, 2) }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error auditing code: ${err.message}` }]
+        });
+      }
+      return;
+    }
+
+    if (name === 'apex_checkpoint') {
+      try {
+        const { createCheckpoint } = await import('../scripts/checkpoint.js');
+        const res = createCheckpoint(args?.label || 'mcp-checkpoint');
+        sendResponse(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error creating checkpoint: ${err.message}` }]
+        });
+      }
+      return;
+    }
+
+    if (name === 'apex_rollback') {
+      try {
+        const { rollbackToCheckpoint } = await import('../scripts/checkpoint.js');
+        const res = rollbackToCheckpoint(args?.label || null);
+        sendResponse(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error executing rollback: ${err.message}` }]
+        });
+      }
+      return;
+    }
+
+    if (name === 'apex_trace_symbol') {
+      try {
+        const { traceSymbol } = await import('../scripts/symbol-tracer.js');
+        const res = traceSymbol(args?.symbol_name || '', args?.project_dir || process.cwd());
+        sendResponse(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error tracing symbol: ${err.message}` }]
+        });
+      }
+      return;
+    }
+
+    if (name === 'apex_audit_diff') {
+      try {
+        const { auditDiff } = await import('../scripts/audit-diff.js');
+        const res = auditDiff(args?.diff || '');
+        sendResponse(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error auditing diff: ${err.message}` }]
+        });
+      }
       return;
     }
 
