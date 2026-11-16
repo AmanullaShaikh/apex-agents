@@ -48,23 +48,62 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)/i }
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\.exit\s*\(\s*[0-9]*\s*\)/ },
+  { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
+  { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(false|0|null|undefined)\s*\)\s*\{/ },
+  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^)]+\)\.toBe\s*\(\s*['"][^'"]+['"]\s*\)|\bexpect\s*\(\s*\[[^\]]*\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
 
 export function foldStringLiterals(text) {
   let folded = text;
-  // 1. Fold string concatenation: 'a' + 'b' -> 'ab'
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,50})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\3/g, '$1$2$4$1');
-  // 2. Fold array joins: ['a', 'b', 'c'].join('') -> 'abc'
+
+  // 1. Evaluate Buffer.from(hex, 'hex')
+  folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
+    try {
+      return "'" + Buffer.from(hex, 'hex').toString('utf-8') + "'";
+    } catch {
+      return m;
+    }
+  });
+
+  // 2. Evaluate String.fromCharCode(...)
+  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,]+)\s*\)/g, (m, nums) => {
+    try {
+      const chars = nums.split(',').map(n => String.fromCharCode(parseInt(n.trim(), 10))).join('');
+      return "'" + chars + "'";
+    } catch {
+      return m;
+    }
+  });
+
+  // 3. Evaluate String.split('').reverse().join('')
+  folded = folded.replace(/['"]([a-zA-Z0-9_\-\/+=$]{8,})['"]\.split\(['"]{2}\)\.reverse\(\)\.join\(['"]{2}\)/g, (m, s) => {
+    return "'" + s.split('').reverse().join('') + "'";
+  });
+
+  // 4. Evaluate function templates: ${(() => 'AKIA')()}
+  folded = folded.replace(/\$\{\s*\(\s*\(\s*\)\s*=>\s*['"]([^'"]+)['"]\s*\)\s*\(\s*\)\s*\}/g, '$1');
+
+  // 5. Fold array joins: ['a', 'b', 'c'].join('') -> 'abc'
   folded = folded.replace(/\[\s*(['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*,\s*)+['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*\]\.join\(['"`]['"`]\)/g, m => {
     return "'" + m.replace(/\[|\]|\.join\(['"`]['"`]\)/g, '').split(',').map(s => s.trim().replace(/^['"`]|['"`]$/g, '')).join('') + "'";
   });
-  // 3. Fold native .concat(): 'a'.concat('b') -> 'ab'
+
+  // 6. Fold native .concat(): 'a'.concat('b') -> 'ab'
   folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\.concat\((['"`])([a-zA-Z0-9_\-\/+=$]+)\3\)/g, '$1$2$4$1');
-  // 4. Fold template literal: `${'a'}${'b'}` -> 'ab'
+
+  // 7. Fold template literals: `${'a'}${'b'}` -> 'ab'
   folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
+
+  // 8. Fold string concatenation in loop for arbitrary multi-part additions
+  let prev;
+  let iterations = 0;
+  do {
+    prev = folded;
+    folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\3/g, '$1$2$4$1');
+    iterations++;
+  } while (folded !== prev && iterations < 20);
+
   return folded;
 }
 
@@ -180,7 +219,7 @@ export function auditDiff(rawDiff) {
         }
 
         // Base64 payload deep inspection
-        const b64Secret = inspectBase64Payloads(addedText);
+        const b64Secret = inspectBase64Payloads(addedText) || inspectBase64Payloads(foldedText);
         if (b64Secret) {
           issues.push({
             severity: 'CRITICAL',

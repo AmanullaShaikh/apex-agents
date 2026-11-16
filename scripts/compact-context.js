@@ -554,23 +554,39 @@ export function runContextCompactor(projectDir = process.cwd(), options = {}) {
   };
 }
 
-function getAllSourceFiles(dir, acc = []) {
+function getAllSourceFiles(dir, acc = [], visited = new Set()) {
   if (!fs.existsSync(dir)) return acc;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  try {
+    const realDir = fs.realpathSync(dir);
+    if (visited.has(realDir)) return acc;
+    visited.add(realDir);
 
-  for (const entry of entries) {
-    if (IGNORED.has(entry.name)) continue;
-    const fullPath = path.join(dir, entry.name);
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    if (entry.isDirectory()) {
-      getAllSourceFiles(fullPath, acc);
-    } else {
-      const ext = path.extname(entry.name).toLowerCase();
-      if (['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs'].includes(ext) && !entry.name.endsWith('.d.ts')) {
-        acc.push(fullPath);
+    for (const entry of entries) {
+      if (IGNORED.has(entry.name)) continue;
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.realpathSync(fullPath);
+          if (visited.has(target)) continue;
+          if (fs.statSync(fullPath).isDirectory()) {
+            getAllSourceFiles(fullPath, acc, visited);
+          }
+        } catch {
+          continue;
+        }
+      } else if (entry.isDirectory()) {
+        getAllSourceFiles(fullPath, acc, visited);
+      } else {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs'].includes(ext) && !entry.name.endsWith('.d.ts')) {
+          acc.push(fullPath);
+        }
       }
     }
-  }
+  } catch {}
 
   return acc;
 }

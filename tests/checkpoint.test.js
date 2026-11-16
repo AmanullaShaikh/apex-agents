@@ -103,4 +103,27 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should handle and delete untracked unicode path files on rollback', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-unicode-'));
+    try {
+      const chk = createCheckpoint('unicode-save', tmpDir);
+
+      // Rogue agent creates unicode nested directories
+      const unicodeDir = path.join(tmpDir, '📁_folder_測試');
+      fs.mkdirSync(unicodeDir, { recursive: true });
+      const badUnicodeFile = path.join(unicodeDir, 'bad_🔥.js');
+      fs.writeFileSync(badUnicodeFile, 'export const bad = true;');
+
+      assert.strictEqual(fs.existsSync(badUnicodeFile), true);
+
+      // Rollback
+      rollbackToCheckpoint(chk.id, tmpDir);
+
+      // Verify rogue unicode file was wiped
+      assert.strictEqual(fs.existsSync(badUnicodeFile), false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

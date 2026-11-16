@@ -150,4 +150,93 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(arrayJoinDiff).stats.secrets, 1);
   });
+
+  test('should detect process.exit, assertion shadowing, dead branch, complex tautologies, and encoded secrets', () => {
+    // 1. Process exit in test
+    const exitDiff = [
+      'diff --git a/tests/kill.test.ts b/tests/kill.test.ts',
+      '--- a/tests/kill.test.ts',
+      '+++ b/tests/kill.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+process.exit(0);',
+      ' expect(true).toBe(true);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(exitDiff).stats.tampering, 1);
+
+    // 2. Assertion shadowing
+    const shadowDiff = [
+      'diff --git a/tests/shadow.test.ts b/tests/shadow.test.ts',
+      '--- a/tests/shadow.test.ts',
+      '+++ b/tests/shadow.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+const expect = () => ({ toBe: () => true });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(shadowDiff).stats.tampering, 1);
+
+    // 3. Dead branch wrapping
+    const deadBranchDiff = [
+      'diff --git a/tests/branch.test.ts b/tests/branch.test.ts',
+      '--- a/tests/branch.test.ts',
+      '+++ b/tests/branch.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+if (false) {',
+      '+  expect(user.isAdmin).toBe(true);',
+      '+}'
+    ].join('\n');
+    assert.strictEqual(auditDiff(deadBranchDiff).stats.tampering, 1);
+
+    // 4. Complex tautologies
+    const complexTautology = [
+      'diff --git a/tests/tautology.test.ts b/tests/tautology.test.ts',
+      '--- a/tests/tautology.test.ts',
+      '+++ b/tests/tautology.test.ts',
+      '@@ -1,1 +1,2 @@',
+      '+expect(typeof "foo").toBe("string");',
+      '+expect([1][0]).toBe(1);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(complexTautology).stats.tampering, 2);
+
+    // 5. FromCharCode secret
+    const charCodeDiff = [
+      'diff --git a/src/creds.ts b/src/creds.ts',
+      '--- a/src/creds.ts',
+      '+++ b/src/creds.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const k = String.fromCharCode(65, 75, 73, 65) + "1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(charCodeDiff).stats.secrets, 1);
+
+    // 6. Hex buffer secret
+    const hexDiff = [
+      'diff --git a/src/hex.ts b/src/hex.ts',
+      '--- a/src/hex.ts',
+      '+++ b/src/hex.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const k = Buffer.from("414b494131323334353637383930414243444546", "hex").toString();'
+    ].join('\n');
+    assert.strictEqual(auditDiff(hexDiff).stats.secrets, 1);
+
+    // 7. Reversed secret
+    const revDiff = [
+      'diff --git a/src/rev.ts b/src/rev.ts',
+      '--- a/src/rev.ts',
+      '+++ b/src/rev.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const k = "FEDCBA0987654321AIKA".split("").reverse().join("");'
+    ].join('\n');
+    assert.strictEqual(auditDiff(revDiff).stats.secrets, 1);
+
+    // 8. Multi-chunk base64 split
+    const b1 = 'eyJrZXkiOiAi';
+    const b2 = 'QUtJQTEyMzQ1Njc4';
+    const b3 = 'OTBBQkNERUYifQ==';
+    const multiB64Diff = [
+      'diff --git a/src/b64.ts b/src/b64.ts',
+      '--- a/src/b64.ts',
+      '+++ b/src/b64.ts',
+      '@@ -1,1 +1,1 @@',
+      `+const b64 = "${b1}" + "${b2}" + "${b3}";`
+    ].join('\n');
+    assert.strictEqual(auditDiff(multiB64Diff).stats.secrets, 1);
+  });
 });

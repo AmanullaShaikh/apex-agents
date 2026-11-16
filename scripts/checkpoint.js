@@ -47,18 +47,45 @@ function isGitRepository(projectDir = process.cwd()) {
   }
 }
 
-function getNonGitFiles(dir, baseDir = dir, acc = []) {
-  if (!fs.existsSync(dir)) return acc;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (IGNORED_SNAPSHOT_DIRS.has(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      getNonGitFiles(full, baseDir, acc);
-    } else if (entry.isFile()) {
-      acc.push(path.relative(baseDir, full).replace(/\\/g, '/'));
-    }
+function unescapeGitPath(rawPath) {
+  let clean = rawPath.trim();
+  if (clean.startsWith('"') && clean.endsWith('"')) {
+    clean = clean.slice(1, -1);
   }
+  return clean.replace(/\\([0-7]{1,3})/g, (m, oct) => {
+    return String.fromCharCode(parseInt(oct, 8));
+  });
+}
+
+function getNonGitFiles(dir, baseDir = dir, acc = [], visited = new Set()) {
+  if (!fs.existsSync(dir)) return acc;
+  try {
+    const realDir = fs.realpathSync(dir);
+    if (visited.has(realDir)) return acc;
+    visited.add(realDir);
+
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (IGNORED_SNAPSHOT_DIRS.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.realpathSync(full);
+          if (visited.has(target)) continue;
+          if (fs.statSync(full).isDirectory()) {
+            getNonGitFiles(full, baseDir, acc, visited);
+          }
+        } catch {
+          continue;
+        }
+      } else if (entry.isDirectory()) {
+        getNonGitFiles(full, baseDir, acc, visited);
+      } else if (entry.isFile()) {
+        acc.push(path.relative(baseDir, full).replace(/\\/g, '/'));
+      }
+    }
+  } catch {}
   return acc;
 }
 
@@ -102,13 +129,13 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
       gitCommit = execSync('git rev-parse HEAD', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
       branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
 
-      // Use -uall so nested untracked files are never collapsed as '?? dir/'
-      const statusOutput = execSync('git status --porcelain -uall', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+      // Use -uall and -c core.quotepath=false so nested untracked/unicode files are clean
+      const statusOutput = execSync('git -c core.quotepath=false status --porcelain -uall', { cwd: projectDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
       const lines = statusOutput.split('\n').filter(Boolean);
 
       for (const line of lines) {
         const status = line.slice(0, 2).trim();
-        const filePath = line.slice(3).trim();
+        const filePath = unescapeGitPath(line.slice(3));
 
         if (filePath.includes('.agents/checkpoints') || filePath.includes('.agents\\checkpoints')) continue;
 
@@ -220,30 +247,31 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
     if (target.gitCommit && target.gitCommit !== 'non-git') {
       try {
         // Reset working tree and branch back to exact checkpoint commit to undo rogue agent commits
-        execSync(`git reset --hard ${target.gitCommit}`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+        execSync(`git -c core.quotepath=false reset --hard ${target.gitCommit}`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+        execSync(`git -c core.quotepath=false checkout ${target.gitCommit}`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
       } catch {
         try {
-          execSync(`git checkout ${target.gitCommit} -- .`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+          execSync(`git -c core.quotepath=false checkout ${target.gitCommit} -- .`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
         } catch {
           try {
-            execSync('git checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+            execSync('git -c core.quotepath=false checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
           } catch {}
         }
       }
     } else {
       try {
-        execSync('git checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+        execSync('git -c core.quotepath=false checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
       } catch {}
     }
 
     // 2. Wipe rogue untracked files and folders with git clean
     try {
-      execSync('git clean -fd -e .agents', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+      execSync('git -c core.quotepath=false clean -fd -e .agents', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
     } catch {}
 
     // 3. Fallback check for newly untracked files not in target snapshot
     try {
-      const currentStatus = execSync('git status --porcelain -uall', {
+      const currentStatus = execSync('git -c core.quotepath=false status --porcelain -uall', {
         cwd: projectDir,
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'ignore']
@@ -254,7 +282,7 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
 
       for (const line of currentLines) {
         const status = line.slice(0, 2).trim();
-        const relPath = line.slice(3).trim();
+        const relPath = unescapeGitPath(line.slice(3));
 
         if (relPath.includes('.agents/checkpoints') || relPath.includes('.agents\\checkpoints')) continue;
 

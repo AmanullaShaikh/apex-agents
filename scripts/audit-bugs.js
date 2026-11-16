@@ -79,15 +79,78 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
       // 1. Raw SQL Injection Detection
       CallExpression(p) {
         let isSqlCall = false;
+        let sqlArg = null;
+
+        // 1. MemberExpression: db.query(...) OR db['query'](...) OR db[String('query')](...)
         if (p.node.callee.type === 'MemberExpression') {
-          const propName = p.node.callee.property.name;
+          let propName = null;
+          if (!p.node.callee.computed && p.node.callee.property.type === 'Identifier') {
+            propName = p.node.callee.property.name;
+          } else if (p.node.callee.computed) {
+            if (p.node.callee.property.type === 'StringLiteral') {
+              propName = p.node.callee.property.value;
+            } else if (p.node.callee.property.type === 'CallExpression') {
+              const arg0 = p.node.callee.property.arguments[0];
+              if (arg0 && arg0.type === 'StringLiteral') {
+                propName = arg0.value;
+              }
+            }
+          }
           if (['query', 'raw', '$queryRawUnsafe', 'execute', 'exec', 'update'].includes(propName)) {
             isSqlCall = true;
+            sqlArg = p.node.arguments[0];
           }
         }
 
-        if (isSqlCall && p.node.arguments.length > 0) {
-          const firstArg = p.node.arguments[0];
+        // 2. Method Destructuring: const { query } = db; query(sql);
+        if (!isSqlCall && p.node.callee.type === 'Identifier') {
+          const fnName = p.node.callee.name;
+          if (['query', 'raw', '$queryRawUnsafe', 'execute', 'exec'].includes(fnName)) {
+            const binding = p.scope.getBinding(fnName);
+            if (binding) {
+              if (binding.path.isVariableDeclarator() && binding.path.node.id.type === 'ObjectPattern') {
+                isSqlCall = true;
+                sqlArg = p.node.arguments[0];
+              } else if (binding.kind === 'module') {
+                isSqlCall = true;
+                sqlArg = p.node.arguments[0];
+              }
+            }
+          }
+        }
+
+        // 3. Reflection: Reflect.apply(db.query, db, [sql])
+        if (!isSqlCall &&
+            p.node.callee.type === 'MemberExpression' &&
+            p.node.callee.object?.name === 'Reflect' &&
+            p.node.callee.property?.name === 'apply') {
+          const targetFn = p.node.arguments[0];
+          const targetArgs = p.node.arguments[2];
+          if (targetFn && (targetFn.type === 'MemberExpression' || targetFn.type === 'Identifier')) {
+            const pName = targetFn.property?.name || targetFn.property?.value || targetFn.name;
+            if (['query', 'raw', 'execute', 'exec'].includes(pName)) {
+              if (targetArgs && targetArgs.type === 'ArrayExpression' && targetArgs.elements.length > 0) {
+                isSqlCall = true;
+                sqlArg = targetArgs.elements[0];
+              }
+            }
+          }
+        }
+
+        // 4. Currying / Higher-Order runner: runner(db.query, sql)
+        if (!isSqlCall && p.node.arguments.length >= 2) {
+          const firstParam = p.node.arguments[0];
+          if (firstParam.type === 'MemberExpression') {
+            const prop = firstParam.property?.name || firstParam.property?.value;
+            if (['query', 'raw', 'execute', 'exec'].includes(prop)) {
+              isSqlCall = true;
+              sqlArg = p.node.arguments[1];
+            }
+          }
+        }
+
+        if (isSqlCall && sqlArg) {
+          const firstArg = sqlArg;
 
           // Recursive AST Scope & Data-Flow Taint Resolver
           const isVulnerableSqlExpression = (node, scope, visited = new Set()) => {
@@ -133,7 +196,50 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               }
             }
 
-            // 4. Call expression: e.g. db.query(getQuery(userId))
+            // 4. MemberExpression property alias: payload.query or payload['query']
+            if (node.type === 'MemberExpression') {
+              const objName = node.object?.name;
+              const propKey = node.property?.name || node.property?.value;
+              if (objName && propKey) {
+                const binding = scope?.getBinding(objName);
+                if (binding) {
+                  // Check member assignments via reference paths: payload.query = ...
+                  if (binding.referencePaths) {
+                    for (const ref of binding.referencePaths) {
+                      if (ref.parentPath?.isMemberExpression() && ref.parentPath.parentPath?.isAssignmentExpression()) {
+                        const assign = ref.parentPath.parentPath;
+                        if (assign.node.left === ref.parentPath.node) {
+                          const assignedProp = ref.parentPath.node.property?.name || ref.parentPath.node.property?.value;
+                          if (assignedProp === propKey && isVulnerableSqlExpression(assign.node.right, assign.scope, visited)) {
+                            return true;
+                          }
+                        }
+                      }
+                    }
+                  }
+                  if (binding.constantViolations) {
+                    for (const cv of binding.constantViolations) {
+                      if (cv.isAssignmentExpression() && cv.node.left.type === 'MemberExpression') {
+                        const targetProp = cv.node.left.property?.name || cv.node.left.property?.value;
+                        if (targetProp === propKey && isVulnerableSqlExpression(cv.node.right, cv.scope, visited)) {
+                          return true;
+                        }
+                      }
+                    }
+                  }
+                  if (binding.path?.node?.init?.type === 'ObjectExpression') {
+                    for (const prop of binding.path.node.init.properties) {
+                      const k = prop.key?.name || prop.key?.value;
+                      if (k === propKey && isVulnerableSqlExpression(prop.value, binding.scope, visited)) {
+                        return true;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // 5. Call expression: e.g. db.query(getQuery(userId))
             if (node.type === 'CallExpression') {
               // Check arguments of the call
               for (const arg of node.arguments) {
@@ -203,16 +309,36 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
                   hasListenerOrTimer = true;
                 }
                 if (stmt.type === 'ReturnStatement') {
-                  // Must return a callable function or identifier, not undefined, null, or primitive
                   if (stmt.argument) {
                     const arg = stmt.argument;
-                    const isInvalidLiteral = arg.type === 'NullLiteral' ||
-                      (arg.type === 'Identifier' && arg.name === 'undefined') ||
-                      arg.type === 'NumericLiteral' ||
-                      arg.type === 'StringLiteral' ||
-                      arg.type === 'BooleanLiteral';
-                    
-                    if (!isInvalidLiteral) {
+
+                    // IIFE deception: return (() => null)();
+                    if (arg.type === 'CallExpression') {
+                      if (arg.callee.type === 'ArrowFunctionExpression' || arg.callee.type === 'FunctionExpression') {
+                        const fnBody = arg.callee.body;
+                        if (fnBody.type === 'NullLiteral' || (fnBody.type === 'Identifier' && fnBody.name === 'undefined')) {
+                          hasValidCleanupReturn = false;
+                        }
+                      }
+                    } else if (arg.type === 'Identifier') {
+                      // const noop = undefined; return noop;
+                      if (arg.name === 'undefined') {
+                        hasValidCleanupReturn = false;
+                      } else {
+                        const hookScope = p.get('arguments.0')?.scope || p.scope;
+                        const binding = hookScope?.getBinding?.(arg.name);
+                        if (binding) {
+                          const init = binding.path?.node?.init;
+                          if (!init || init.type === 'NullLiteral' || (init.type === 'Identifier' && init.name === 'undefined')) {
+                            hasValidCleanupReturn = false;
+                          } else if (init.type === 'ArrowFunctionExpression' || init.type === 'FunctionExpression') {
+                            hasValidCleanupReturn = true;
+                          }
+                        } else {
+                          hasValidCleanupReturn = true;
+                        }
+                      }
+                    } else if (arg.type === 'ArrowFunctionExpression' || arg.type === 'FunctionExpression') {
                       hasValidCleanupReturn = true;
                     }
                   }

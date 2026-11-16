@@ -116,4 +116,50 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     assert.strictEqual(issues[2].category, 'SQL_INJECTION');
     assert.strictEqual(issues[3].category, 'MEMORY_LEAK');
   });
+
+  test('should detect computed calls, destructuring, reflection, currying, and object aliasing SQLi', () => {
+    const offensiveCode = `
+      export function testComputed(id) {
+        db['query']("SELECT * FROM users WHERE id = " + id);
+      }
+      export function testComputedString(id) {
+        db[String('query')]("SELECT * FROM users WHERE id = " + id);
+      }
+      export function testDestructure(id) {
+        const { query } = db;
+        query("SELECT * FROM users WHERE id = " + id);
+      }
+      export function testReflection(id) {
+        Reflect.apply(db.query, db, ["SELECT * FROM users WHERE id = " + id]);
+      }
+      export function testCurry(id) {
+        runner(db.query, "SELECT * FROM users WHERE id = " + id);
+      }
+      export function testObjectAliasing(id) {
+        const payload = {};
+        payload.query = "SELECT * FROM users WHERE id = " + id;
+        db.query(payload.query);
+      }
+      export const HookIIFEDeception = () => {
+        useEffect(() => {
+          setInterval(() => {}, 1000);
+          ${'return'} (() => null)();
+        });
+      };
+      export const HookNoopDeception = () => {
+        useEffect(() => {
+          setInterval(() => {}, 1000);
+          const noop = undefined;
+          ${'return'} noop;
+        });
+      };
+    `;
+
+    const issues = auditCodeBugs(offensiveCode, 'src/api/offensive.ts');
+    assert.strictEqual(issues.length, 8);
+    const sqli = issues.filter(i => i.category === 'SQL_INJECTION');
+    const leaks = issues.filter(i => i.category === 'MEMORY_LEAK');
+    assert.strictEqual(sqli.length, 6);
+    assert.strictEqual(leaks.length, 2);
+  });
 });

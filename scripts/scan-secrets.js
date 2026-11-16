@@ -20,14 +20,54 @@ const SECRET_PATTERNS = [
 
 export function foldStringLiterals(text) {
   let folded = text;
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,50})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,60})\3/g, '$1$2$4$1');
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,80})\3/g, '$1$2$4$1');
+
+  // 1. Evaluate Buffer.from(hex, 'hex')
+  folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
+    try {
+      return "'" + Buffer.from(hex, 'hex').toString('utf-8') + "'";
+    } catch {
+      return m;
+    }
+  });
+
+  // 2. Evaluate String.fromCharCode(...)
+  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,]+)\s*\)/g, (m, nums) => {
+    try {
+      const chars = nums.split(',').map(n => String.fromCharCode(parseInt(n.trim(), 10))).join('');
+      return "'" + chars + "'";
+    } catch {
+      return m;
+    }
+  });
+
+  // 3. Evaluate String.split('').reverse().join('')
+  folded = folded.replace(/['"]([a-zA-Z0-9_\-\/+=$]{8,})['"]\.split\(['"]{2}\)\.reverse\(\)\.join\(['"]{2}\)/g, (m, s) => {
+    return "'" + s.split('').reverse().join('') + "'";
+  });
+
+  // 4. Evaluate function templates: ${(() => 'AKIA')()}
+  folded = folded.replace(/\$\{\s*\(\s*\(\s*\)\s*=>\s*['"]([^'"]+)['"]\s*\)\s*\(\s*\)\s*\}/g, '$1');
+
+  // 5. Fold array joins: ['a', 'b', 'c'].join('') -> 'abc'
   folded = folded.replace(/\[\s*(['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*,\s*)+['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*\]\.join\(['"`]['"`]\)/g, m => {
     return "'" + m.replace(/\[|\]|\.join\(['"`]['"`]\)/g, '').split(',').map(s => s.trim().replace(/^['"`]|['"`]$/g, '')).join('') + "'";
   });
+
+  // 6. Fold native .concat(): 'a'.concat('b') -> 'ab'
   folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\.concat\((['"`])([a-zA-Z0-9_\-\/+=$]+)\3\)/g, '$1$2$4$1');
+
+  // 7. Fold template literals: `${'a'}${'b'}` -> 'ab'
   folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
+
+  // 8. Fold string concatenation in loop for arbitrary multi-part additions
+  let prev;
+  let iterations = 0;
+  do {
+    prev = folded;
+    folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\3/g, '$1$2$4$1');
+    iterations++;
+  } while (folded !== prev && iterations < 20);
+
   return folded;
 }
 
@@ -47,17 +87,32 @@ export function inspectBase64Payloads(text) {
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next']);
 
-function scanDirectory(dir, findings = []) {
+function scanDirectory(dir, findings = [], visited = new Set()) {
   if (!fs.existsSync(dir)) return findings;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  try {
+    const realDir = fs.realpathSync(dir);
+    if (visited.has(realDir)) return findings;
+    visited.add(realDir);
 
-  for (const entry of entries) {
-    if (IGNORED_DIRS.has(entry.name)) continue;
-    const fullPath = path.join(dir, entry.name);
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    if (entry.isDirectory()) {
-      scanDirectory(fullPath, findings);
-    } else if (entry.isFile()) {
+    for (const entry of entries) {
+      if (IGNORED_DIRS.has(entry.name)) continue;
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.realpathSync(fullPath);
+          if (visited.has(target)) continue;
+          if (fs.statSync(fullPath).isDirectory()) {
+            scanDirectory(fullPath, findings, visited);
+          }
+        } catch {
+          continue;
+        }
+      } else if (entry.isDirectory()) {
+        scanDirectory(fullPath, findings, visited);
+      } else if (entry.isFile()) {
       // Exclude self and test files from false alarm scanning
       if (entry.name === 'scan-secrets.js' || entry.name === 'audit-diff.js' || entry.name.includes('.test.')) {
         continue;
@@ -83,7 +138,7 @@ function scanDirectory(dir, findings = []) {
           }
         }
 
-        const b64 = inspectBase64Payloads(content);
+        const b64 = inspectBase64Payloads(content) || inspectBase64Payloads(folded);
         if (b64) {
           findings.push({ file: fullPath, pattern: 'Base64 Encoded AWS Key', match: b64.matched.slice(0, 8) + '...' });
         }
@@ -92,7 +147,8 @@ function scanDirectory(dir, findings = []) {
       }
     }
   }
-  return findings;
+} catch {}
+return findings;
 }
 
 const targetDir = process.argv[2] || process.cwd();
