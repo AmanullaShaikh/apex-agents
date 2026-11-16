@@ -62,6 +62,10 @@ const TEST_TAMPERING_PATTERNS = [
 export function foldStringLiterals(text) {
   let folded = text.replace(ZERO_WIDTH_REGEX, '');
 
+  // 0. Decode hex (\xHH) and unicode (\uHHHH) escape sequences in strings
+  folded = folded.replace(/\\x([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  folded = folded.replace(/\\u([0-9a-fA-F]{4})/g, (m, u) => String.fromCharCode(parseInt(u, 16)));
+
   // 1. Evaluate Buffer.from(hex, 'hex')
   folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
     try {
@@ -170,10 +174,38 @@ function getGitDiff(targetBranch = null, stagedOnly = false) {
     if (stagedOnly) {
       return execSync('git diff --cached', { encoding: 'utf-8' });
     }
-    // Default: Check working tree diff + staged diff
-    const workingDiff = execSync('git diff HEAD', { encoding: 'utf-8' });
-    if (workingDiff.trim()) return workingDiff;
-    return execSync('git diff', { encoding: 'utf-8' });
+    // Default: Check working tree diff + staged diff + untracked files
+    let diff = '';
+    try {
+      diff += execSync('git diff HEAD', { encoding: 'utf-8' });
+    } catch {}
+    if (!diff.trim()) {
+      try {
+        diff = execSync('git diff', { encoding: 'utf-8' });
+      } catch {}
+    }
+
+    // Include untracked files in working tree diff
+    try {
+      const statusOutput = execSync('git status --porcelain', { encoding: 'utf-8' });
+      const untrackedFiles = statusOutput
+        .split('\n')
+        .filter(line => line.startsWith('?? '))
+        .map(line => line.slice(3).trim());
+
+      for (const file of untrackedFiles) {
+        if (!fs.existsSync(file)) continue;
+        try {
+          const stat = fs.statSync(file);
+          if (stat.isDirectory() || stat.size > 1024 * 512) continue;
+          const content = fs.readFileSync(file, 'utf-8');
+          diff += `\ndiff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n`;
+          diff += content.split('\n').map(l => '+' + l).join('\n') + '\n';
+        } catch {}
+      }
+    } catch {}
+
+    return diff;
   } catch (err) {
     return '';
   }
@@ -205,6 +237,19 @@ export function auditDiff(rawDiff) {
       const parts = line.split(' ');
       currentFile = parts[parts.length - 1].replace(/^b\//, '');
       changedFiles.add(currentFile);
+
+      // Check if sensitive credential/env file itself is modified or added
+      const baseName = currentFile.split('/').pop().toLowerCase();
+      if ((baseName.startsWith('.env') && !baseName.endsWith('.example')) || baseName.endsWith('.pem') || baseName.endsWith('.key') || baseName === 'id_rsa') {
+        issues.push({
+          severity: 'CRITICAL',
+          category: 'SECRET_LEAK',
+          file: currentFile,
+          description: `Exposed sensitive environment or credential key file: ${currentFile}`,
+          snippet: `[Sensitive File Added/Modified: ${currentFile}]`
+        });
+      }
+
       if (currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/')) {
         testFiles.add(currentFile);
       }
@@ -388,7 +433,8 @@ export function runDiffAuditCli(options = {}) {
       console.log(`    ${c.gray}Snippet: ${iss.snippet}${c.reset}\n`);
     });
 
-    if (options.strict) {
+    const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
+    if (options.strict || hasCritical) {
       console.error(`${c.red}${c.bold}❌ AUDIT FAILED: Fix the issues above before committing or merging.${c.reset}\n`);
       process.exit(1);
     }

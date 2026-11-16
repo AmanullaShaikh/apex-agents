@@ -384,5 +384,26 @@ describe('Diff Security & Anti-Cheat Audit', () => {
       '+test.concurrent.skip("auth test", () => { expect(false).toBe(true); });'
     ].join('\n');
     assert.strictEqual(auditDiff(concurrentSkipDiff).stats.tampering, 1);
+
+    // 15. Hex escape-sequence secret leak (\x41\x4b...)
+    const hexEscapeDiff = [
+      'diff --git a/src/creds.ts b/src/creds.ts',
+      '--- a/src/creds.ts',
+      '+++ b/src/creds.ts',
+      '@@ -1,2 +1,3 @@',
+      "+const key = '\\x41\\x4b\\x49\\x41IOSFODNN7EXAMPLE';"
+    ].join('\n');
+    assert.strictEqual(auditDiff(hexEscapeDiff).stats.secrets, 1);
+
+    // 16. Sensitive .env file modification or addition
+    const envFileDiff = [
+      'diff --git a/.env b/.env',
+      'new file mode 100644',
+      '--- /dev/null',
+      '+++ b/.env',
+      '@@ -0,0 +1,2 @@',
+      '+PORT=3000'
+    ].join('\n');
+    assert.strictEqual(auditDiff(envFileDiff).stats.secrets, 1);
   });
 });

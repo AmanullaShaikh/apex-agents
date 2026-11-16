@@ -214,5 +214,15 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     const issues = auditCodeBugs(advancedCode, 'src/api/advanced.ts');
     const sqli = issues.filter(i => i.category === 'SQL_INJECTION');
     assert.strictEqual(sqli.length, 11);
+
+    // Verify unawaited entity.save() is caught
+    const entitySaveCode = `
+      export function updateUser(u) {
+        u.save();
+      }
+    `;
+    const entityIssues = auditCodeBugs(entitySaveCode, 'src/api/user.ts');
+    const floating = entityIssues.filter(i => i.category === 'FLOATING_PROMISE');
+    assert.strictEqual(floating.length, 1);
   });
 });

@@ -45,8 +45,8 @@ export function compactSourceCode(code, options = {}) {
   const callers = options.callers || {}; // { [symbolName]: [ { file, line } ] }
   const ext = (options.ext || 'ts').replace(/^\./, '').toLowerCase();
 
-  // Reject binary files or buffers with null bytes
-  if (BINARY_EXTENSIONS.has(ext) || code.includes('\0')) {
+  // Reject binary files or buffers with null bytes or non-text control characters
+  if (BINARY_EXTENSIONS.has(ext) || code.includes('\0') || /[\x00-\x08\x0E-\x1F]/.test(code.slice(0, 512))) {
     return `// [Apex Compactor: Binary asset (${ext}) excluded from text context]`;
   }
 
@@ -287,7 +287,8 @@ export function compactRustCode(code) {
   let inFnBody = false;
   let fnBraceDepth = 0;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed) continue;
 
@@ -303,8 +304,8 @@ export function compactRustCode(code) {
       continue;
     }
 
-    // Function signatures
-    if (/^(pub\s+)?(async\s+)?(unsafe\s+)?fn\s+[a-zA-Z0-9_]+/.test(trimmed)) {
+    // Function/method signatures: fn, pub fn, pub(crate) fn, pub(super) fn, async fn, const fn, unsafe fn
+    if (/^(pub(\s*\([^)]*\))?\s+)?(async\s+)?(const\s+)?(unsafe\s+)?(extern\s+("[^"]*"\s+)?)?fn\s+[a-zA-Z0-9_]+/i.test(trimmed)) {
       if (trimmed.includes('{')) {
         const sig = line.slice(0, line.indexOf('{') + 1);
         compacted.push(sig + ' /* stripped */ }');
@@ -315,7 +316,30 @@ export function compactRustCode(code) {
           fnBraceDepth = openCount - closeCount;
         }
       } else {
-        compacted.push(line);
+        // Multi-line signature until '{'
+        let sigLines = [line];
+        let foundOpenBrace = false;
+        while (i + 1 < lines.length) {
+          i++;
+          const nextLine = lines[i];
+          sigLines.push(nextLine);
+          if (nextLine.includes('{')) {
+            foundOpenBrace = true;
+            const fullSig = sigLines.join('\n');
+            const idx = fullSig.indexOf('{');
+            compacted.push(fullSig.slice(0, idx + 1) + ' /* stripped */ }');
+            const openCount = (fullSig.match(/{/g) || []).length;
+            const closeCount = (fullSig.match(/}/g) || []).length;
+            if (openCount > closeCount) {
+              inFnBody = true;
+              fnBraceDepth = openCount - closeCount;
+            }
+            break;
+          }
+        }
+        if (!foundOpenBrace) {
+          compacted.push(...sigLines);
+        }
       }
       continue;
     }
@@ -333,6 +357,7 @@ export function compactRustCode(code) {
       trimmed.startsWith('trait ') ||
       trimmed.startsWith('pub trait ') ||
       trimmed.startsWith('impl ') ||
+      trimmed.startsWith('impl<') ||
       trimmed.startsWith('pub ') ||
       trimmed.startsWith('#[') ||
       trimmed.startsWith('//') ||
@@ -407,6 +432,22 @@ function fallbackCompact(code, callers = {}) {
 
 export function runContextCompactor(projectDir = process.cwd(), options = {}) {
   const format = options.format || 'md'; // 'md' | 'xml' | 'json'
+
+  if (options.top !== null && options.top !== undefined) {
+    const parsed = parseInt(options.top, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      console.error(`${c.red}Error: Invalid --top value "${options.top}". Must be a positive integer.${c.reset}`);
+      process.exit(1);
+    }
+  }
+  if (options.budget !== null && options.budget !== undefined) {
+    const parsed = parseInt(options.budget, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      console.error(`${c.red}Error: Invalid --budget value "${options.budget}". Must be a positive integer.${c.reset}`);
+      process.exit(1);
+    }
+  }
+
   const topLimit = options.top ? parseInt(options.top, 10) : null;
   const tokenBudget = options.budget ? parseInt(options.budget, 10) : null;
   const annotateCallers = options.callers !== false;
@@ -462,6 +503,10 @@ export function runContextCompactor(projectDir = process.cwd(), options = {}) {
       const fileCallers = callersData[relPath] || {};
 
       const skeleton = compactSourceCode(rawContent, { ext, callers: fileCallers });
+      if (skeleton.startsWith('// [Apex Compactor: Binary asset')) {
+        // Binary asset or non-text file - skip entirely without fake savings
+        continue;
+      }
       const estTokens = Math.ceil(skeleton.length / 3.8);
 
       if (tokenBudget && cumulativeTokens + estTokens > tokenBudget) {
@@ -535,7 +580,8 @@ export function runContextCompactor(projectDir = process.cwd(), options = {}) {
     }
   }
 
-  const outputPath = path.join(projectDir, outputFileName);
+  const outputDir = fs.existsSync(projectDir) && fs.statSync(projectDir).isFile() ? path.dirname(path.resolve(projectDir)) : projectDir;
+  const outputPath = path.join(outputDir, outputFileName);
   fs.writeFileSync(outputPath, outputContent);
 
   console.log(`  ${c.green}✓${c.reset} Processed ${c.cyan}${processedFiles.length}${c.reset} files.`);
@@ -554,9 +600,14 @@ export function runContextCompactor(projectDir = process.cwd(), options = {}) {
   };
 }
 
-function getAllSourceFiles(dir, acc = [], visited = new Set()) {
+export function getAllSourceFiles(dir, acc = [], visited = new Set()) {
   if (!fs.existsSync(dir)) return acc;
   try {
+    const stat = fs.statSync(dir);
+    if (stat.isFile()) {
+      acc.push(path.resolve(dir));
+      return acc;
+    }
     const realDir = fs.realpathSync(dir);
     if (visited.has(realDir)) return acc;
     visited.add(realDir);

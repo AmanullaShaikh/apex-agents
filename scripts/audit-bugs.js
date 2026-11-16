@@ -508,12 +508,13 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           const objName = p.node.callee.object?.name || '';
 
           // Exclude synchronous collections (cache, map, set, headers, cookie, etc.)
-          const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers', 'cookie', 'session', 'params'].some(s => objName.toLowerCase().includes(s));
-          const isKnownDbClient = ['db', 'prisma', 'client', 'repo', 'collection', 'model', 'knex', 'orm'].some(db => objName.toLowerCase().includes(db));
+          const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers', 'cookie', 'session', 'params', 'store'].some(s => objName.toLowerCase().includes(s));
+          const isKnownDbClient = ['db', 'prisma', 'client', 'repo', 'collection', 'model', 'knex', 'orm', 'user', 'entity', 'record', 'doc', 'item', 'account', 'profile', 'post', 'order', 'row', 'u'].some(db => objName.toLowerCase().includes(db));
 
           const isKnownAsyncMethod = !isSyncCollection && (
             ['sendMail', 'publish'].includes(callName) ||
-            (isKnownDbClient && ['save', 'delete', 'update', 'insert', 'execute'].includes(callName)) ||
+            (['save'].includes(callName) && objName) ||
+            (isKnownDbClient && ['delete', 'update', 'insert', 'execute'].includes(callName)) ||
             (callName === 'fetch' && !objName) // global fetch()
           );
 

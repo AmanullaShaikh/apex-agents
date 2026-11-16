@@ -23,6 +23,10 @@ const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]
 export function foldStringLiterals(text) {
   let folded = text.replace(ZERO_WIDTH_REGEX, '');
 
+  // 0. Decode hex (\xHH) and unicode (\uHHHH) escape sequences in strings
+  folded = folded.replace(/\\x([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  folded = folded.replace(/\\u([0-9a-fA-F]{4})/g, (m, u) => String.fromCharCode(parseInt(u, 16)));
+
   // 1. Evaluate Buffer.from(hex, 'hex')
   folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
     try {

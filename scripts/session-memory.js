@@ -60,24 +60,55 @@ export function handleMemory(args = [], cwd = process.cwd()) {
   switch (subCommand) {
     case 'record':
     case 'add': {
-      const category = args[1] || 'decision';
-      const entry = args.slice(2).join(' ').trim();
+      let category = 'decision';
+      let entry = '';
+
+      // Check for flags: -k / --key / -t / --type, -v / --value
+      const kIdx = args.findIndex(a => a === '-k' || a === '--key' || a === '-t' || a === '--type');
+      const vIdx = args.findIndex(a => a === '-v' || a === '--value');
+
+      if (kIdx !== -1 && args[kIdx + 1]) {
+        category = args[kIdx + 1].toLowerCase();
+      }
+      if (vIdx !== -1 && args[vIdx + 1]) {
+        entry = args.slice(vIdx + 1).filter(a => !a.startsWith('-')).join(' ').trim();
+      }
+
+      // If no flags, parse positional
+      if (!entry) {
+        if (args.length >= 3) {
+          category = args[1].toLowerCase();
+          entry = args.slice(2).join(' ').trim();
+        } else if (args.length === 2 && !args[1].startsWith('-')) {
+          entry = args[1].trim();
+        }
+      }
+
+      const validCategories = ['decision', 'decisions', 'rule', 'rules', 'architecture', 'bug', 'bugs'];
+      if (!validCategories.includes(category)) {
+        console.error(`\n${c.red}Error: Invalid category "${category}".${c.reset}`);
+        console.error(`Allowed categories: ${c.cyan}decision${c.reset}, ${c.cyan}rule${c.reset}, ${c.cyan}bug${c.reset}`);
+        console.error(`Usage: npx apex-agents memory record <decision|rule|bug> "<text>"`);
+        console.error(`   or: npx apex-agents memory record -k <rule|decision|bug> -v "<text>"\n`);
+        process.exit(1);
+      }
 
       if (!entry) {
         console.error(`\n${c.red}Usage: npx apex-agents memory record <decision|rule|bug> "<text>"${c.reset}\n`);
         process.exit(1);
       }
 
-      if (category === 'rule' || category === 'architecture') {
+      const normalizedCat = category.replace(/s$/, '');
+      if (normalizedCat === 'rule' || normalizedCat === 'architecture') {
         data.architecturalRules.push({ text: entry, timestamp: new Date().toISOString() });
-      } else if (category === 'bug') {
+      } else if (normalizedCat === 'bug') {
         data.knownBugs.push({ text: entry, timestamp: new Date().toISOString() });
       } else {
         data.decisions.push({ text: entry, timestamp: new Date().toISOString() });
       }
 
       saveMemory(memoryFile, data);
-      console.log(`\n${c.green}${c.bold}✓ Memory recorded [${category.toUpperCase()}]:${c.reset} ${c.cyan}${entry}${c.reset}\n`);
+      console.log(`\n${c.green}${c.bold}✓ Memory recorded [${normalizedCat.toUpperCase()}]:${c.reset} ${c.cyan}${entry}${c.reset}\n`);
       break;
     }
 
