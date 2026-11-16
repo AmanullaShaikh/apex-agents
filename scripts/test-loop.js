@@ -184,15 +184,98 @@ export function generateFixPrompt(projectDir, failures, fullOutput) {
 }
 
 export async function attemptAutoHeal(projectDir, failures, fullOutput) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+
+  if (!geminiKey && !anthropicKey && !openaiKey) {
     console.log(`\n${c.yellow}ℹ [Autonomous Heal]: No LLM API key detected in environment (GEMINI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY).${c.reset}`);
     console.log(`  Falling back to deterministic APEX_FIX_PROMPT.md for developer agent handoff.\n`);
     return { healed: false, reason: 'NO_API_KEY' };
   }
 
   console.log(`\n${c.cyan}${c.bold}⚡ [Autonomous Heal Engine]: LLM credentials detected. Synthesizing zero-slop repair patch...${c.reset}`);
-  return { healed: false, reason: 'AUTOMATED_ATTEMPT_READY' };
+
+  const failingFile = failures[0]?.file;
+  if (!failingFile || !fs.existsSync(path.join(projectDir, failingFile))) {
+    console.log(`  ${c.yellow}! Target failing source file not found for auto-repair: ${failingFile || 'unknown'}${c.reset}\n`);
+    return { healed: false, reason: 'TARGET_FILE_NOT_FOUND' };
+  }
+
+  const targetPath = path.join(projectDir, failingFile);
+  const fileContent = fs.readFileSync(targetPath, 'utf-8');
+  const failureError = failures[0]?.error || 'Unknown assertion failure';
+
+  const prompt = [
+    `You are an elite software engineer executing an autonomous test fix loop.`,
+    `STRICT RULE: Fix the bug in the target file so tests pass. DO NOT delete, disable, or weaken test assertions.`,
+    `Test failure error:`,
+    failureError,
+    `Failing File: ${failingFile}`,
+    `Source Code:`,
+    fileContent,
+    `Output ONLY the full fixed file content inside a single code block (\`\`\`ts or \`\`\`js). No preamble.`
+  ].join('\n\n');
+
+  try {
+    let fixedCode = null;
+
+    if (geminiKey) {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await res.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const codeMatch = rawText.match(/```(?:[a-zA-Z0-9_-]+)?\n([\s\S]*?)\n```/);
+      fixedCode = codeMatch ? codeMatch[1] : rawText.trim();
+    } else if (anthropicKey) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const rawText = data.content?.[0]?.text || '';
+      const codeMatch = rawText.match(/```(?:[a-zA-Z0-9_-]+)?\n([\s\S]*?)\n```/);
+      fixedCode = codeMatch ? codeMatch[1] : rawText.trim();
+    } else if (openaiKey) {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const rawText = data.choices?.[0]?.message?.content || '';
+      const codeMatch = rawText.match(/```(?:[a-zA-Z0-9_-]+)?\n([\s\S]*?)\n```/);
+      fixedCode = codeMatch ? codeMatch[1] : rawText.trim();
+    }
+
+    if (fixedCode && fixedCode.trim().length > 0) {
+      fs.writeFileSync(targetPath, fixedCode);
+      console.log(`  ${c.green}✓${c.reset} Applied autonomous repair patch to: ${c.cyan}${failingFile}${c.reset}\n`);
+      return { healed: true, file: failingFile };
+    }
+  } catch (err) {
+    console.error(`  ${c.red}! Auto-heal network call failed: ${err.message}${c.reset}\n`);
+  }
+
+  return { healed: false, reason: 'HEAL_ATTEMPT_FAILED' };
 }
 
 /**

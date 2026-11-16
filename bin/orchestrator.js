@@ -265,10 +265,24 @@ export async function planSwarm(objective, options = {}) {
     console.log(`${c.cyan}${c.bold}⚡ [DAG Execution]: Spawning physical Git Worktree sandboxes...${c.reset}`);
     try {
       const { handleStart } = await import('../scripts/worktree-sandbox.js');
-      for (const task of tasks.slice(0, 2)) {
+      for (const task of tasks.slice(0, 3)) {
         try {
           handleStart(task.id);
-          console.log(`  ${c.green}✓${c.reset} Spawned physical worktree for ${task.agent} (${task.id})`);
+          const worktreeDir = path.join(process.cwd(), '.worktrees', task.id);
+          if (fs.existsSync(worktreeDir)) {
+            const taskSpec = `# APEX AGENTS: ASSIGNED WORKSPACE TASK\n` +
+              `> **Agent**: ${task.agent}\n` +
+              `> **Phase**: ${task.phase}\n` +
+              `> **Token Budget**: ${task.tokenBudget} tokens\n` +
+              `> **Depends On**: ${task.dependsOn.join(', ') || 'None (Root)'}\n\n` +
+              `## Objective Directives:\n${task.role}\n\n` +
+              `## Execution Rules:\n` +
+              `1. Work strictly inside this isolated sandbox branch (\`${task.sandboxBranch}\`).\n` +
+              `2. Run 'npx apex-agents test-loop' before recording any commit.\n` +
+              `3. Do not modify files outside your assigned domain scope.\n`;
+            fs.writeFileSync(path.join(worktreeDir, 'TASK.md'), taskSpec);
+            console.log(`  ${c.green}✓${c.reset} Injected ${c.cyan}TASK.md${c.reset} directive into sandbox: ${task.id}`);
+          }
         } catch (e) {
           console.log(`  ${c.yellow}!${c.reset} Worktree ${task.id} notice: ${e.message}`);
         }

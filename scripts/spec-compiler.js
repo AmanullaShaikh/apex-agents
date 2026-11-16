@@ -42,11 +42,13 @@ function getProjectSourceFiles(dir) {
   return results;
 }
 
-export function discoverCodebaseContracts(projectDir = process.cwd()) {
+export function discoverCodebaseContracts(projectDir = process.cwd(), featureIntent = '') {
   const discovered = [];
+  const intentKeywords = (featureIntent || '').toLowerCase().split(/[^a-z0-9]+/g).filter(w => w.length > 2);
+
   try {
     const files = getProjectSourceFiles(projectDir);
-    for (const file of files.slice(0, 30)) {
+    for (const file of files.slice(0, 40)) {
       const rel = path.relative(projectDir, file).replace(/\\/g, '/');
       const content = fs.readFileSync(file, 'utf-8');
       const matches = content.matchAll(/export\s+(?:interface|type|class)\s+([A-Za-z0-9_]+)/g);
@@ -54,12 +56,20 @@ export function discoverCodebaseContracts(projectDir = process.cwd()) {
         if (!discovered.some(d => d.name === m[1])) {
           discovered.push({ name: m[1], file: rel });
         }
-        if (discovered.length >= 6) break;
       }
-      if (discovered.length >= 6) break;
     }
   } catch {}
-  return discovered;
+
+  if (intentKeywords.length > 0) {
+    const semanticMatches = discovered.filter(d =>
+      intentKeywords.some(kw => d.name.toLowerCase().includes(kw) || d.file.toLowerCase().includes(kw))
+    );
+    if (semanticMatches.length > 0) {
+      return semanticMatches.slice(0, 6);
+    }
+  }
+
+  return discovered.slice(0, 6);
 }
 
 /**
@@ -97,7 +107,7 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
 
   md += `## 2. 🏛️ DATA CONTRACTS & TYPE INTERFACES\n\n`;
 
-  const discoveredContracts = discoverCodebaseContracts(projectDir);
+  const discoveredContracts = discoverCodebaseContracts(projectDir, cleanIntent);
   if (discoveredContracts.length > 0) {
     md += `### 🔗 Discovered Codebase Contracts Linked\n`;
     md += `Reusing existing project domain contracts to prevent duplicate type declarations:\n`;
