@@ -49,6 +49,8 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /@auth-identity-guard/);
     assert.match(out, /@database-tuner/);
     assert.match(out, /@tdd-champion/);
+    assert.match(out, /DAG EXECUTION TOPOLOGY/);
+    assert.match(out, /ISOLATED GIT WORKTREE SANDBOX/);
   });
 
   test('should inspect context budget with zero errors', () => {

@@ -16,9 +16,204 @@ const c = {
   yellow: '\x1b[33m',
   magenta: '\x1b[35m',
   gray: '\x1b[90m',
+  blue: '\x1b[34m'
 };
 
-function planSwarm(objective) {
+/**
+ * Generates an explicit Directed Acyclic Graph (DAG) for multi-agent execution.
+ */
+export function generateSwarmDag(objective) {
+  const lower = (objective || '').toLowerCase();
+  const tasks = [];
+
+  // Phase 1: Security & Identity
+  if (/auth|login|jwt|user|oauth|session|security/i.test(lower)) {
+    tasks.push({
+      id: 'task-sec-auth',
+      wave: 0,
+      phase: 'Phase 1: Security & Identity Foundation',
+      agent: '@auth-identity-guard',
+      role: 'Design JWT rotation, HttpOnly session cookies, and RBAC middleware.',
+      dependsOn: [],
+      concurrency: 'parallel',
+      tokenBudget: 6000,
+      sandboxBranch: 'sandbox/task-sec-auth'
+    });
+    tasks.push({
+      id: 'task-sec-audit',
+      wave: 0,
+      phase: 'Phase 1: Security & Identity Foundation',
+      agent: '@appsec-auditor',
+      role: 'Audit ingress endpoints against OWASP Top 10, SSRF, and injection vulnerabilities.',
+      dependsOn: [],
+      concurrency: 'parallel',
+      tokenBudget: 5000,
+      sandboxBranch: 'sandbox/task-sec-audit'
+    });
+  }
+
+  // Phase 2: Persistence & Data Modeling
+  const secDeps = tasks.filter(t => t.wave === 0).map(t => t.id);
+  if (/database|db|postgres|sql|prisma|query|schema|index/i.test(lower)) {
+    tasks.push({
+      id: 'task-db-model',
+      wave: 1,
+      phase: 'Phase 2: Data Model & Persistence Architecture',
+      agent: '@database-tuner',
+      role: 'Design normalized schema, B-Tree indexes, and connection pooling strategy.',
+      dependsOn: secDeps,
+      concurrency: 'sequential',
+      tokenBudget: 8000,
+      sandboxBranch: 'sandbox/task-db-model'
+    });
+  }
+
+  // Phase 3: Distributed Systems & API Protocol
+  const dbDeps = tasks.filter(t => t.wave <= 1).map(t => t.id);
+  if (/api|backend|websocket|webrtc|realtime|stream|microservice/i.test(lower)) {
+    tasks.push({
+      id: 'task-backend-api',
+      wave: 2,
+      phase: 'Phase 3: Backend & Wire Protocol Engineering',
+      agent: '@backend-systems-lead',
+      role: 'Implement distributed endpoints with Idempotency-Key support and structured error envelopes.',
+      dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
+      concurrency: 'parallel',
+      tokenBudget: 10000,
+      sandboxBranch: 'sandbox/task-backend-api'
+    });
+    tasks.push({
+      id: 'task-net-audit',
+      wave: 2,
+      phase: 'Phase 3: Backend & Wire Protocol Engineering',
+      agent: '@network-security-auditor',
+      role: 'Audit WebSocket upgrade handshake, CSWSH defenses, and sliding-window rate limits.',
+      dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
+      concurrency: 'parallel',
+      tokenBudget: 6000,
+      sandboxBranch: 'sandbox/task-net-audit'
+    });
+  }
+
+  // Phase 4: UI & Video / Media Systems
+  const apiDeps = tasks.filter(t => t.wave <= 2).map(t => t.id);
+  if (/ui|frontend|react|next|component|design|css|animation|canvas/i.test(lower)) {
+    tasks.push({
+      id: 'task-frontend-ui',
+      wave: 3,
+      phase: 'Phase 4: Frontend & User Interface Engineering',
+      agent: '@frontend-architect',
+      role: 'Build accessible, responsive UI adhering to Frame.io dark-graphite standards and 60fps GPU compositing.',
+      dependsOn: apiDeps,
+      concurrency: 'parallel',
+      tokenBudget: 9000,
+      sandboxBranch: 'sandbox/task-frontend-ui'
+    });
+    tasks.push({
+      id: 'task-state-machine',
+      wave: 3,
+      phase: 'Phase 4: Frontend & User Interface Engineering',
+      agent: '@state-machine-architect',
+      role: 'Model interactive UI flows as deterministic state machines using XState to eliminate impossible states.',
+      dependsOn: apiDeps,
+      concurrency: 'parallel',
+      tokenBudget: 7000,
+      sandboxBranch: 'sandbox/task-state-machine'
+    });
+  }
+
+  if (/video|media|render|remotion|ffmpeg|audio/i.test(lower)) {
+    tasks.push({
+      id: 'task-media-remotion',
+      wave: 3,
+      phase: 'Phase 4: Media & Dynamic Video Processing',
+      agent: '@remotion-motion-engineer',
+      role: 'Construct deterministic 60fps React motion sequences with clamped spring dynamics.',
+      dependsOn: apiDeps,
+      concurrency: 'parallel',
+      tokenBudget: 8000,
+      sandboxBranch: 'sandbox/task-media-remotion'
+    });
+    tasks.push({
+      id: 'task-media-ffmpeg',
+      wave: 3,
+      phase: 'Phase 4: Media & Dynamic Video Processing',
+      agent: '@ffmpeg-pipeline-master',
+      role: 'Build headless transcode filtergraph with faststart web streaming and GPU acceleration.',
+      dependsOn: apiDeps,
+      concurrency: 'parallel',
+      tokenBudget: 7000,
+      sandboxBranch: 'sandbox/task-media-ffmpeg'
+    });
+  }
+
+  if (/rag|llm|ai|vector|embedding|prompt|eval/i.test(lower)) {
+    tasks.push({
+      id: 'task-ai-rag',
+      wave: 3,
+      phase: 'Phase 4: AI & Agentic Intelligence Layer',
+      agent: '@rag-pipeline-architect',
+      role: 'Implement hybrid search (BM25 + Dense embeddings) with reciprocal rank fusion and rerankers.',
+      dependsOn: apiDeps,
+      concurrency: 'parallel',
+      tokenBudget: 9000,
+      sandboxBranch: 'sandbox/task-ai-rag'
+    });
+    tasks.push({
+      id: 'task-ai-shield',
+      wave: 3,
+      phase: 'Phase 4: AI & Agentic Intelligence Layer',
+      agent: '@prompt-injection-shield',
+      role: 'Enforce structural XML input delimiters and secret canary tokens to prevent prompt injection.',
+      dependsOn: apiDeps,
+      concurrency: 'parallel',
+      tokenBudget: 5000,
+      sandboxBranch: 'sandbox/task-ai-shield'
+    });
+  }
+
+  // Phase 5: Verification & Zero-Slop Gate
+  const prevDeps = tasks.map(t => t.id);
+  tasks.push({
+    id: 'task-gate-tdd',
+    wave: 4,
+    phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
+    agent: '@tdd-champion',
+    role: 'Write failing reproduction unit tests before code, verifying edge-case coverage.',
+    dependsOn: prevDeps,
+    concurrency: 'sequential',
+    tokenBudget: 8000,
+    sandboxBranch: 'sandbox/task-gate-tdd'
+  });
+  tasks.push({
+    id: 'task-gate-cwv',
+    wave: 4,
+    phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
+    agent: '@cwv-lcp-doctor',
+    role: 'Audit Core Web Vitals (LCP < 2.5s, INP < 200ms, zero CLS) before deployment.',
+    dependsOn: prevDeps,
+    concurrency: 'parallel',
+    tokenBudget: 4000,
+    sandboxBranch: 'sandbox/task-gate-cwv'
+  });
+
+  // Phase 6: Release & PR Synthesis
+  tasks.push({
+    id: 'task-release-pr',
+    wave: 5,
+    phase: 'Phase 6: Release & Documentation',
+    agent: '@pr-artisan',
+    role: 'Inspect git diff and synthesize Conventional Commits with evidence-backed PR documentation.',
+    dependsOn: ['task-gate-tdd', 'task-gate-cwv'],
+    concurrency: 'sequential',
+    tokenBudget: 5000,
+    sandboxBranch: 'sandbox/task-release-pr'
+  });
+
+  return tasks;
+}
+
+export function planSwarm(objective) {
   if (!objective) {
     console.error(`\x1b[31mPlease provide an objective. Example:\x1b[0m`);
     console.error(`  npx apex-agents plan "Build a real-time collaborative video canvas with auth"\n`);
@@ -31,124 +226,52 @@ function planSwarm(objective) {
 
   console.log(`${c.bold}Target Objective:${c.reset} "${c.yellow}${objective}${c.reset}"\n`);
 
-  const lower = objective.toLowerCase();
-  const assignments = [];
+  const tasks = generateSwarmDag(objective);
 
-  // Keyword to Agent Matrix
-  if (/auth|login|jwt|user|oauth|session|security/i.test(lower)) {
-    assignments.push({
-      phase: 'Phase 1: Security & Identity Foundation',
-      agent: '@auth-identity-guard',
-      role: 'Design JWT rotation, HttpOnly session cookies, and RBAC middleware.'
-    });
-    assignments.push({
-      phase: 'Phase 1: Security & Identity Foundation',
-      agent: '@appsec-auditor',
-      role: 'Audit ingress endpoints against OWASP Top 10, SSRF, and injection vulnerabilities.'
-    });
+  // Group by Wave / Phase
+  const waves = new Map();
+  for (const t of tasks) {
+    if (!waves.has(t.wave)) waves.set(t.wave, []);
+    waves.get(t.wave).push(t);
   }
 
-  if (/database|db|postgres|sql|prisma|query|schema|index/i.test(lower)) {
-    assignments.push({
-      phase: 'Phase 2: Data Model & Persistence Architecture',
-      agent: '@database-tuner',
-      role: 'Design normalized schema, B-Tree indexes, and connection pooling strategy.'
-    });
-  }
+  console.log(`${c.bold}DAG EXECUTION TOPOLOGY & PER-AGENT TOKEN BUDGETS:${c.reset}`);
+  console.log(`┌────────────────────────────────────────────────────────────────────────────────────────┐`);
 
-  if (/api|backend|websocket|webrtc|realtime|stream|microservice/i.test(lower)) {
-    assignments.push({
-      phase: 'Phase 3: Backend & Wire Protocol Engineering',
-      agent: '@backend-systems-lead',
-      role: 'Implement distributed endpoints with Idempotency-Key support and structured error envelopes.'
-    });
-    assignments.push({
-      phase: 'Phase 3: Backend & Wire Protocol Engineering',
-      agent: '@network-security-auditor',
-      role: 'Audit WebSocket upgrade handshake, CSWSH defenses, and sliding-window rate limits.'
-    });
-  }
-
-  if (/ui|frontend|react|next|component|design|css|animation|canvas/i.test(lower)) {
-    assignments.push({
-      phase: 'Phase 4: Frontend & User Interface Engineering',
-      agent: '@frontend-architect',
-      role: 'Build accessible, responsive UI adhering to Frame.io dark-graphite standards and 60fps GPU compositing.'
-    });
-    assignments.push({
-      phase: 'Phase 4: Frontend & User Interface Engineering',
-      agent: '@state-machine-architect',
-      role: 'Model interactive UI flows as deterministic state machines using XState to eliminate impossible states.'
-    });
-  }
-
-  if (/video|media|render|remotion|ffmpeg|audio/i.test(lower)) {
-    assignments.push({
-      phase: 'Phase 4: Media & Dynamic Video Processing',
-      agent: '@remotion-motion-engineer',
-      role: 'Construct deterministic 60fps React motion sequences with clamped spring dynamics.'
-    });
-    assignments.push({
-      phase: 'Phase 4: Media & Dynamic Video Processing',
-      agent: '@ffmpeg-pipeline-master',
-      role: 'Build headless transcode filtergraph with faststart web streaming and GPU acceleration.'
-    });
-  }
-
-  if (/rag|llm|ai|vector|embedding|prompt|eval/i.test(lower)) {
-    assignments.push({
-      phase: 'Phase 4: AI & Agentic Intelligence Layer',
-      agent: '@rag-pipeline-architect',
-      role: 'Implement hybrid search (BM25 + Dense embeddings) with reciprocal rank fusion and rerankers.'
-    });
-    assignments.push({
-      phase: 'Phase 4: AI & Agentic Intelligence Layer',
-      agent: '@prompt-injection-shield',
-      role: 'Enforce structural XML input delimiters and secret canary tokens to prevent prompt injection.'
-    });
-  }
-
-  // Mandatory Quality & Release Phase
-  assignments.push({
-    phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
-    agent: '@tdd-champion',
-    role: 'Write failing reproduction unit tests before code, verifying edge-case coverage.'
-  });
-  assignments.push({
-    phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
-    agent: '@cwv-lcp-doctor',
-    role: 'Audit Core Web Vitals (LCP < 2.5s, INP < 200ms, zero CLS) before deployment.'
-  });
-  assignments.push({
-    phase: 'Phase 6: Release & Documentation',
-    agent: '@pr-artisan',
-    role: 'Inspect git diff and synthesize Conventional Commits with evidence-backed PR documentation.'
-  });
-
-  // Group by Phase
-  const phases = {};
-  for (const item of assignments) {
-    if (!phases[item.phase]) phases[item.phase] = [];
-    phases[item.phase].push(item);
-  }
-
-  for (const [phaseName, items] of Object.entries(phases)) {
-    console.log(`${c.magenta}${c.bold}▶ [${phaseName}]${c.reset}`);
-    for (const item of items) {
-      console.log(`  ${c.green}• ${item.agent.padEnd(28)}${c.reset} ${item.role}`);
+  for (const [waveNum, waveTasks] of waves.entries()) {
+    const phaseName = waveTasks[0].phase;
+    console.log(`│ ${c.magenta}${c.bold}[Wave ${waveNum}] ${phaseName.padEnd(72)}${c.reset}│`);
+    for (const t of waveTasks) {
+      const deps = t.dependsOn.length > 0 ? `dependsOn: [${t.dependsOn.join(', ')}]` : 'root';
+      const budget = `${t.tokenBudget}t`;
+      console.log(`│   ${c.green}• ${t.agent.padEnd(26)}${c.reset} ${c.gray}(${budget}, ${t.concurrency})${c.reset} ${deps.padEnd(30)} │`);
+      console.log(`│     ${c.dim}${t.role.slice(0, 80)}${c.reset}`);
     }
-    console.log();
+    console.log(`├────────────────────────────────────────────────────────────────────────────────────────┤`);
   }
+  console.log(`└────────────────────────────────────────────────────────────────────────────────────────┘\n`);
+
+  console.log(`${c.cyan}${c.bold}ISOLATED GIT WORKTREE SANDBOX COMMANDS:${c.reset}`);
+  const uniqueBranches = Array.from(new Set(tasks.map(t => t.sandboxBranch)));
+  for (const b of uniqueBranches.slice(0, 4)) {
+    console.log(`  ${c.gray}git worktree add ../${b.replace('/', '-')} -b ${b}${c.reset}`);
+  }
+  console.log();
 
   console.log(`${c.cyan}${c.bold}EXECUTION DIRECTIVE FOR AI AGENT:${c.reset}`);
   console.log(`Copy and paste this instruction into your AI agent:`);
   console.log(`\n${c.gray}"""${c.reset}`);
   console.log(`Follow the Apex Agents Swarm Plan for: "${objective}".`);
-  console.log(`Execute sequentially through Phase 1 to Phase 6.`);
-  console.log(`Adopt the specific specialist persona and negative constraints at each phase.`);
+  console.log(`Execute sequentially through Wave 0 to Wave 5 according to the DAG dependency edges.`);
+  console.log(`Adopt the specific specialist persona and negative constraints at each wave.`);
   console.log(`Verify exit code 0 and zero regressions before declaring done.`);
   console.log(`${c.gray}"""${c.reset}\n`);
+
+  return tasks;
 }
 
-const userObjective = process.argv.slice(2).join(' ');
-planSwarm(userObjective);
+// CLI invocation
+if (process.argv[1] && process.argv[1].endsWith('orchestrator.js')) {
+  const userObjective = process.argv.slice(2).join(' ');
+  planSwarm(userObjective);
+}

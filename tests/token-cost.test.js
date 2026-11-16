@@ -11,6 +11,13 @@ describe('Multi-Model Token Cost & Window Predictor Suite', () => {
     assert.strictEqual(estimateTokens(0), 0);
   });
 
+  test('should estimate tokens using subword BPE tokenizer regex', () => {
+    const text = 'function calculateTotal(price: number, tax: number): number { return price * (1 + tax); }';
+    const tokens = estimateTokens(text);
+    assert.ok(tokens > 10 && tokens < 35);
+    assert.strictEqual(estimateTokens(''), 0);
+  });
+
   test('should compute multi-model context window usage and pricing', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-cost-test-'));
     try {

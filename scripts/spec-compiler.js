@@ -50,7 +50,20 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
 
   md += `## 2. 🏛️ DATA CONTRACTS & TYPE INTERFACES\n\n`;
   md += `\`\`\`typescript\n`;
-  md += `// Target domain interface for ${title}\n`;
+  md += `import { z } from 'zod';\n\n`;
+  md += `// 1. Zod Runtime Validation Schema\n`;
+  md += `export const ${pascalCase(slug)}Schema = z.object({\n`;
+  md += `  id: z.string().uuid(),\n`;
+  md += `  timestamp: z.number().int().positive(),\n`;
+  md += `  idempotencyKey: z.string().min(16).max(128),\n`;
+  md += `  actor: z.object({\n`;
+  md += `    id: z.string(),\n`;
+  md += `    role: z.enum(['admin', 'member', 'system'])\n`;
+  md += `  }).optional(),\n`;
+  md += `  metadata: z.record(z.string(), z.unknown())\n`;
+  md += `});\n\n`;
+  md += `export type ${pascalCase(slug)}Input = z.infer<typeof ${pascalCase(slug)}Schema>;\n\n`;
+  md += `// 2. Target Domain Entity Interface for ${title}\n`;
   md += `export interface ${pascalCase(slug)}Config {\n`;
   md += `  enabled: boolean;\n`;
   md += `  timeoutMs?: number;\n`;
@@ -61,12 +74,21 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
   md += `  timestamp: number;\n`;
   md += `  metadata: Record<string, unknown>;\n`;
   md += `}\n\n`;
-  md += `export interface ${pascalCase(slug)}Result {\n`;
-  md += `  success: boolean;\n`;
-  md += `  data?: unknown;\n`;
-  md += `  error?: string;\n`;
-  md += `}\n`;
+  md += `// 3. Discriminated Union Result & Typed Error Codes\n`;
+  md += `export type ${pascalCase(slug)}Result =\n`;
+  md += `  | { success: true; status: 'completed'; data: ${pascalCase(slug)}Payload; latencyMs: number }\n`;
+  md += `  | { success: false; status: 'failed'; error: string; code: ${pascalCase(slug)}ErrorCode; details?: unknown };\n\n`;
+  md += `export type ${pascalCase(slug)}ErrorCode =\n`;
+  md += `  | 'VALIDATION_FAILED'\n`;
+  md += `  | 'UNAUTHORIZED_ACCESS'\n`;
+  md += `  | 'IDEMPOTENCY_CONFLICT'\n`;
+  md += `  | 'UPSTREAM_SERVICE_TIMEOUT'\n`;
+  md += `  | 'INTERNAL_ERROR';\n`;
   md += `\`\`\`\n\n`;
+  md += `### 🌐 Ingress Wire Protocol Contract\n`;
+  md += `| Method | Route Path | Required Headers | Success Status | Idempotency Keyed |\n`;
+  md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+  md += `| \`POST\` | \`/api/v1/${slug}\` | \`Content-Type: application/json\`, \`Idempotency-Key\` | \`200 OK\` | Yes (UUIDv4 header) |\n\n`;
 
   md += `## 3. 🔄 STATE MACHINE & EVENT TRANSITIONS\n\n`;
   md += `\`\`\`text\n`;

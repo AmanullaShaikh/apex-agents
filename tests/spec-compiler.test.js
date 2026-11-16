@@ -16,6 +16,9 @@ describe('Spec-First Architectural Compiler Suite', () => {
       assert.match(res.content, /STRICT NEGATIVE CONSTRAINTS/);
       assert.match(res.content, /TDD ACCEPTANCE CRITERIA/);
       assert.match(res.content, /SEQUENTIAL EXECUTION PROTOCOL/);
+      assert.match(res.content, /z\.object\(\{/);
+      assert.match(res.content, /Discriminated Union Result/);
+      assert.match(res.content, /Ingress Wire Protocol Contract/);
 
       // Validate generated spec
       const val = validateSpec(res.content);
