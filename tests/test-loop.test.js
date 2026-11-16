@@ -118,16 +118,48 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
     }
   });
 
-  test('should handle attemptAutoHeal gracefully when no API keys are present', async () => {
+  test('should execute deterministic AST repair offline with zero API keys', async () => {
+    const { deterministicAstRepair, attemptAutoHeal } = await import('../scripts/test-loop.js');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-ast-heal-'));
+    try {
+      const srcFile = path.join(tmpDir, 'auth.ts');
+      fs.writeFileSync(srcFile, 'export function handleLogin() { return 500; }');
+
+      const mockFailures = [{
+        file: srcFile,
+        error: 'AssertionError: expected 401 but received 500'
+      }];
+
+      const res = deterministicAstRepair(tmpDir, mockFailures);
+      assert.ok(res);
+      assert.strictEqual(res.repaired, true);
+      assert.strictEqual(res.method, 'AST_LITERAL_SWAP');
+
+      const updated = fs.readFileSync(srcFile, 'utf-8');
+      assert.match(updated, /401/);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should handle attemptAutoHeal gracefully with zero API keys and delegate to IDE agent', async () => {
     const { attemptAutoHeal } = await import('../scripts/test-loop.js');
     const prevKey = process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENAI_API_KEY;
     try {
-      const res = await attemptAutoHeal(process.cwd(), [], 'sample crash');
-      assert.strictEqual(res.healed, false);
-      assert.strictEqual(res.reason, 'NO_API_KEY');
+      const emptyRes = await attemptAutoHeal(process.cwd(), [], 'sample crash');
+      assert.strictEqual(emptyRes.healed, false);
+      assert.strictEqual(emptyRes.reason, 'NO_FAILURES');
+
+      const mockFailures = [{
+        file: 'non_existent_file_xyz.ts',
+        error: 'General complex unresolvable logic error'
+      }];
+      const delegRes = await attemptAutoHeal(process.cwd(), mockFailures, 'sample crash');
+      assert.strictEqual(delegRes.healed, false);
+      assert.strictEqual(delegRes.reason, 'TARGET_FILE_NOT_FOUND');
     } finally {
       if (prevKey) process.env.GEMINI_API_KEY = prevKey;
     }

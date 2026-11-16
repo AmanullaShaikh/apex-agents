@@ -60,11 +60,11 @@ function printHelp() {
   console.log(`  ${c.green}spec <feature>${c.reset}  Compile 5-phase zero-slop architectural SPEC.md before coding`);
   console.log(`  ${c.green}trace <symbol>${c.reset}  Trace declaration & cross-file call sites with AST call-graph`);
   console.log(`  ${c.green}audit-bugs${c.reset}      Deep AST scan for production bugs (SQL injection, hook leaks, floating promises)`);
-  console.log(`  ${c.green}cost${c.reset}            Multi-model context window usage & cost predictor (Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, DeepSeek V4)`);
+  console.log(`  ${c.green}cost${c.reset}            Multi-model context window usage & cost predictor (Claude 3.7, GPT-4o, Gemini 2.0, DeepSeek V3/R1)`);
   console.log(`  ${c.green}swe-eval${c.reset}        Run SWE-bench mini 5-vector autonomous engineering benchmark`);
   console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
-  console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a multi-agent swarm execution plan`);
+  console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a parallel DAG swarm plan & scaffold worktrees`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
   console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)`);
@@ -444,7 +444,7 @@ function handleDoctor() {
     { name: 'Git Worktree Sandbox', status: 'Available (npx apex-agents sandbox)' },
     { name: 'Pre-Commit Safety Hooks', status: 'Installed (.git/hooks/pre-commit)' },
     { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
-    { name: 'Swarm Orchestrator', status: 'Available (npx apex-agents plan)' },
+    { name: 'Swarm DAG Planner', status: 'Available (npx apex-agents plan)' },
     { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
     { name: 'Interactive Dashboard', status: 'Available (npx apex-agents dashboard)' }
   ];

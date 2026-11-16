@@ -45,7 +45,7 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
 
   test('should execute multi-agent swarm planning', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" plan "Build real-time video streaming pipeline with postgres and auth"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.match(out, /MULTI-AGENT SWARM ORCHESTRATION PLANNER/);
+    assert.match(out, /SWARM DAG PLANNER/);
     assert.match(out, /@auth-identity-guard/);
     assert.match(out, /@database-tuner/);
     assert.match(out, /@tdd-champion/);

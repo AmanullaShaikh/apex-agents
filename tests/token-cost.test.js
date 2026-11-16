@@ -29,14 +29,18 @@ describe('Multi-Model Token Cost & Window Predictor Suite', () => {
       assert.ok(report.compactedTokensEst < report.totalTokens);
       assert.strictEqual(report.modelProjections.length, 10);
 
-      const sonnet = report.modelProjections.find(m => m.model === 'Claude Sonnet 5.5');
+      const sonnet = report.modelProjections.find(m => m.model === 'Claude 3.7 Sonnet');
       assert.ok(sonnet);
-      assert.strictEqual(sonnet.contextLimit, 1000000);
+      assert.strictEqual(sonnet.contextLimit, 200000);
       assert.ok(sonnet.costPerTurn >= 0);
 
       const deepseek = report.modelProjections.find(m => m.model.includes('DeepSeek'));
       assert.ok(deepseek);
-      assert.ok(deepseek.contextLimit >= 256000);
+      assert.ok(deepseek.contextLimit >= 64000);
+
+      const localQwen = report.modelProjections.find(m => m.model.includes('Qwen'));
+      assert.ok(localQwen);
+      assert.strictEqual(localQwen.costPerTurn, 0);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

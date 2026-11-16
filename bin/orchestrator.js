@@ -224,7 +224,7 @@ export async function planSwarm(objective, options = {}) {
   const shouldExecute = options.execute || process.argv.includes('--execute') || process.argv.includes('-x');
 
   console.log(`\n${c.cyan}${c.bold}═════════════════════════════════════════════════════════════════${c.reset}`);
-  console.log(`${c.cyan}${c.bold}   APEX AGENTS: MULTI-AGENT SWARM ORCHESTRATION PLANNER          ${c.reset}`);
+  console.log(`${c.cyan}${c.bold}   APEX AGENTS: SWARM DAG PLANNER & WORKTREE SCAFFOLDER          ${c.reset}`);
   console.log(`${c.cyan}${c.bold}═════════════════════════════════════════════════════════════════${c.reset}\n`);
 
   console.log(`${c.bold}Target Objective:${c.reset} "${c.yellow}${objective}${c.reset}"\n`);
@@ -293,10 +293,10 @@ export async function planSwarm(objective, options = {}) {
     console.log();
   }
 
-  console.log(`${c.cyan}${c.bold}EXECUTION DIRECTIVE FOR AI AGENT:${c.reset}`);
-  console.log(`Copy and paste this instruction into your AI agent:`);
+  console.log(`${c.cyan}${c.bold}PARALLEL AGENT EXECUTION DIRECTIVE:${c.reset}`);
+  console.log(`Apply this contract directive to your agent session (Cursor / Claude Code / Antigravity):`);
   console.log(`\n${c.gray}"""${c.reset}`);
-  console.log(`Follow the Apex Agents Swarm Plan for: "${objective}".`);
+  console.log(`Follow the Apex Agents Parallel DAG Swarm Plan for: "${objective}".`);
   console.log(`Execute sequentially through Wave 0 to Wave 5 according to the DAG dependency edges.`);
   console.log(`Adopt the specific specialist persona and negative constraints at each wave.`);
   console.log(`Verify exit code 0 and zero regressions before declaring done.`);

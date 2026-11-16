@@ -42,6 +42,24 @@ describe('Spec-First Architectural Compiler Suite', () => {
     assert.ok(val.missing.includes('STATE MACHINE'));
   });
 
+  test('should compile UI-specific component props schema without forcing idempotency keys', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-spec-ui-'));
+    try {
+      const res = compileSpec('Dark Mode Toggle Button Component', tmpDir);
+      assert.strictEqual(fs.existsSync(res.path), true);
+      assert.match(res.content, /DarkModeToggleButtonComponentPropsSchema/);
+      assert.match(res.content, /theme: z\.enum\(\['light', 'dark', 'system'\]\)/);
+      assert.match(res.content, /UI Component & State Contract/);
+      assert.doesNotMatch(res.content, /Idempotency-Key/);
+
+      const val = validateSpec(res.content);
+      assert.strictEqual(val.valid, true);
+      assert.strictEqual(val.score, 100);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('should reject empty intent', () => {
     assert.throws(() => {
       compileSpec('');
