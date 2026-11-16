@@ -197,10 +197,22 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
         const client = new Proxy(db, { get(t, p) { return (q) => t.query(q); } });
         client.run("SELECT * FROM users WHERE id = " + id);
       }
+
+      export function testCall(id) {
+        db.query.call(db, "SELECT * FROM users WHERE id = " + id);
+      }
+
+      export function testApply(id) {
+        db.query.apply(db, ["SELECT * FROM users WHERE id = " + id]);
+      }
+
+      export function testBind(id) {
+        db.query.bind(db)("SELECT * FROM users WHERE id = " + id);
+      }
     `;
 
     const issues = auditCodeBugs(advancedCode, 'src/api/advanced.ts');
     const sqli = issues.filter(i => i.category === 'SQL_INJECTION');
-    assert.strictEqual(sqli.length, 8);
+    assert.strictEqual(sqli.length, 11);
   });
 });

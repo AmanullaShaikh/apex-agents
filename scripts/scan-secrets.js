@@ -32,12 +32,12 @@ export function foldStringLiterals(text) {
     }
   });
 
-  // 2. Evaluate String.fromCharCode(...) including bitwise and arithmetic expressions
-  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, nums) => {
+  // 2. Evaluate String.fromCharCode(...) / String.fromCodePoint(...) including bitwise, arithmetic, and hex expressions
+  folded = folded.replace(/String\.(fromCharCode|fromCodePoint)\s*\(\s*([0-9a-fA-FxX\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, fn, nums) => {
     try {
       const chars = nums.split(',').map(expr => {
         const trimmed = expr.trim();
-        if (/^[0-9\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
+        if (/^[0-9a-fA-FxX\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
           return String.fromCharCode(Function(`'use strict'; return (${trimmed});`)());
         }
         return '';

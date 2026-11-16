@@ -334,5 +334,55 @@ describe('Diff Security & Anti-Cheat Audit', () => {
       '+expect.extend({ toBeTrue: () => ({ pass: true, message: () => "" }) });'
     ].join('\n');
     assert.strictEqual(auditDiff(matcherDiff).stats.tampering, 1);
+
+    // 10. ES6 String.fromCodePoint
+    const fromCodePointDiff = [
+      'diff --git a/src/codepoint.ts b/src/codepoint.ts',
+      '--- a/src/codepoint.ts',
+      '+++ b/src/codepoint.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const k = String.fromCodePoint(65, 75, 73, 65) + "1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(fromCodePointDiff).stats.secrets, 1);
+
+    // 11. Hex numbers in fromCharCode
+    const hexCharCodeDiff = [
+      'diff --git a/src/hexchar.ts b/src/hexchar.ts',
+      '--- a/src/hexchar.ts',
+      '+++ b/src/hexchar.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const k = String.fromCharCode(0x41, 0x4B, 0x49, 0x41) + "1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(hexCharCodeDiff).stats.secrets, 1);
+
+    // 12. Microtask event loop evasion
+    const microtaskDiff = [
+      'diff --git a/tests/microtask.test.ts b/tests/microtask.test.ts',
+      '--- a/tests/microtask.test.ts',
+      '+++ b/tests/microtask.test.ts',
+      '@@ -1,3 +1,4 @@',
+      '+queueMicrotask(() => { expect(false).toBe(true); });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(microtaskDiff).stats.tampering, 1);
+
+    // 13. Conditional skipIf
+    const skipIfDiff = [
+      'diff --git a/tests/skipif.test.ts b/tests/skipif.test.ts',
+      '--- a/tests/skipif.test.ts',
+      '+++ b/tests/skipif.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+test.skipIf(true)("auth test", () => { expect(false).toBe(true); });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(skipIfDiff).stats.tampering, 1);
+
+    // 14. Chained concurrent.skip
+    const concurrentSkipDiff = [
+      'diff --git a/tests/concurrent.test.ts b/tests/concurrent.test.ts',
+      '--- a/tests/concurrent.test.ts',
+      '+++ b/tests/concurrent.test.ts',
+      '@@ -1,2 +1,3 @@',
+      '+test.concurrent.skip("auth test", () => { expect(false).toBe(true); });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(concurrentSkipDiff).stats.tampering, 1);
   });
 });

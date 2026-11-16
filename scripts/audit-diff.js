@@ -45,16 +45,16 @@ const DEBUG_PATTERNS = [
 ];
 
 const TEST_TAMPERING_PATTERNS = [
-  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)\s*(\.|\b)\s*(skip)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]/ },
-  { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(todo)\s*\(/ },
-  { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)\s*(\.|\b)\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]/ },
+  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(skip|skipIf|runIf)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]/ },
+  { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(todo)\s*\(/ },
+  { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
   { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\.exit\s*\(\s*[0-9]*\s*\)/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
   { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
-  { name: 'Unhandled Asynchronous Timer in Test Execution', regex: /\b(setTimeout|setImmediate)\s*\(/ },
+  { name: 'Unhandled Asynchronous Timer or Microtask in Test Execution', regex: /\b(setTimeout|setImmediate|queueMicrotask|process\.nextTick)\s*\(/ },
   { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(false|0|null|undefined)\s*\)\s*\{/ },
   { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^)]+\)\.toBe\s*\(\s*['"][^'"]+['"]\s*\)|\bexpect\s*\(\s*\[[^\]]*\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
@@ -71,12 +71,12 @@ export function foldStringLiterals(text) {
     }
   });
 
-  // 2. Evaluate String.fromCharCode(...) including bitwise and arithmetic expressions
-  folded = folded.replace(/String\.fromCharCode\s*\(\s*([0-9\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, nums) => {
+  // 2. Evaluate String.fromCharCode(...) / String.fromCodePoint(...) including bitwise, arithmetic, and hex expressions
+  folded = folded.replace(/String\.(fromCharCode|fromCodePoint)\s*\(\s*([0-9a-fA-FxX\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, fn, nums) => {
     try {
       const chars = nums.split(',').map(expr => {
         const trimmed = expr.trim();
-        if (/^[0-9\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
+        if (/^[0-9a-fA-FxX\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
           return String.fromCharCode(Function(`'use strict'; return (${trimmed});`)());
         }
         return '';

@@ -213,6 +213,51 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           }
         }
 
+        // 6. Method invocation via .call(): db.query.call(db, sql)
+        if (!isSqlCall && p.node.callee.type === 'MemberExpression' && p.node.callee.property?.name === 'call') {
+          const innerTarget = p.node.callee.object;
+          if (innerTarget) {
+            const innerProp = innerTarget.property?.name || innerTarget.property?.value || innerTarget.name;
+            if (queryFnNames.has(innerProp) || /query|raw|exec|run/i.test(innerProp)) {
+              if (p.node.arguments.length >= 2) {
+                isSqlCall = true;
+                sqlArg = p.node.arguments[1];
+              }
+            }
+          }
+        }
+
+        // 7. Method invocation via .apply(): db.query.apply(db, [sql])
+        if (!isSqlCall && p.node.callee.type === 'MemberExpression' && p.node.callee.property?.name === 'apply') {
+          const innerTarget = p.node.callee.object;
+          if (innerTarget) {
+            const innerProp = innerTarget.property?.name || innerTarget.property?.value || innerTarget.name;
+            if (queryFnNames.has(innerProp) || /query|raw|exec|run/i.test(innerProp)) {
+              if (p.node.arguments.length >= 2 && p.node.arguments[1].type === 'ArrayExpression' && p.node.arguments[1].elements.length > 0) {
+                isSqlCall = true;
+                sqlArg = p.node.arguments[1].elements[0];
+              }
+            }
+          }
+        }
+
+        // 8. Method binding invocation via .bind(): db.query.bind(db)(sql)
+        if (!isSqlCall && p.node.callee.type === 'CallExpression') {
+          const inner = p.node.callee;
+          if (inner.callee?.type === 'MemberExpression' && inner.callee.property?.name === 'bind') {
+            const target = inner.callee.object;
+            if (target) {
+              const prop = target.property?.name || target.property?.value || target.name;
+              if (queryFnNames.has(prop) || /query|raw|exec|run/i.test(prop)) {
+                if (p.node.arguments.length > 0) {
+                  isSqlCall = true;
+                  sqlArg = p.node.arguments[0];
+                }
+              }
+            }
+          }
+        }
+
         if (isSqlCall && sqlArg) {
           const firstArg = sqlArg;
 
