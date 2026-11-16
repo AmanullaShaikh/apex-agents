@@ -1,7 +1,7 @@
 # ⚡ Apex Agents
 
-> **The Sovereign AI Engineering Agency & Architectural Execution Harness.**  
-> A dual-layer framework combining a **real-time Node.js Babel AST tooling engine** with **38 domain-expert agent protocols** and **13 operational instincts** for **Cursor, Claude Code, Windsurf, Copilot, Codex, and Antigravity**.
+> **The Sovereign AI Engineering Harness & Developer Tooling Engine.**  
+> A dual-layer framework combining a **real-time Node.js Babel AST tooling suite** with **38 specialized domain-expert directives** and **native Model Context Protocol (MCP)** integration for **Cursor, Claude Code, Windsurf, Copilot, Codex, and Antigravity**.
 
 <div align="center">
 
@@ -20,7 +20,7 @@
 
 ## 💡 The Core Problem: Why Autonomous Coding Agents Fail
 
-Leading AI coding models (Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, DeepSeek V4-Pro, Grok 4.7) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
+Leading AI coding models (Claude 3.7 Sonnet, GPT-4o, Gemini 2.0 Flash, DeepSeek-R1) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -115,7 +115,7 @@ npx apex-agents init
 | `npx apex-agents spec <feat>` | Architecture | Compiles 5-phase zero-slop architectural `SPEC.md` and contracts before coding |
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
 | `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
-| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, & DeepSeek V4 |
+| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude 3.7, GPT-4o, Gemini 2.0, & DeepSeek V3/R1 |
 | `npx apex-agents swe-eval` | Benchmark | Runs 5-vector AST & architectural engine benchmark suite (Grade A+ Verified) |
 | `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
@@ -270,19 +270,16 @@ MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):
 ┌─────────────────────┬──────────────────┬──────────────┬──────────────┐
 │ Model               │ Context Window   │ Window Used  │ Single Cost  │
 ├─────────────────────┼──────────────────┼──────────────┼──────────────┤
-│ Claude Sonnet 5.5   │ 1000k            │ 10.17%       │ $0.3051      │
-│ Claude Opus 5.5     │ 1000k            │ 10.17%       │ $1.5254      │
-│ GPT-6 Astra         │ 1000k            │ 10.17%       │ $0.2034      │
-│ GPT-6.1 Sol         │ 500k             │ 20.34%       │ $0.1119      │
-│ Gemini 4 Argon      │ 5000k            │ 2.03%        │ $0.1271      │
-│ Gemini 4 Hydrogen   │ 2000k            │ 5.08%        │ $0.0153      │
-│ Grok 4.7            │ 2000k            │ 5.08%        │ $0.2034      │
-│ DeepSeek V4-Pro     │ 500k             │ 20.34%       │ $0.0559      │
-│ DeepSeek V4.1-Flash │ 256k             │ 39.72%       │ $0.0142      │
-│ Meta Muse Spark     │ 512k             │ 19.86%       │ $0.0203      │
+│ Claude 3.7 Sonnet   │ 200k             │ 15.25%       │ $0.0915      │
+│ Claude 3.5 Haiku    │ 200k             │ 15.25%       │ $0.0244      │
+│ GPT-4o              │ 128k             │ 23.82%       │ $0.0762      │
+│ GPT-4o-mini         │ 128k             │ 23.82%       │ $0.0046      │
+│ Gemini 2.0 Flash    │ 1000k            │ 3.05%        │ $0.0031      │
+│ DeepSeek-V3         │ 128k             │ 23.82%       │ $0.0043      │
+│ DeepSeek-R1         │ 128k             │ 23.82%       │ $0.0168      │
 └─────────────────────┴──────────────────┴──────────────┴──────────────┘
 
-💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude Sonnet 5.5!
+💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude 3.7 Sonnet!
 ```
 
 ---

@@ -238,9 +238,17 @@ zcmeAS@N?(olHy` + '0'.repeat(500);
         params: { name: 'summon_specialist', arguments: { agent_id: '../../etc/passwd' } }
       }) + '\n');
 
-      // Wait 300ms for stdio processing
-      await new Promise(r => setTimeout(r, 300));
-      proc.kill();
+      // Await responses via event-driven resolution
+      await new Promise((resolve) => {
+        const check = () => {
+          if (responses.find(r => r.id === 1) && responses.find(r => r.id === 2)) {
+            proc.kill();
+            resolve();
+          }
+        };
+        proc.stdout.on('data', check);
+        proc.on('close', resolve);
+      });
 
       const initResp = responses.find(r => r.id === 1);
       assert.ok(initResp, 'Must receive initialize response');

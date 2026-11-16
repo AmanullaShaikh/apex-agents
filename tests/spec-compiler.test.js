@@ -9,6 +9,7 @@ describe('Spec-First Architectural Compiler Suite', () => {
   test('should compile a comprehensive 5-phase SPEC.md from intent', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-spec-test-'));
     try {
+      fs.writeFileSync(path.join(tmpDir, 'types.ts'), 'export interface UserAccount { id: string; }\nexport type AuthToken = string;\n');
       const res = compileSpec('Stripe Webhook Subscription Sync', tmpDir);
       assert.strictEqual(fs.existsSync(res.path), true);
       assert.match(res.content, /APEX AGENTS: ARCHITECTURAL SPECIFICATION/);
@@ -19,6 +20,8 @@ describe('Spec-First Architectural Compiler Suite', () => {
       assert.match(res.content, /z\.object\(\{/);
       assert.match(res.content, /Discriminated Union Result/);
       assert.match(res.content, /Ingress Wire Protocol Contract/);
+      assert.match(res.content, /Discovered Codebase Contracts Linked/);
+      assert.match(res.content, /UserAccount/);
 
       // Validate generated spec
       const val = validateSpec(res.content);

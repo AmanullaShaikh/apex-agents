@@ -11,6 +11,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const c = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
+  dim: '\x1b[2m',
   cyan: '\x1b[36m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
@@ -213,12 +214,14 @@ export function generateSwarmDag(objective) {
   return tasks;
 }
 
-export function planSwarm(objective) {
+export async function planSwarm(objective, options = {}) {
   if (!objective) {
     console.error(`\x1b[31mPlease provide an objective. Example:\x1b[0m`);
     console.error(`  npx apex-agents plan "Build a real-time collaborative video canvas with auth"\n`);
     process.exit(1);
   }
+
+  const shouldExecute = options.execute || process.argv.includes('--execute') || process.argv.includes('-x');
 
   console.log(`\n${c.cyan}${c.bold}═════════════════════════════════════════════════════════════════${c.reset}`);
   console.log(`${c.cyan}${c.bold}   APEX AGENTS: MULTI-AGENT SWARM ORCHESTRATION PLANNER          ${c.reset}`);
@@ -258,6 +261,24 @@ export function planSwarm(objective) {
   }
   console.log();
 
+  if (shouldExecute) {
+    console.log(`${c.cyan}${c.bold}⚡ [DAG Execution]: Spawning physical Git Worktree sandboxes...${c.reset}`);
+    try {
+      const { handleStart } = await import('../scripts/worktree-sandbox.js');
+      for (const task of tasks.slice(0, 2)) {
+        try {
+          handleStart(task.id);
+          console.log(`  ${c.green}✓${c.reset} Spawned physical worktree for ${task.agent} (${task.id})`);
+        } catch (e) {
+          console.log(`  ${c.yellow}!${c.reset} Worktree ${task.id} notice: ${e.message}`);
+        }
+      }
+    } catch (err) {
+      console.log(`  ${c.yellow}! Worktree sandbox spawn: ${err.message}${c.reset}`);
+    }
+    console.log();
+  }
+
   console.log(`${c.cyan}${c.bold}EXECUTION DIRECTIVE FOR AI AGENT:${c.reset}`);
   console.log(`Copy and paste this instruction into your AI agent:`);
   console.log(`\n${c.gray}"""${c.reset}`);
@@ -272,6 +293,7 @@ export function planSwarm(objective) {
 
 // CLI invocation
 if (process.argv[1] && process.argv[1].endsWith('orchestrator.js')) {
-  const userObjective = process.argv.slice(2).join(' ');
+  const args = process.argv.slice(2).filter(a => !a.startsWith('-'));
+  const userObjective = args.join(' ');
   planSwarm(userObjective);
 }

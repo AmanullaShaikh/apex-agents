@@ -15,6 +15,53 @@ const c = {
   gray: '\x1b[90m'
 };
 
+const IGNORED_SPEC_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'build',
+  'coverage',
+  '.agents'
+]);
+
+function getProjectSourceFiles(dir) {
+  let results = [];
+  try {
+    const list = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of list) {
+      if (entry.isDirectory()) {
+        if (!IGNORED_SPEC_DIRS.has(entry.name)) {
+          results = results.concat(getProjectSourceFiles(path.join(dir, entry.name)));
+        }
+      } else if (/\.(js|jsx|ts|tsx)$/.test(entry.name) && !entry.name.includes('.test.')) {
+        results.push(path.join(dir, entry.name));
+      }
+    }
+  } catch {}
+  return results;
+}
+
+export function discoverCodebaseContracts(projectDir = process.cwd()) {
+  const discovered = [];
+  try {
+    const files = getProjectSourceFiles(projectDir);
+    for (const file of files.slice(0, 30)) {
+      const rel = path.relative(projectDir, file).replace(/\\/g, '/');
+      const content = fs.readFileSync(file, 'utf-8');
+      const matches = content.matchAll(/export\s+(?:interface|type|class)\s+([A-Za-z0-9_]+)/g);
+      for (const m of matches) {
+        if (!discovered.some(d => d.name === m[1])) {
+          discovered.push({ name: m[1], file: rel });
+        }
+        if (discovered.length >= 6) break;
+      }
+      if (discovered.length >= 6) break;
+    }
+  } catch {}
+  return discovered;
+}
+
 /**
  * Compiles a feature intent into a rigorous, zero-slop architectural SPEC.md
  */
@@ -49,6 +96,17 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
   md += `- Placeholder implementations or dummy return stubs.\n\n`;
 
   md += `## 2. 🏛️ DATA CONTRACTS & TYPE INTERFACES\n\n`;
+
+  const discoveredContracts = discoverCodebaseContracts(projectDir);
+  if (discoveredContracts.length > 0) {
+    md += `### 🔗 Discovered Codebase Contracts Linked\n`;
+    md += `Reusing existing project domain contracts to prevent duplicate type declarations:\n`;
+    discoveredContracts.forEach(dc => {
+      md += `- Reusing \`${dc.name}\` from \`${dc.file}\`\n`;
+    });
+    md += `\n`;
+  }
+
   md += `\`\`\`typescript\n`;
   md += `import { z } from 'zod';\n\n`;
   md += `// 1. Zod Runtime Validation Schema\n`;

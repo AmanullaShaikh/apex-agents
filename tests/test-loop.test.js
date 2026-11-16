@@ -117,4 +117,19 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should handle attemptAutoHeal gracefully when no API keys are present', async () => {
+    const { attemptAutoHeal } = await import('../scripts/test-loop.js');
+    const prevKey = process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const res = await attemptAutoHeal(process.cwd(), [], 'sample crash');
+      assert.strictEqual(res.healed, false);
+      assert.strictEqual(res.reason, 'NO_API_KEY');
+    } finally {
+      if (prevKey) process.env.GEMINI_API_KEY = prevKey;
+    }
+  });
 });
