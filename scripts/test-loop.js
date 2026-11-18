@@ -327,6 +327,11 @@ export async function runTestLoop(projectDir = process.cwd(), customCmd = null) 
 // CLI Execution
 if (process.argv[1] && process.argv[1].endsWith('test-loop.js')) {
   const args = process.argv.slice(2);
+  if (args.length > 0 && args[0].startsWith('-')) {
+    console.error(`${c.red}Unknown flag "${args[0]}".${c.reset}`);
+    console.error(`Usage: npx apex-agents test-loop [custom test command]`);
+    process.exit(1);
+  }
   const customCmd = args.length > 0 ? args.join(' ') : null;
   runTestLoop(process.cwd(), customCmd).then(res => {
     process.exit(res.success ? 0 : 1);

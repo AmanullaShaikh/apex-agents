@@ -32,17 +32,35 @@ const IGNORED_DIRS = new Set([
   '.worktrees'
 ]);
 
-function getSourceFiles(dir) {
+function getSourceFiles(dir, visited = new Set()) {
   let results = [];
   try {
+    const realDir = fs.realpathSync(dir);
+    if (visited.has(realDir)) return results;
+    visited.add(realDir);
+
     const list = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of list) {
-      if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
-          results = results.concat(getSourceFiles(path.join(dir, entry.name)));
+      if (IGNORED_DIRS.has(entry.name)) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.realpathSync(fullPath);
+          if (visited.has(target)) continue;
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            results = results.concat(getSourceFiles(fullPath, visited));
+          } else if (stat.isFile() && /\.(js|jsx|ts|tsx|mjs|cjs|py|go|rs|json|md)$/.test(entry.name)) {
+            visited.add(target);
+            results.push(fullPath);
+          }
+        } catch {
+          continue;
         }
-      } else if (/\.(js|jsx|ts|tsx|mjs|cjs|py|go|rs|json|md)$/.test(entry.name)) {
-        results.push(path.join(dir, entry.name));
+      } else if (entry.isDirectory()) {
+        results = results.concat(getSourceFiles(fullPath, visited));
+      } else if (entry.isFile() && /\.(js|jsx|ts|tsx|mjs|cjs|py|go|rs|json|md)$/.test(entry.name)) {
+        results.push(fullPath);
       }
     }
   } catch {
@@ -168,24 +186,55 @@ export function computeTokenCost(projectDir = process.cwd(), options = {}) {
   };
 }
 
+// Strict numeric price parser (rejects trailing garbage like "2abc", "Infinity", negative values, or empty strings)
+function parseStrictPrice(rawVal) {
+  if (typeof rawVal !== 'string') return null;
+  const trimmed = rawVal.trim();
+  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return null;
+  const num = Number(trimmed);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
 // CLI handler
 if (process.argv[1] && process.argv[1].endsWith('token-cost.js')) {
   const args = process.argv.slice(2);
   let priceInPerMillion = null;
   let projectDir = process.cwd();
+  let explicitDir = false;
 
-  for (const arg of args) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
     if (arg.startsWith('--price-in=')) {
-      const val = parseFloat(arg.split('=')[1]);
-      if (!Number.isNaN(val) && val >= 0) {
-        priceInPerMillion = val;
-      } else {
-        console.error(`${c.red}Invalid --price-in value: ${arg}${c.reset}`);
+      const val = parseStrictPrice(arg.slice('--price-in='.length));
+      if (val === null) {
+        console.error(`${c.red}Invalid --price-in value: ${arg} (expected a non-negative finite number, e.g. --price-in=2.00)${c.reset}`);
         process.exit(1);
       }
-    } else if (!arg.startsWith('-')) {
+      priceInPerMillion = val;
+    } else if (arg === '--price-in') {
+      const nextVal = args[i + 1];
+      const val = parseStrictPrice(nextVal);
+      if (val === null) {
+        console.error(`${c.red}Invalid --price-in value: ${nextVal ?? '(missing)'} (expected a non-negative finite number, e.g. --price-in 2.00)${c.reset}`);
+        process.exit(1);
+      }
+      priceInPerMillion = val;
+      i++;
+    } else if (arg.startsWith('-')) {
+      console.error(`${c.red}Unknown flag: ${arg}${c.reset}\nUsage: npx apex-agents cost [dir] [--price-in=<dollars_per_1M>]`);
+      process.exit(1);
+    } else if (!explicitDir) {
       projectDir = arg;
+      explicitDir = true;
+    } else {
+      console.error(`${c.red}Unexpected positional argument: ${arg}${c.reset}`);
+      process.exit(1);
     }
+  }
+
+  if (!fs.existsSync(projectDir)) {
+    console.error(`${c.red}Directory not found: ${projectDir}${c.reset}`);
+    process.exit(1);
   }
 
   console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: TOKEN VOLUME & AST COMPACTION AUDITOR ═════${c.reset}`);

@@ -244,7 +244,7 @@ function handleInject(args = []) {
     console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}.cursorrules${c.reset}`);
   }
 
-  console.log(`\n${c.green}${c.bold}✓ Project successfully supercharged with Apex Agents instincts!${c.reset}\n`);
+  console.log(`\n${c.green}${c.bold}✓ Injected Apex Agents rules into local IDE config files.${c.reset}\n`);
 }
 
 function handleCompact(args) {

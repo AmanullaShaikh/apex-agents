@@ -406,4 +406,91 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(envFileDiff).stats.secrets, 1);
   });
+
+  test('should detect PKCS#8 keys, ES6 unicode escapes, spread fromCharCode, cross-line variable splits, and node:test/exit/dead-branch tampering', async () => {
+    const fs = await import('fs');
+    const os = await import('os');
+    const path = await import('path');
+
+    // 1. PKCS#8 private key
+    const pkcs8Diff = [
+      'diff --git a/src/key.pem.ts b/src/key.pem.ts',
+      '--- a/src/key.pem.ts',
+      '+++ b/src/key.pem.ts',
+      '@@ -0,0 +1,2 @@',
+      '+const k = "-----BEGIN PRIVATE KEY-----";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(pkcs8Diff).stats.secrets, 1);
+
+    // 2. ES6 \u{...} unicode escape secret
+    const es6UnicodeDiff = [
+      'diff --git a/src/es6.ts b/src/es6.ts',
+      '--- a/src/es6.ts',
+      '+++ b/src/es6.ts',
+      '@@ -0,0 +1,2 @@',
+      '+const k = "\\u{41}\\u{4b}\\u{49}\\u{41}IOSFODNN7EXAMPLE";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(es6UnicodeDiff).stats.secrets, 1);
+
+    // 3. String.fromCharCode(...[...]) spread array secret
+    const spreadCharCodeDiff = [
+      'diff --git a/src/spread.ts b/src/spread.ts',
+      '--- a/src/spread.ts',
+      '+++ b/src/spread.ts',
+      '@@ -0,0 +1,2 @@',
+      '+const k = String.fromCharCode(...[65, 75, 73, 65]) + "IOSFODNN7EXAMPLE";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(spreadCharCodeDiff).stats.secrets, 1);
+
+    // 4. Cross-line variable split secret
+    const crossLineDiff = [
+      'diff --git a/src/split.ts b/src/split.ts',
+      '--- a/src/split.ts',
+      '+++ b/src/split.ts',
+      '@@ -0,0 +1,4 @@',
+      '+const p1 = "AKIAIOSF";',
+      '+const p2 = "ODNN7EXAMPLE";',
+      '+export const k = p1 + p2;'
+    ].join('\n');
+    assert.strictEqual(auditDiff(crossLineDiff).stats.secrets, 1);
+
+    // 5. node:test { skip: true }, { only: true }, and t.skip(...)
+    const nodeTestTamperDiff = [
+      'diff --git a/tests/auth.test.mjs b/tests/auth.test.mjs',
+      '--- a/tests/auth.test.mjs',
+      '+++ b/tests/auth.test.mjs',
+      '@@ -0,0 +1,4 @@',
+      '+test("a", { skip: true }, () => {});',
+      '+test("b", { only: true }, () => {});',
+      '+test("c", (t) => { t.skip("broken"); });'
+    ].join('\n');
+    assert.strictEqual(auditDiff(nodeTestTamperDiff).stats.tampering, 3);
+
+    // 6. Obfuscated globalThis["proc"+"ess"]["ex"+"it"](0), process.exit(0 | 0), and constant-false if (1 > 2)
+    const exitAndBranchDiff = [
+      'diff --git a/tests/obf.test.mjs b/tests/obf.test.mjs',
+      '--- a/tests/obf.test.mjs',
+      '+++ b/tests/obf.test.mjs',
+      '@@ -0,0 +1,4 @@',
+      '+globalThis["proc"+"ess"]["ex"+"it"](0);',
+      '+process.exit(0 | 0);',
+      '+if (1 > 2) { assert.strictEqual(a, b); }'
+    ].join('\n');
+    assert.strictEqual(auditDiff(exitAndBranchDiff).stats.tampering, 3);
+
+    // 7. scripts/scan-secrets.js: ESM import must NOT terminate caller, must scan .test.js files, and use generic base64 label
+    const { scanDirectory } = await import('../scripts/scan-secrets.js');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-scan-secrets-'));
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'auth.test.js'), 'export const k = "AKIAIOSFODNN7EXAMPLE";\n');
+      const stripeB64 = Buffer.from(['sk', 'live', '1234567890abcdefghijklmn'].join('_')).toString('base64');
+      fs.writeFileSync(path.join(tmpDir, 'audit-diff.js'), `export const b = "${stripeB64}";\n`);
+
+      const findings = scanDirectory(tmpDir);
+      assert.ok(findings.some(f => f.file.endsWith('auth.test.js') && f.pattern === 'AWS Access Key ID'));
+      assert.ok(findings.some(f => f.file.endsWith('audit-diff.js') && f.pattern === 'Base64 Encoded Credential Payload'));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

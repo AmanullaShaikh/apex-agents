@@ -51,6 +51,22 @@ describe('Local Semantic Symbol Tracer Suite', () => {
     }
   });
 
+  test('should ignore .worktrees directories to prevent duplicate declarations', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-trace-wt-'));
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'main.js'), 'export function myUniqueFn() { return 1; }\n');
+      const wtDir = path.join(tmpDir, '.worktrees', 'wt1');
+      fs.mkdirSync(wtDir, { recursive: true });
+      fs.writeFileSync(path.join(wtDir, 'main.js'), 'export function myUniqueFn() { return 1; }\n');
+
+      const trace = traceSymbol('myUniqueFn', tmpDir);
+      assert.strictEqual(trace.declarations.length, 1);
+      assert.strictEqual(trace.declarations[0].file, 'main.js');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('should reject empty symbol name', () => {
     assert.throws(() => {
       traceSymbol('');

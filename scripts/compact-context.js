@@ -230,6 +230,72 @@ export function compactPythonCode(code) {
 }
 
 /**
+ * Replaces balanced `{ ... }` function bodies following a signature regex on a single line,
+ * properly respecting nested braces and quoted string literals so outer blocks (e.g. `impl Cache { ... }`) stay intact.
+ */
+function stripSingleLineBalancedBodies(line, sigRegex) {
+  let result = '';
+  let cursor = 0;
+  const flags = sigRegex.flags.includes('g') ? sigRegex.flags : sigRegex.flags + 'g';
+  const re = new RegExp(sigRegex.source, flags);
+
+  while (cursor < line.length) {
+    re.lastIndex = cursor;
+    const match = re.exec(line);
+    if (!match) {
+      result += line.slice(cursor);
+      break;
+    }
+
+    const openBraceIdx = match.index + match[0].length - 1;
+    let depth = 0;
+    let closeBraceIdx = -1;
+    let inQuote = null;
+    let escaped = false;
+
+    for (let j = openBraceIdx; j < line.length; j++) {
+      const ch = line[j];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (inQuote) {
+        if (ch === '\\' && inQuote !== '`') {
+          escaped = true;
+        } else if (ch === inQuote) {
+          inQuote = null;
+        }
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        inQuote = ch;
+        continue;
+      }
+      if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          closeBraceIdx = j;
+          break;
+        }
+      }
+    }
+
+    if (closeBraceIdx === -1) {
+      // Unclosed body on this line — leave untouched for multi-line handler
+      result += line.slice(cursor);
+      break;
+    }
+
+    result += line.slice(cursor, openBraceIdx) + '{ /* stripped */ }';
+    cursor = closeBraceIdx + 1;
+  }
+
+  return result;
+}
+
+/**
  * Multi-Language Compactor: Go (.go)
  * Preserves package, imports, struct/interface definitions, and func signatures; replaces bodies with {}.
  */
@@ -255,9 +321,12 @@ export function compactGoCode(code) {
       continue;
     }
 
-    // Single-line inline function (e.g. func (s *Server) Start() error { secret := 42; return nil })
+    // Single-line inline function (including nested braces like `func (s *S) Get(k string) int { if v, ok := s.m[k]; ok { return v }; return 0 }`)
     if (/^func\s+(\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
-      const strippedLine = line.replace(/(\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*)\{[^}]*\}/g, '$1{ /* stripped */ }');
+      const strippedLine = stripSingleLineBalancedBodies(
+        line,
+        /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*\{/g
+      );
       compacted.push(strippedLine);
       continue;
     }
@@ -334,9 +403,12 @@ export function compactRustCode(code) {
       continue;
     }
 
-    // Single-line inline function / method (e.g. `impl Cache { pub(crate) fn get(...) { ... } }` or `fn foo() { ... }`)
+    // Single-line inline function / method (including nested braces like `impl Cache { pub fn get(&self, k: &str) -> Option<i32> { if let Some(v) = self.m.get(k) { return Some(*v); } None } }`)
     if (/\bfn\s+[a-zA-Z0-9_]+/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
-      const strippedLine = line.replace(/(\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*)\{[^}]*\}/g, '$1{ /* stripped */ }');
+      const strippedLine = stripSingleLineBalancedBodies(
+        line,
+        /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*\{/g
+      );
       compacted.push(strippedLine);
       continue;
     }

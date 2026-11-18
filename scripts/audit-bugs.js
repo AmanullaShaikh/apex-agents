@@ -26,20 +26,39 @@ const IGNORED_DIRS = new Set([
   'dist',
   'build',
   'coverage',
-  '.agents'
+  '.agents',
+  '.worktrees'
 ]);
 
-function getSourceFiles(dir) {
+function getSourceFiles(dir, visited = new Set()) {
   let results = [];
   try {
+    const realDir = fs.realpathSync(dir);
+    if (visited.has(realDir)) return results;
+    visited.add(realDir);
+
     const list = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of list) {
-      if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
-          results = results.concat(getSourceFiles(path.join(dir, entry.name)));
+      if (IGNORED_DIRS.has(entry.name)) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.realpathSync(fullPath);
+          if (visited.has(target)) continue;
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            results = results.concat(getSourceFiles(fullPath, visited));
+          } else if (stat.isFile() && /\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name)) {
+            visited.add(target);
+            results.push(fullPath);
+          }
+        } catch {
+          continue;
         }
-      } else if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name)) {
-        results.push(path.join(dir, entry.name));
+      } else if (entry.isDirectory()) {
+        results = results.concat(getSourceFiles(fullPath, visited));
+      } else if (entry.isFile() && /\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name)) {
+        results.push(fullPath);
       }
     }
   } catch {
@@ -76,6 +95,75 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
 
   const queryFnNames = new Set(['query', 'raw', '$queryRawUnsafe', 'execute', 'exec', 'update', 'runQuery', 'execSql', 'executeSql', 'rawQuery', 'run']);
   const dbClientIdentifiers = new Set(['db', 'client', 'sql', 'prisma', 'knex', 'sequelize', 'orm']);
+  const syncClassMethods = new Map();
+  const varToClass = new Map();
+
+  // Pre-scan local class definitions to distinguish synchronous methods (e.g. `class Cache { save(k, v) {} }`) from async ORM saves
+  try {
+    traverse(ast, {
+      ClassDeclaration(p) {
+        const clsName = p.node.id?.name;
+        if (!clsName) return;
+        const methods = new Set();
+        for (const member of p.node.body?.body || []) {
+          if (member.type === 'ClassMethod' && !member.async && member.key?.name) {
+            methods.add(member.key.name);
+          }
+        }
+        syncClassMethods.set(clsName, methods);
+      },
+      VariableDeclarator(p) {
+        if (p.node.id?.type === 'Identifier' && p.node.init?.type === 'NewExpression' && p.node.init.callee?.type === 'Identifier') {
+          varToClass.set(p.node.id.name, p.node.init.callee.name);
+        }
+      }
+    });
+  } catch {
+    // ignore pre-scan errors
+  }
+
+  function evalStaticString(node, scope, visited = new Set()) {
+    if (!node) return null;
+    if (node.type === 'StringLiteral') return node.value;
+    if (node.type === 'TemplateLiteral' && node.expressions.length === 0) {
+      return node.quasis.map(q => q.value.cooked ?? q.value.raw).join('');
+    }
+    if (node.type === 'BinaryExpression' && node.operator === '+') {
+      const left = evalStaticString(node.left, scope, visited);
+      const right = evalStaticString(node.right, scope, visited);
+      if (left !== null && right !== null) return left + right;
+      return null;
+    }
+    if (node.type === 'CallExpression') {
+      if (node.callee.type === 'Identifier' && node.callee.name === 'String' && node.arguments.length > 0) {
+        return evalStaticString(node.arguments[0], scope, visited);
+      }
+      if (
+        node.callee.type === 'MemberExpression' &&
+        node.callee.property?.name === 'join' &&
+        node.callee.object?.type === 'ArrayExpression'
+      ) {
+        const sep = node.arguments.length > 0 ? evalStaticString(node.arguments[0], scope, visited) : ',';
+        if (sep === null) return null;
+        const parts = [];
+        for (const el of node.callee.object.elements) {
+          const v = evalStaticString(el, scope, visited);
+          if (v === null) return null;
+          parts.push(v);
+        }
+        return parts.join(sep);
+      }
+    }
+    if (node.type === 'Identifier') {
+      if (visited.has(node.name)) return null;
+      visited.add(node.name);
+      const binding = scope?.getBinding(node.name);
+      if (binding?.path?.node?.init) {
+        return evalStaticString(binding.path.node.init, binding.scope, visited);
+      }
+    }
+    return null;
+  }
 
   try {
     traverse(ast, {
@@ -154,14 +242,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           if (!p.node.callee.computed && p.node.callee.property.type === 'Identifier') {
             propName = p.node.callee.property.name;
           } else if (p.node.callee.computed) {
-            if (p.node.callee.property.type === 'StringLiteral') {
-              propName = p.node.callee.property.value;
-            } else if (p.node.callee.property.type === 'CallExpression') {
-              const arg0 = p.node.callee.property.arguments[0];
-              if (arg0 && arg0.type === 'StringLiteral') {
-                propName = arg0.value;
-              }
-            }
+            propName = evalStaticString(p.node.callee.property, p.scope);
           }
           const objName = p.node.callee.object?.name;
           if (
@@ -507,13 +588,15 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           const callName = p.node.callee.name || p.node.callee.property?.name;
           const objName = p.node.callee.object?.name || '';
 
-          // Exclude synchronous collections (cache, map, set, headers, cookie, etc.)
-          const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers', 'cookie', 'session', 'params', 'store'].some(s => objName.toLowerCase().includes(s));
+          // Exclude synchronous collections, Canvas/Graphics contexts, and locally declared non-async class methods
+          const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers', 'cookie', 'session', 'params', 'store', 'ctx', 'canvas', 'graphics', 'context'].some(s => objName.toLowerCase().includes(s));
+          const instantiatedClass = varToClass.get(objName);
+          const isKnownLocalSyncMethod = Boolean(instantiatedClass && syncClassMethods.get(instantiatedClass)?.has(callName));
           const isKnownDbClient = ['db', 'prisma', 'client', 'repo', 'collection', 'model', 'knex', 'orm', 'user', 'entity', 'record', 'doc', 'item', 'account', 'profile', 'post', 'order', 'row', 'u'].some(db => objName.toLowerCase().includes(db));
 
-          const isKnownAsyncMethod = !isSyncCollection && (
+          const isKnownAsyncMethod = !isSyncCollection && !isKnownLocalSyncMethod && (
             ['sendMail', 'publish'].includes(callName) ||
-            (['save'].includes(callName) && objName) ||
+            (['save'].includes(callName) && objName && isKnownDbClient) ||
             (isKnownDbClient && ['delete', 'update', 'insert', 'execute'].includes(callName)) ||
             (callName === 'fetch' && !objName) // global fetch()
           );

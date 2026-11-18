@@ -26,20 +26,39 @@ const IGNORED_DIRS = new Set([
   'dist',
   'build',
   'coverage',
-  '.agents'
+  '.agents',
+  '.worktrees'
 ]);
 
-function getSourceFiles(dir) {
+function getSourceFiles(dir, visited = new Set()) {
   let results = [];
   try {
+    const realDir = fs.realpathSync(dir);
+    if (visited.has(realDir)) return results;
+    visited.add(realDir);
+
     const list = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of list) {
-      if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
-          results = results.concat(getSourceFiles(path.join(dir, entry.name)));
+      if (IGNORED_DIRS.has(entry.name)) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = fs.realpathSync(fullPath);
+          if (visited.has(target)) continue;
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            results = results.concat(getSourceFiles(fullPath, visited));
+          } else if (stat.isFile() && /\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name)) {
+            visited.add(target);
+            results.push(fullPath);
+          }
+        } catch {
+          continue;
         }
-      } else if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name)) {
-        results.push(path.join(dir, entry.name));
+      } else if (entry.isDirectory()) {
+        results = results.concat(getSourceFiles(fullPath, visited));
+      } else if (entry.isFile() && /\.(js|jsx|ts|tsx|mjs|cjs)$/.test(entry.name)) {
+        results.push(fullPath);
       }
     }
   } catch {

@@ -1,6 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { buildDependencyGraph, computePageRank, extractSymbolCallers } from '../scripts/dependency-graph.js';
+import fs from 'fs';
+import os from 'os';
+import { buildDependencyGraph, computePageRank, extractSymbolCallers, resolveImportPath } from '../scripts/dependency-graph.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -35,5 +37,23 @@ describe('AST Codebase Dependency Graph & Cycle Detection', () => {
     const depGraphCallers = callers['scripts/dependency-graph.js'];
     assert.ok(depGraphCallers, 'Should find callers for scripts/dependency-graph.js');
     assert.ok(depGraphCallers['buildDependencyGraph']?.length > 0, 'Should map callers for buildDependencyGraph');
+  });
+
+  test('should resolve NodeNext TypeScript ESM .js imports to .ts files', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-dep-nodenext-'));
+    try {
+      const fooPath = path.join(tmpDir, 'foo.ts');
+      const barPath = path.join(tmpDir, 'bar.ts');
+      fs.writeFileSync(barPath, 'export const x = 42;\n');
+      fs.writeFileSync(fooPath, "import { x } from './bar.js';\nexport const y = x + 1;\n");
+
+      const resolved = resolveImportPath(fooPath, './bar.js', tmpDir);
+      assert.deepStrictEqual(resolved, { type: 'internal', path: 'bar.ts' });
+
+      const { graph } = buildDependencyGraph(tmpDir);
+      assert.ok(graph.get('foo.ts')?.has('bar.ts'), 'Graph edge must resolve foo.ts -> bar.ts');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

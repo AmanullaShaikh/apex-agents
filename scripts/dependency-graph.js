@@ -31,11 +31,30 @@ export function resolveImportPath(sourceFile, importString, rootDir) {
   let resolved = path.resolve(dir, importString);
 
   // Try file as-is, or with extensions
-  const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.js', '/index.tsx', '/index.jsx'];
+  const extensions = ['', '.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.js', '/index.tsx', '/index.jsx'];
   for (const ext of extensions) {
     const candidate = resolved + ext;
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
       return { type: 'internal', path: path.relative(rootDir, candidate).replace(/\\/g, '/') };
+    }
+  }
+
+  // NodeNext TypeScript ESM convention: import './bar.js' -> resolves to bar.ts / bar.tsx
+  const esmExtMap = [
+    [/\.js$/i, ['.ts', '.tsx']],
+    [/\.jsx$/i, ['.tsx']],
+    [/\.mjs$/i, ['.mts']],
+    [/\.cjs$/i, ['.cts']]
+  ];
+  for (const [pattern, tsExts] of esmExtMap) {
+    if (pattern.test(resolved)) {
+      const base = resolved.replace(pattern, '');
+      for (const tsExt of tsExts) {
+        const candidate = base + tsExt;
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return { type: 'internal', path: path.relative(rootDir, candidate).replace(/\\/g, '/') };
+        }
+      }
     }
   }
 

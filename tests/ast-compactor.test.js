@@ -153,12 +153,14 @@ func (s *Server) Start() error {
     assert.match(goStructResult, /Port int/);
     assert.doesNotMatch(goStructResult, /secret := 42/);
 
-    // Verify single-line Rust impl method stripping (exact Claude benchmark case)
-    const singleLineRust = 'impl Cache { pub(crate) fn get(&self, k: &str) -> Option<&Value> { let secret = 42; self.map.get(k) } }';
+    // Verify single-line Rust impl method stripping with nested braces
+    const singleLineRust = 'impl Cache { pub fn get(&self, k: &str) -> Option<i32> { if let Some(v) = self.m.get(k) { return Some(*v); } None } }';
     const singleLineRustResult = compactSourceCode(singleLineRust, { ext: 'rs' });
-    assert.match(singleLineRustResult, /impl Cache/);
-    assert.match(singleLineRustResult, /pub\(crate\) fn get/);
-    assert.match(singleLineRustResult, /\/\* stripped \*\//);
-    assert.doesNotMatch(singleLineRustResult, /secret = 42/);
+    assert.strictEqual(singleLineRustResult, 'impl Cache { pub fn get(&self, k: &str) -> Option<i32> { /* stripped */ } }');
+
+    // Verify single-line Go method stripping with nested braces
+    const singleLineGo = 'func (s *S) Get(k string) int { if v, ok := s.m[k]; ok { return v }; return 0 }';
+    const singleLineGoResult = compactSourceCode(singleLineGo, { ext: 'go' });
+    assert.strictEqual(singleLineGoResult, 'func (s *S) Get(k string) int { /* stripped */ }');
   });
 });

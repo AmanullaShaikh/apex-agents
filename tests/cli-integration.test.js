@@ -89,13 +89,38 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /CONTEXT SUMMARY/);
   });
 
-  test('should run token volume and AST compaction cost auditor with and without --price-in', () => {
+  test('should run token volume and AST compaction cost auditor and strictly validate flags', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" cost`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /TOKEN VOLUME & AST COMPACTION AUDITOR/);
     assert.match(out, /measured reduction/);
 
     const pricedOut = stripAnsi(execSync(`node "${APEX_BIN}" cost --price-in=2.00`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(pricedOut, /CUSTOM COST CALCULATION \(\$2\/1M input tokens\)/);
+
+    const spacedOut = stripAnsi(execSync(`node "${APEX_BIN}" cost --price-in 2.00`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.match(spacedOut, /CUSTOM COST CALCULATION \(\$2\/1M input tokens\)/);
+    assert.doesNotMatch(spacedOut, /Scanned Files\s*:\s*0\b/);
+
+    for (const badArgs of ['--price-in=2abc', '--price-in=Infinity', '--price-in=-5', '--price-in', '--bogus']) {
+      assert.throws(() => {
+        execSync(`node "${APEX_BIN}" cost ${badArgs}`, { stdio: 'pipe', cwd: ROOT_DIR });
+      }, /Command failed/, `cost ${badArgs} must exit non-zero`);
+    }
+  });
+
+  test('should exit non-zero when install-hooks is run outside a git repo or test-loop receives unknown flags', () => {
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-hooks-nogit-'));
+    try {
+      assert.throws(() => {
+        execSync(`node "${APEX_BIN}" install-hooks`, { stdio: 'pipe', cwd: emptyDir });
+      }, /Command failed/);
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    }
+
+    assert.throws(() => {
+      execSync(`node "${APEX_BIN}" test-loop --heal`, { stdio: 'pipe', cwd: ROOT_DIR });
+    }, /Command failed/);
   });
 
   test('should initialize apex-agents suite with apex-agents init', () => {

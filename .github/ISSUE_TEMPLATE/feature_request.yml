@@ -36,7 +36,7 @@ body:
         - "AST Tooling & Compactor"
         - "Agent Protocols & System Prompts"
         - "Operational Instincts"
-        - "Self-Healing Test-Loop"
+        - "Deterministic Test-Loop"
         - "Security & Secret Leak Sentinel"
         - "CLI & Terminal Studio"
         - "MCP Protocol Server"

@@ -92,5 +92,8 @@ fi
 }
 
 if (process.argv[1] && process.argv[1].endsWith('install-hooks.js')) {
-  installGitHooks();
+  const installed = installGitHooks();
+  if (!installed) {
+    process.exit(1);
+  }
 }

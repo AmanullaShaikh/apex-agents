@@ -224,5 +224,27 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     const entityIssues = auditCodeBugs(entitySaveCode, 'src/api/user.ts');
     const floating = entityIssues.filter(i => i.category === 'FLOATING_PROMISE');
     assert.strictEqual(floating.length, 1);
+
+    // Verify synchronous local class .save() and Canvas ctx.save() do NOT false-positive
+    const syncSaveCode = `
+      class Cache {
+        save(k, v) { this.map.set(k, v); }
+      }
+      const c = new Cache();
+      c.save('a', 1);
+      ctx.save();
+    `;
+    const syncSaveIssues = auditCodeBugs(syncSaveCode, 'src/cache.ts');
+    assert.strictEqual(syncSaveIssues.length, 0);
+
+    // Verify computed array-join SQLi (const method = ['que', 'ry'].join(''); db[method](q)) is caught
+    const arrayJoinSqli = `
+      export function run(db, id) {
+        const method = ['que', 'ry'].join('');
+        db[method]("SELECT * FROM users WHERE id = " + id);
+      }
+    `;
+    const joinIssues = auditCodeBugs(arrayJoinSqli, 'src/db.ts');
+    assert.strictEqual(joinIssues.filter(i => i.category === 'SQL_INJECTION').length, 1);
   });
 });

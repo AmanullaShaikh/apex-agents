@@ -26,7 +26,7 @@ export const SECRET_PATTERNS = [
   { name: 'Base64 Encoded AWS Key', regex: /\bQUtJ[0-9a-zA-Z+/=_-]{16,}\b/ },
   { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
   { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
-  { name: 'Private Key Header', regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----/ },
+  { name: 'Private Key Header', regex: /-----BEGIN (?:(?:RSA|OPENSSH|EC|DSA|ENCRYPTED)\s+)?PRIVATE KEY-----/ },
   { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
@@ -47,12 +47,12 @@ const DEBUG_PATTERNS = [
 ];
 
 const TEST_TAMPERING_PATTERNS = [
-  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(skip|skipIf|runIf)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]/ },
+  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(skip|skipIf|runIf)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bskip\s*:\s*true\b|\bt\s*\.\s*skip\s*\(/ },
   { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(todo)\s*\(/ },
-  { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]/ },
+  { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bonly\s*:\s*true\b/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\.exit\s*\(\s*[0-9]*\s*\)/ },
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*exit\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
   { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
@@ -61,11 +61,30 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^)]+\)\.toBe\s*\(\s*['"][^'"]+['"]\s*\)|\bexpect\s*\(\s*\[[^\]]*\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
 
+function hasConstantFalseIf(text) {
+  const m = /\bif\s*\(\s*(-?\d+(?:\.\d+)?)\s*(===|==|!==|!=|>=|<=|>|<)\s*(-?\d+(?:\.\d+)?)\s*\)\s*\{/.exec(text);
+  if (!m) return false;
+  const a = Number(m[1]);
+  const op = m[2];
+  const b = Number(m[3]);
+  if (op === '>') return !(a > b);
+  if (op === '<') return !(a < b);
+  if (op === '>=') return !(a >= b);
+  if (op === '<=') return !(a <= b);
+  if (op === '===' || op === '==') return !(a === b);
+  if (op === '!==' || op === '!=') return !(a !== b);
+  return false;
+}
+
 export function foldStringLiterals(text) {
   let folded = text.replace(ZERO_WIDTH_REGEX, '');
 
-  // 0. Decode hex (\xHH) and unicode (\uHHHH) escape sequences in strings
+  // 0. Decode hex (\xHH), BMP unicode (\uHHHH), and ES6 unicode code point (\u{...}) escape sequences in strings
   folded = folded.replace(/\\x([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  folded = folded.replace(/\\u\{([0-9a-fA-F]{1,6})\}/g, (m, cp) => {
+    const code = parseInt(cp, 16);
+    return code <= 0x10FFFF ? String.fromCodePoint(code) : m;
+  });
   folded = folded.replace(/\\u([0-9a-fA-F]{4})/g, (m, u) => String.fromCharCode(parseInt(u, 16)));
 
   // 1. Evaluate Buffer.from(hex, 'hex')
@@ -77,8 +96,8 @@ export function foldStringLiterals(text) {
     }
   });
 
-  // 2. Evaluate String.fromCharCode(...) / String.fromCodePoint(...) including bitwise, arithmetic, and hex expressions
-  folded = folded.replace(/String\.(fromCharCode|fromCodePoint)\s*\(\s*([0-9a-fA-FxX\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, fn, nums) => {
+  // 2. Evaluate String.fromCharCode(...) / String.fromCodePoint(...) including spread arrays (...[...]), bitwise, arithmetic, and hex expressions
+  folded = folded.replace(/String\.(fromCharCode|fromCodePoint)\s*\(\s*(?:\.\.\.\s*\[\s*)?([0-9a-fA-FxX\s,\^\&\|\+\-\*\/\(\)]+?)(?:\s*\])?\s*\)/g, (m, fn, nums) => {
     try {
       const chars = nums.split(',').map(expr => {
         const trimmed = expr.trim();
@@ -233,12 +252,14 @@ export function auditDiff(rawDiff) {
   const issues = [];
   const deletedAssertions = [];
   const commentedAssertions = new Set();
+  const fileStringVars = new Map();
 
   for (const line of lines) {
     if (line.startsWith('diff --git ')) {
       const parts = line.split(' ');
       currentFile = parts[parts.length - 1].replace(/^b\//, '');
       changedFiles.add(currentFile);
+      fileStringVars.clear();
 
       // Check if sensitive credential/env file itself is modified or added
       const baseName = currentFile.split('/').pop().toLowerCase();
@@ -278,8 +299,25 @@ export function auditDiff(rawDiff) {
         const normalizedAdded = addedText.replace(ZERO_WIDTH_REGEX, '');
         const foldedText = foldStringLiterals(normalizedAdded);
 
+        // Cross-line string variable resolution (catches `const p1 = "AKIAIOSF";\nconst p2 = "ODNN7EXAMPLE";\nexport const k = p1 + p2;`)
+        let resolvedText = foldedText;
+        if (fileStringVars.size > 0) {
+          for (const [varName, varVal] of fileStringVars.entries()) {
+            const varRef = new RegExp(`(?<!\\.)\\b${varName}\\b(?!\\s*[:=])`, 'g');
+            if (varRef.test(resolvedText)) {
+              resolvedText = resolvedText.replace(varRef, `'${varVal}'`);
+            }
+          }
+          resolvedText = foldStringLiterals(resolvedText);
+        }
+
+        const varAssign = /\b(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\2/.exec(resolvedText);
+        if (varAssign) {
+          fileStringVars.set(varAssign[1], varAssign[3]);
+        }
+
         for (const sp of SECRET_PATTERNS) {
-          if (sp.regex.test(normalizedAdded) || sp.regex.test(foldedText)) {
+          if (sp.regex.test(normalizedAdded) || sp.regex.test(foldedText) || sp.regex.test(resolvedText)) {
             issues.push({
               severity: 'CRITICAL',
               category: 'SECRET_LEAK',
@@ -292,7 +330,7 @@ export function auditDiff(rawDiff) {
         }
 
         // Base64 payload deep inspection
-        const b64Secret = inspectBase64Payloads(normalizedAdded) || inspectBase64Payloads(foldedText);
+        const b64Secret = inspectBase64Payloads(normalizedAdded) || inspectBase64Payloads(foldedText) || inspectBase64Payloads(resolvedText);
         if (b64Secret) {
           issues.push({
             severity: 'CRITICAL',
@@ -352,6 +390,15 @@ export function auditDiff(rawDiff) {
               commentedAssertions.add(currentFile);
             }
           }
+        }
+        if (hasConstantFalseIf(addedText) || hasConstantFalseIf(foldedText)) {
+          issues.push({
+            severity: 'CRITICAL',
+            category: 'TEST_TAMPERING',
+            file: currentFile,
+            description: 'AI Agent Attempted Test Weakening: Constant-False Dead Branch Wrap',
+            snippet: addedText.trim().slice(0, 80)
+          });
         }
       }
 
