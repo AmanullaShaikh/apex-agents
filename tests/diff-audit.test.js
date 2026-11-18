@@ -543,5 +543,41 @@ describe('Diff Security & Anti-Cheat Audit', () => {
       '+Reflect.get(process, "exit")(0);'
     ].join('\n');
     assert.strictEqual(auditDiff(advancedTamperDiff).stats.tampering, 5);
+
+    // 9. Legitimate numeric cursor.skip(10) pagination in tests must NOT false-positive
+    const paginationDiff = [
+      'diff --git a/tests/pag.test.js b/tests/pag.test.js',
+      '--- a/tests/pag.test.js',
+      '+++ b/tests/pag.test.js',
+      '@@ -0,0 +1,2 @@',
+      '+const rows = await cursor.skip(10).limit(5);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(paginationDiff).stats.tampering, 0);
+
+    // 10. Split secret containing $& special characters must capture and fold cleanly
+    const ampSecretDiff = [
+      'diff --git a/src/amp.ts b/src/amp.ts',
+      '--- a/src/amp.ts',
+      '+++ b/src/amp.ts',
+      '@@ -0,0 +1,4 @@',
+      '+const p1 = "super$&";',
+      '+const p2 = "secret99";',
+      '+export const password = p1 + p2;'
+    ].join('\n');
+    assert.strictEqual(auditDiff(ampSecretDiff).stats.secrets, 1);
+
+    // 11. Destructured exit, Reflect.apply(process.exit), if (!true), and cross-line var skip reason
+    const deepTamperDiff = [
+      'diff --git a/tests/deep.test.mjs b/tests/deep.test.mjs',
+      '--- a/tests/deep.test.mjs',
+      '+++ b/tests/deep.test.mjs',
+      '@@ -0,0 +1,6 @@',
+      '+const { exit } = process;',
+      '+Reflect.apply(process.exit, process, [0]);',
+      '+if (!true) assert.strictEqual(a, b);',
+      '+const reason = "broken";',
+      '+test("x", { skip: reason }, () => {});'
+    ].join('\n');
+    assert.strictEqual(auditDiff(deepTamperDiff).stats.tampering, 4);
   });
 });

@@ -164,6 +164,15 @@ func (s *Server) Start() error {
     assert.strictEqual(lifetimeRustResult, 'impl Cache { pub fn get<\'a>(&\'a self) -> &\'a str { /* stripped */ } }');
     assert.doesNotMatch(lifetimeRustResult, /secret_value/);
 
+    // Verify single-line block comment containing closing brace /* } */ does not break stripping in Rust or Go
+    const commentRust = 'impl Parser { pub fn f(&self) { let s = 1; /* } */ let secret = 2; } }';
+    const commentRustResult = compactSourceCode(commentRust, { ext: 'rs' });
+    assert.strictEqual(commentRustResult, 'impl Parser { pub fn f(&self) { /* stripped */ } }');
+
+    const commentGo = 'func f() int { x := 1; /* } */ secret := 2; return x + secret }';
+    const commentGoResult = compactSourceCode(commentGo, { ext: 'go' });
+    assert.strictEqual(commentGoResult, 'func f() int { /* stripped */ }');
+
     // Verify single-line Go method stripping with nested braces
     const singleLineGo = 'func (s *S) Get(k string) int { if v, ok := s.m[k]; ok { return v }; return 0 }';
     const singleLineGoResult = compactSourceCode(singleLineGo, { ext: 'go' });

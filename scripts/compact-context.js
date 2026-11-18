@@ -252,10 +252,18 @@ function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
     let depth = 0;
     let closeBraceIdx = -1;
     let inQuote = null;
+    let inBlockComment = false;
     let escaped = false;
 
     for (let j = openBraceIdx; j < line.length; j++) {
       const ch = line[j];
+      if (inBlockComment) {
+        if (ch === '*' && line[j + 1] === '/') {
+          inBlockComment = false;
+          j++;
+        }
+        continue;
+      }
       if (escaped) {
         escaped = false;
         continue;
@@ -266,6 +274,11 @@ function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
         } else if (ch === inQuote) {
           inQuote = null;
         }
+        continue;
+      }
+      if (ch === '/' && line[j + 1] === '*') {
+        inBlockComment = true;
+        j++;
         continue;
       }
       if (ch === "'") {

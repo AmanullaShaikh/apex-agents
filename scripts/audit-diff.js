@@ -47,17 +47,17 @@ const DEBUG_PATTERNS = [
 ];
 
 const TEST_TAMPERING_PATTERNS = [
-  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(skip|skipIf|runIf)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bskip\s*:\s*(?:true|['"`][^'"`]+['"`])|\b[a-zA-Z_$][a-zA-Z0-9_$]*\s*\.\s*skip\s*\(/ },
+  { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(skip|skipIf|runIf)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bskip\s*:\s*(?:true|['"`][^'"`]+['"`])|\b[a-zA-Z_$][a-zA-Z0-9_$]*\s*\.\s*skip\s*\(\s*(?:\)|['"`])/ },
   { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(todo)\s*\(/ },
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bonly\s*:\s*true\b/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*exit\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)/ },
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*exit\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\bexit\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
   { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
   { name: 'Unhandled Asynchronous Timer or Microtask in Test Execution', regex: /\b(setTimeout|setImmediate|queueMicrotask|process\.nextTick)\s*\(/ },
-  { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(false|0|null|undefined)\s*\)\s*(?:\{|\b(?:assert|expect|should|return|throw)\b)/ },
+  { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(?:false|0|null|undefined|!\s*(?:true|1))\s*\)\s*(?:\{|\b(?:assert|expect|should|return|throw)\b)/ },
   { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^)]+\)\.toBe\s*\(\s*['"][^'"]+['"]\s*\)|\bexpect\s*\(\s*\[[^\]]*\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
 
@@ -167,12 +167,12 @@ export function foldStringLiterals(text) {
     }
   });
 
-  // 9. Fold string concatenation in loop for arbitrary multi-part additions
+  // 9. Fold string concatenation in loop for arbitrary multi-part additions (callback replacer prevents $&/$1 injection)
   let prev;
   let iterations = 0;
   do {
     prev = folded;
-    folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\3/g, '$1$2$4$1');
+    folded = folded.replace(/(['"`])([^'"`\r\n]{1,500})\1\s*\+\s*(['"`])([^'"`\r\n]{1,500})\3/g, (m, q1, a, q2, b) => q1 + a + b + q1);
     iterations++;
   } while (folded !== prev && iterations < 20);
 
@@ -185,7 +185,7 @@ function escapeRegExp(str) {
 
 /**
  * Shared single-line + cross-line string variable resolution helper.
- * Properly handles `$`-prefixed identifiers (`$p1 + $p2`) and avoids `$&`/`$1` replacement injection.
+ * Properly handles `$`-prefixed identifiers (`$p1 + $p2`) and special characters (`$&`, `!@#`) without `$&`/`$1` replacement injection.
  */
 export function resolveLineWithVars(line, fileStringVars) {
   const normalized = line.replace(ZERO_WIDTH_REGEX, '');
@@ -197,13 +197,14 @@ export function resolveLineWithVars(line, fileStringVars) {
       const escapedName = escapeRegExp(varName);
       const varRef = new RegExp(`(?<![a-zA-Z0-9_$.])${escapedName}(?![a-zA-Z0-9_$])(?!\\s*[:=])`, 'g');
       if (varRef.test(resolved)) {
-        resolved = resolved.replace(varRef, () => `'${varVal}'`);
+        const quotedVal = varVal.includes("'") ? JSON.stringify(varVal) : `'${varVal}'`;
+        resolved = resolved.replace(varRef, () => quotedVal);
       }
     }
     resolved = foldStringLiterals(resolved);
   }
 
-  const varAssign = /\b(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\2/.exec(resolved);
+  const varAssign = /\b(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(['"`])([^'"`\r\n]{1,500})\2/.exec(resolved);
   if (varAssign) {
     fileStringVars.set(varAssign[1], varAssign[3]);
   }
@@ -348,10 +349,11 @@ export function auditDiff(rawDiff) {
       const addedText = line.substring(1);
 
       const isSelfAuditTest = currentFile.includes('diff-audit.test.');
+      const lineEval = !isSelfAuditTest ? resolveLineWithVars(addedText, fileStringVars) : null;
 
       // Check secrets
       if (!isSelfAuditTest) {
-        const { normalized: normalizedAdded, folded: foldedText, resolved: resolvedText } = resolveLineWithVars(addedText, fileStringVars);
+        const { normalized: normalizedAdded, folded: foldedText, resolved: resolvedText } = lineEval;
 
         for (const sp of SECRET_PATTERNS) {
           if (sp.regex.test(normalizedAdded) || sp.regex.test(foldedText) || sp.regex.test(resolvedText)) {
@@ -413,9 +415,10 @@ export function auditDiff(rawDiff) {
       // Check test tampering if modifying tests
       const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
-        const foldedText = foldStringLiterals(addedText);
+        const foldedText = lineEval.folded;
+        const resolvedText = lineEval.resolved;
         for (const ttp of TEST_TAMPERING_PATTERNS) {
-          if (ttp.regex.test(addedText) || ttp.regex.test(foldedText)) {
+          if (ttp.regex.test(addedText) || ttp.regex.test(foldedText) || ttp.regex.test(resolvedText)) {
             issues.push({
               severity: 'CRITICAL',
               category: 'TEST_TAMPERING',
@@ -428,7 +431,7 @@ export function auditDiff(rawDiff) {
             }
           }
         }
-        if (hasConstantFalseIf(addedText) || hasConstantFalseIf(foldedText)) {
+        if (hasConstantFalseIf(addedText) || hasConstantFalseIf(foldedText) || hasConstantFalseIf(resolvedText)) {
           issues.push({
             severity: 'CRITICAL',
             category: 'TEST_TAMPERING',
