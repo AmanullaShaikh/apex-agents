@@ -90,7 +90,7 @@ Protocol for keeping conversational explanations terse and factual during multi-
 2. **Dense Technical Synthesis**:
    - Instead of 4 paragraphs explaining a bug:
      * *Bad*: "The reason why the code is not working properly is because on line 45 the variable user is potentially null when the user has not logged in..."
-     * *Caveman*: "Root cause: `user` null on unauth request (L45). Fix: guard clause added. Tests pass."
+     * *Concise*: "Root cause: `user` null on unauth request (L45). Fix: guard clause added. Tests pass."
 
 3. **Untouched Code Integrity**:
    - Code blocks, test assertions, file paths, and terminal commands must NEVER be truncated, abridged, or made telegraphic.

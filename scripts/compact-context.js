@@ -233,11 +233,12 @@ export function compactPythonCode(code) {
  * Replaces balanced `{ ... }` function bodies following a signature regex on a single line,
  * properly respecting nested braces and quoted string literals so outer blocks (e.g. `impl Cache { ... }`) stay intact.
  */
-function stripSingleLineBalancedBodies(line, sigRegex) {
+function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
   let result = '';
   let cursor = 0;
   const flags = sigRegex.flags.includes('g') ? sigRegex.flags : sigRegex.flags + 'g';
   const re = new RegExp(sigRegex.source, flags);
+  const isRust = options.lang === 'rust';
 
   while (cursor < line.length) {
     re.lastIndex = cursor;
@@ -267,7 +268,19 @@ function stripSingleLineBalancedBodies(line, sigRegex) {
         }
         continue;
       }
-      if (ch === '"' || ch === "'" || ch === '`') {
+      if (ch === "'") {
+        if (isRust) {
+          // Only treat single quote as char literal in Rust ('x', '\n', '\x7f', '\u{...}'); ignore lifetimes like 'a / 'static
+          const charMatch = /^'(?:[^'\\]|\\(?:[nrt0\\'"]|x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]{1,6}\}))'/.exec(line.slice(j));
+          if (charMatch) {
+            j += charMatch[0].length - 1;
+          }
+          continue;
+        }
+        inQuote = ch;
+        continue;
+      }
+      if (ch === '"' || ch === '`') {
         inQuote = ch;
         continue;
       }
@@ -325,7 +338,8 @@ export function compactGoCode(code) {
     if (/^func\s+(\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
       const strippedLine = stripSingleLineBalancedBodies(
         line,
-        /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*\{/g
+        /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*\{/g,
+        { lang: 'go' }
       );
       compacted.push(strippedLine);
       continue;
@@ -407,7 +421,8 @@ export function compactRustCode(code) {
     if (/\bfn\s+[a-zA-Z0-9_]+/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
       const strippedLine = stripSingleLineBalancedBodies(
         line,
-        /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*\{/g
+        /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*\{/g,
+        { lang: 'rust' }
       );
       compacted.push(strippedLine);
       continue;

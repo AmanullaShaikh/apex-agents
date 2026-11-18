@@ -592,7 +592,14 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           const isSyncCollection = ['set', 'map', 'instack', 'visited', 'cache', 'headers', 'cookie', 'session', 'params', 'store', 'ctx', 'canvas', 'graphics', 'context'].some(s => objName.toLowerCase().includes(s));
           const instantiatedClass = varToClass.get(objName);
           const isKnownLocalSyncMethod = Boolean(instantiatedClass && syncClassMethods.get(instantiatedClass)?.has(callName));
-          const isKnownDbClient = ['db', 'prisma', 'client', 'repo', 'collection', 'model', 'knex', 'orm', 'user', 'entity', 'record', 'doc', 'item', 'account', 'profile', 'post', 'order', 'row', 'u'].some(db => objName.toLowerCase().includes(db));
+          const EXACT_DB_IDENTIFIERS = new Set(['u', 'db', 'doc', 'row', 'orm', 'sql', 'knex', 'prisma', 'client', 'repo', 'model', 'user', 'entity', 'record', 'item', 'account', 'profile', 'post', 'order', 'collection']);
+          const DB_WORD_SEGMENTS = new Set(['db', 'prisma', 'client', 'repo', 'repository', 'collection', 'model', 'knex', 'orm', 'user', 'entity', 'record', 'doc', 'document', 'item', 'account', 'profile', 'post', 'order', 'row', 'dao']);
+          const objSegments = objName
+            .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean);
+          const isKnownDbClient = EXACT_DB_IDENTIFIERS.has(objName.toLowerCase()) || objSegments.some(seg => DB_WORD_SEGMENTS.has(seg));
 
           const isKnownAsyncMethod = !isSyncCollection && !isKnownLocalSyncMethod && (
             ['sendMail', 'publish'].includes(callName) ||

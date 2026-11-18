@@ -101,7 +101,10 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(spacedOut, /CUSTOM COST CALCULATION \(\$2\/1M input tokens\)/);
     assert.doesNotMatch(spacedOut, /Scanned Files\s*:\s*0\b/);
 
-    for (const badArgs of ['--price-in=2abc', '--price-in=Infinity', '--price-in=-5', '--price-in', '--bogus']) {
+    const leadingDotOut = stripAnsi(execSync(`node "${APEX_BIN}" cost --price-in=.50`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.match(leadingDotOut, /CUSTOM COST CALCULATION \(\$0\.5\/1M input tokens\)/);
+
+    for (const badArgs of ['--price-in=2abc', '--price-in=Infinity', '--price-in=-5', '--price-in', '--bogus', 'package.json']) {
       assert.throws(() => {
         execSync(`node "${APEX_BIN}" cost ${badArgs}`, { stdio: 'pipe', cwd: ROOT_DIR });
       }, /Command failed/, `cost ${badArgs} must exit non-zero`);

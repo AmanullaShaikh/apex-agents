@@ -158,6 +158,12 @@ func (s *Server) Start() error {
     const singleLineRustResult = compactSourceCode(singleLineRust, { ext: 'rs' });
     assert.strictEqual(singleLineRustResult, 'impl Cache { pub fn get(&self, k: &str) -> Option<i32> { /* stripped */ } }');
 
+    // Verify single-line Rust impl method with lifetimes ('a) strips body cleanly without leaking secrets
+    const lifetimeRust = 'impl Cache { pub fn get<\'a>(&\'a self) -> &\'a str { let x: &\'a str = "secret_value"; x } }';
+    const lifetimeRustResult = compactSourceCode(lifetimeRust, { ext: 'rs' });
+    assert.strictEqual(lifetimeRustResult, 'impl Cache { pub fn get<\'a>(&\'a self) -> &\'a str { /* stripped */ } }');
+    assert.doesNotMatch(lifetimeRustResult, /secret_value/);
+
     // Verify single-line Go method stripping with nested braces
     const singleLineGo = 'func (s *S) Get(k string) int { if v, ok := s.m[k]; ok { return v }; return 0 }';
     const singleLineGoResult = compactSourceCode(singleLineGo, { ext: 'go' });

@@ -190,7 +190,7 @@ export function computeTokenCost(projectDir = process.cwd(), options = {}) {
 function parseStrictPrice(rawVal) {
   if (typeof rawVal !== 'string') return null;
   const trimmed = rawVal.trim();
-  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return null;
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) return null;
   const num = Number(trimmed);
   return Number.isFinite(num) && num >= 0 ? num : null;
 }
@@ -232,8 +232,8 @@ if (process.argv[1] && process.argv[1].endsWith('token-cost.js')) {
     }
   }
 
-  if (!fs.existsSync(projectDir)) {
-    console.error(`${c.red}Directory not found: ${projectDir}${c.reset}`);
+  if (!fs.existsSync(projectDir) || !fs.statSync(projectDir).isDirectory()) {
+    console.error(`${c.red}Directory not found or not a directory: ${projectDir}${c.reset}`);
     process.exit(1);
   }
 

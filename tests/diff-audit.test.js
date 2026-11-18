@@ -478,19 +478,70 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(exitAndBranchDiff).stats.tampering, 3);
 
-    // 7. scripts/scan-secrets.js: ESM import must NOT terminate caller, must scan .test.js files, and use generic base64 label
+    // 7. scripts/scan-secrets.js: ESM import must NOT terminate caller, must scan .test.js files, cross-line splits, and use generic base64 label
     const { scanDirectory } = await import('../scripts/scan-secrets.js');
+    const { execSync } = await import('child_process');
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-scan-secrets-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'auth.test.js'), 'export const k = "AKIAIOSFODNN7EXAMPLE";\n');
       const stripeB64 = Buffer.from(['sk', 'live', '1234567890abcdefghijklmn'].join('_')).toString('base64');
       fs.writeFileSync(path.join(tmpDir, 'audit-diff.js'), `export const b = "${stripeB64}";\n`);
+      fs.writeFileSync(path.join(tmpDir, 'split.js'), 'const p1 = "AKIAIOSF";\nconst p2 = "ODNN7EXAMPLE";\nexport const k = p1 + p2;\n');
 
       const findings = scanDirectory(tmpDir);
       assert.ok(findings.some(f => f.file.endsWith('auth.test.js') && f.pattern === 'AWS Access Key ID'));
       assert.ok(findings.some(f => f.file.endsWith('audit-diff.js') && f.pattern === 'Base64 Encoded Credential Payload'));
+      assert.ok(findings.some(f => f.file.endsWith('split.js') && f.pattern === 'AWS Access Key ID'));
+
+      // Non-existent path must exit 1 (never silent exit 0)
+      assert.throws(() => {
+        execSync('node scripts/scan-secrets.js ./non-existent-scan-dir-999', { stdio: 'pipe' });
+      }, /Command failed/);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+
+    // 8. $var cross-line split, PGP private key, TextDecoder Uint8Array byte array, { skip: 'reason' }, ctx.skip, braceless dead-branch if, Reflect.get(process, "exit")
+    const dollarSplitDiff = [
+      'diff --git a/src/dollar.ts b/src/dollar.ts',
+      '--- a/src/dollar.ts',
+      '+++ b/src/dollar.ts',
+      '@@ -0,0 +1,4 @@',
+      '+const $p1 = "AKIAIOSF";',
+      '+const $p2 = "ODNN7EXAMPLE";',
+      '+export const k = $p1 + $p2;'
+    ].join('\n');
+    assert.strictEqual(auditDiff(dollarSplitDiff).stats.secrets, 1);
+
+    const pgpDiff = [
+      'diff --git a/src/pgp.ts b/src/pgp.ts',
+      '--- a/src/pgp.ts',
+      '+++ b/src/pgp.ts',
+      '@@ -0,0 +1,2 @@',
+      '+const k = "-----BEGIN PGP PRIVATE KEY BLOCK-----";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(pgpDiff).stats.secrets, 1);
+
+    const byteArrayDiff = [
+      'diff --git a/src/bytes.ts b/src/bytes.ts',
+      '--- a/src/bytes.ts',
+      '+++ b/src/bytes.ts',
+      '@@ -0,0 +1,2 @@',
+      '+const k = new TextDecoder().decode(new Uint8Array(Array.of(65,75,73,65,73,79,83,70,79,68,78,78,55,69,88,65,77,80,76,69)));'
+    ].join('\n');
+    assert.strictEqual(auditDiff(byteArrayDiff).stats.secrets, 1);
+
+    const advancedTamperDiff = [
+      'diff --git a/tests/adv.test.mjs b/tests/adv.test.mjs',
+      '--- a/tests/adv.test.mjs',
+      '+++ b/tests/adv.test.mjs',
+      '@@ -0,0 +1,6 @@',
+      '+test("a", { skip: "reason" }, () => {});',
+      '+test("b", (ctx) => { ctx.skip("broken"); });',
+      '+if (false) assert.strictEqual(a, b);',
+      '+if (1 > 2) assert.strictEqual(a, b);',
+      '+Reflect.get(process, "exit")(0);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(advancedTamperDiff).stats.tampering, 5);
   });
 });

@@ -7,7 +7,8 @@ import {
   SECRET_PATTERNS,
   ZERO_WIDTH_REGEX,
   foldStringLiterals,
-  inspectBase64Payloads
+  inspectBase64Payloads,
+  resolveLineWithVars
 } from './audit-diff.js';
 
 export { foldStringLiterals, inspectBase64Payloads };
@@ -47,8 +48,13 @@ function scanFile(fullPath, fileName, findings) {
     const content = rawContent.replace(ZERO_WIDTH_REGEX, '');
     const folded = foldStringLiterals(content);
 
+    // Cross-line variable resolution (shared single source of truth from audit-diff.js)
+    const fileStringVars = new Map();
+    const resolvedLines = rawContent.split('\n').map(l => resolveLineWithVars(l, fileStringVars).resolved);
+    const resolvedContent = resolvedLines.join('\n');
+
     for (const { name, regex } of SECRET_PATTERNS) {
-      const match = regex.exec(content) || regex.exec(folded);
+      const match = regex.exec(content) || regex.exec(folded) || regex.exec(resolvedContent);
       if (match) {
         const matchedText = match[0];
         const masked = matchedText.slice(0, 7) + '...' + matchedText.slice(-4);
@@ -57,7 +63,7 @@ function scanFile(fullPath, fileName, findings) {
       }
     }
 
-    const b64 = inspectBase64Payloads(content) || inspectBase64Payloads(folded);
+    const b64 = inspectBase64Payloads(content) || inspectBase64Payloads(folded) || inspectBase64Payloads(resolvedContent);
     if (b64) {
       findings.push({ file: fullPath, pattern: 'Base64 Encoded Credential Payload', match: b64.matched.slice(0, 8) + '...' });
     }
@@ -107,6 +113,10 @@ export function scanDirectory(dir, findings = [], visited = new Set()) {
 
 if (process.argv[1] && safeRealpath(process.argv[1]) === safeRealpath(__filename)) {
   const targetDir = process.argv[2] || process.cwd();
+  if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
+    console.error(`\x1b[31mError: Target path does not exist or is not a directory: ${targetDir}\x1b[0m`);
+    process.exit(1);
+  }
   console.log(`[Apex-Agents] Scanning for leaked credentials in: ${targetDir}...`);
   const findings = scanDirectory(targetDir);
 

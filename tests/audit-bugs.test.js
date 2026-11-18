@@ -225,7 +225,7 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     const floating = entityIssues.filter(i => i.category === 'FLOATING_PROMISE');
     assert.strictEqual(floating.length, 1);
 
-    // Verify synchronous local class .save() and Canvas ctx.save() do NOT false-positive
+    // Verify synchronous local class .save(), Canvas ctx.save(), and non-DB identifiers containing "u" do NOT false-positive
     const syncSaveCode = `
       class Cache {
         save(k, v) { this.map.set(k, v); }
@@ -233,6 +233,12 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
       const c = new Cache();
       c.save('a', 1);
       ctx.save();
+      queue.delete('k');
+      buf.update(chunk);
+      menu.save();
+      url.delete('utm');
+      bucket.delete('tmp');
+      gui.update();
     `;
     const syncSaveIssues = auditCodeBugs(syncSaveCode, 'src/cache.ts');
     assert.strictEqual(syncSaveIssues.length, 0);
