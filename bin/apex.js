@@ -420,29 +420,53 @@ function handleDoctor() {
   console.log(`${c.bold}Running Environment Diagnostics...${c.reset}\n`);
 
   const homeDir = os.homedir();
+  const cwd = process.cwd();
+  const gitDir = path.join(cwd, '.git');
+  const hasGit = fs.existsSync(gitDir);
+  const preCommitPath = path.join(gitDir, 'hooks', 'pre-commit');
+  let hookInstalled = false;
+  if (hasGit && fs.existsSync(preCommitPath)) {
+    try {
+      const hookContent = fs.readFileSync(preCommitPath, 'utf-8');
+      hookInstalled = /apex-agents|audit-diff/i.test(hookContent);
+    } catch {
+      hookInstalled = false;
+    }
+  }
+  const hookStatus = !hasGit
+    ? 'Not a git repository'
+    : (hookInstalled ? 'Installed (.git/hooks/pre-commit)' : 'Not installed (run npx apex-agents install-hooks)');
+  const antiCheatStatus = !hasGit
+    ? 'Inactive (not a git repository)'
+    : (hookInstalled ? 'Active (.git/hooks/pre-commit)' : 'Inactive (run npx apex-agents install-hooks)');
+  const cursorRulesStatus = fs.existsSync(path.join(cwd, '.cursor', 'rules'))
+    ? 'Installed (.cursor/rules)'
+    : 'Not initialized (run npx apex-agents init)';
+
   const checks = [
     { name: 'Node.js Runtime', status: process.version },
     { name: 'OS Platform', status: `${os.platform()} (${os.arch()})` },
+    { name: 'Git Repository', status: hasGit ? 'Detected (.git)' : 'Not detected in cwd' },
     { name: 'Claude Code Directory', status: fs.existsSync(path.join(homeDir, '.claude')) ? 'Found' : 'Not detected' },
-    { name: 'Cursor Rules Support', status: 'Ready (.cursor/rules)' },
+    { name: 'Cursor Rules Support', status: cursorRulesStatus },
     { name: 'Multi-IDE Exporter', status: 'Available (npx apex-agents export-all)' },
     { name: 'AST PageRank Compactor', status: 'Ready (npx apex-agents compact)' },
-    { name: 'Self-Healing Test-Loop', status: 'Ready (npx apex-agents test-loop)' },
-    { name: 'Git-Native Checkpoints', status: 'Ready (npx apex-agents checkpoint)' },
+    { name: 'Test-Loop Runner', status: 'Ready (npx apex-agents test-loop)' },
+    { name: 'Git-Native Checkpoints', status: hasGit ? 'Ready (npx apex-agents checkpoint)' : 'Requires git repo' },
     { name: 'Spec-First Compiler', status: 'Ready (npx apex-agents spec)' },
     { name: 'Semantic Symbol Tracer', status: 'Ready (npx apex-agents trace)' },
     { name: 'AST Production Bug Hunter', status: 'Ready (npx apex-agents audit-bugs)' },
     { name: 'Multi-Model Cost Auditor', status: 'Ready (npx apex-agents cost)' },
-    { name: 'SWE-Bench Mini Benchmark', status: 'Ready (npx apex-agents swe-eval)' },
+    { name: 'Internal AST Self-Check', status: 'Ready (npx apex-agents swe-eval)' },
     { name: 'AST Context Compactor', status: 'Available (Babel AST Engine)' },
     { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
     { name: 'Architecture Diagram', status: 'Available (npx apex-agents diagram)' },
     { name: 'Session Handoff Engine', status: 'Available (npx apex-agents handoff)' },
     { name: 'Persistent Session Memory', status: 'Available (npx apex-agents memory)' },
-    { name: 'Anti-Cheat Test Guard', status: 'Active (.git/hooks/pre-commit)' },
+    { name: 'Anti-Cheat Test Guard', status: antiCheatStatus },
     { name: 'Terminal Studio (TUI)', status: 'Available (npx apex-agents studio)' },
-    { name: 'Git Worktree Sandbox', status: 'Available (npx apex-agents sandbox)' },
-    { name: 'Pre-Commit Safety Hooks', status: 'Installed (.git/hooks/pre-commit)' },
+    { name: 'Git Worktree Sandbox', status: hasGit ? 'Available (npx apex-agents sandbox)' : 'Requires git repo' },
+    { name: 'Pre-Commit Safety Hooks', status: hookStatus },
     { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
     { name: 'Swarm DAG Planner', status: 'Available (npx apex-agents plan)' },
     { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },

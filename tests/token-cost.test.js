@@ -37,19 +37,23 @@ describe('Multi-Model Token Cost & Window Predictor Suite', () => {
 
       const argon = report.modelProjections.find(m => m.model === 'Gemini 4 Argon');
       assert.ok(argon);
-      assert.strictEqual(argon.contextLimit, 1000000);
+      assert.strictEqual(argon.contextLimit, 1048576);
 
       const spark = report.modelProjections.find(m => m.model === 'Meta Muse Spark');
       assert.ok(spark);
-      assert.strictEqual(spark.contextLimit, 1000000);
+      assert.strictEqual(spark.contextLimit, 1048576);
 
-      const sonnet = report.modelProjections.find(m => m.model === 'Claude Sonnet 5.5 (est.)');
+      const sonnet = report.modelProjections.find(m => m.model === 'Claude Sonnet 5.5');
       assert.ok(sonnet);
       assert.strictEqual(sonnet.contextLimit, 1000000);
 
-      const deepseek = report.modelProjections.find(m => m.model.includes('DeepSeek'));
+      const grok = report.modelProjections.find(m => m.model === 'Grok 4.7');
+      assert.ok(grok);
+      assert.strictEqual(grok.contextLimit, 500000);
+
+      const deepseek = report.modelProjections.find(m => m.model === 'DeepSeek V4-Pro');
       assert.ok(deepseek);
-      assert.ok(deepseek.contextLimit >= 256000);
+      assert.strictEqual(deepseek.contextLimit, 1000000);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

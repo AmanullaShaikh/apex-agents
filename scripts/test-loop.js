@@ -65,39 +65,56 @@ export function stripAnsi(str) {
  * Parses test output to extract failing suites, test names, errors, and files.
  */
 export function parseTestFailures(output) {
-  const failures = [];
+  const rawFailures = [];
   const cleanOutput = stripAnsi(output);
   const lines = cleanOutput.split('\n');
 
   let currentFailure = null;
+  let pendingFile = null;
+  let pendingLine = null;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const line = rawLine.trim();
     if (!line) continue;
 
-    // Skip summary lines from test reporters
-    if (line.startsWith('ℹ') || /^(?:Tests:|Suites:|Summary:)/i.test(line)) {
+    // Skip summary lines and section headers from test reporters
+    if (
+      line.startsWith('ℹ') ||
+      /^(?:Tests:|Suites:|Summary:)/i.test(line) ||
+      /^✖\s*failing tests:?\s*$/i.test(line)
+    ) {
+      continue;
+    }
+
+    // Node --test detailed failure header: "test at greet.test.js:4:9"
+    const nodeHeaderMatch = line.match(/^test at\s+(?:file:\/\/\/)?([a-zA-Z]:[\\/][^:\s]+|[^:\s]+\.(?:test|spec)\.[a-zA-Z0-9]+):(\d+)/i);
+    if (nodeHeaderMatch) {
+      pendingFile = nodeHeaderMatch[1];
+      pendingLine = parseInt(nodeHeaderMatch[2], 10);
       continue;
     }
 
     // Detect failing test indicators (Jest / Vitest / Node test runner)
     const failMatch = line.match(/^(?:✖|FAIL\b|✕|not ok\b)\s+(.+)/i);
     if (failMatch) {
-      if (currentFailure) failures.push(currentFailure);
+      if (currentFailure) rawFailures.push(currentFailure);
       currentFailure = {
         name: failMatch[1].trim(),
-        file: null,
+        file: pendingFile,
+        ...(pendingLine ? { line: pendingLine } : {}),
         error: '',
         expected: null,
         actual: null,
         stack: []
       };
+      pendingFile = null;
+      pendingLine = null;
       continue;
     }
 
-    // Detect file location
-    const fileMatch = line.match(/(?:at\s+|in\s+)?([a-zA-Z0-9_\-\\/.]+\.(?:test|spec)\.[a-zA-Z0-9]+):?(\d+)?/i);
+    // Detect file location (preserves Windows drive letters like C:\... and file:///C:/...)
+    const fileMatch = line.match(/(?:at\s+|in\s+)?(?:file:\/\/\/)?([a-zA-Z]:[\\/][^:)\s]+\.(?:test|spec)\.[a-zA-Z0-9]+|[a-zA-Z0-9_.\-\\/]+\.(?:test|spec)\.[a-zA-Z0-9]+)(?::(\d+))?/i);
     if (fileMatch && currentFailure && !currentFailure.file) {
       currentFailure.file = fileMatch[1];
       if (fileMatch[2]) currentFailure.line = parseInt(fileMatch[2], 10);
@@ -120,7 +137,25 @@ export function parseTestFailures(output) {
     }
   }
 
-  if (currentFailure) failures.push(currentFailure);
+  if (currentFailure) rawFailures.push(currentFailure);
+
+  // Deduplicate summary lines vs detailed blocks with identical test names (common in node --test)
+  const byName = new Map();
+  const failures = [];
+  for (const f of rawFailures) {
+    const score = (f.file ? 2 : 0) + (f.error ? 2 : 0) + (f.stack.length > 0 ? 1 : 0);
+    if (byName.has(f.name)) {
+      const existingIdx = byName.get(f.name);
+      const ex = failures[existingIdx];
+      const exScore = (ex.file ? 2 : 0) + (ex.error ? 2 : 0) + (ex.stack.length > 0 ? 1 : 0);
+      if (score > exScore) {
+        failures[existingIdx] = f;
+      }
+    } else {
+      byName.set(f.name, failures.length);
+      failures.push(f);
+    }
+  }
 
   // If no specific parsed failure but non-zero, capture entire stderr/tail
   if (failures.length === 0) {
@@ -221,33 +256,36 @@ function isSafeImplementationFile(projectDir, candidatePath) {
  */
 export function resolveImplementationTarget(projectDir, failures, fullOutput = '') {
   if (!failures || failures.length === 0) return null;
-  const failure = failures[0];
 
-  // 1. Scan stack frames for the first local non-test source file
-  const stackLines = [
-    ...(Array.isArray(failure.stack) ? failure.stack : []),
-    ...stripAnsi(fullOutput).split('\n').filter(l => /\bat\s+/.test(l))
-  ];
+  // 1. Scan stack frames across ALL failures + fullOutput for the first local non-test source file
+  const allStackLines = [];
+  for (const f of failures) {
+    if (Array.isArray(f.stack)) allStackLines.push(...f.stack);
+  }
+  allStackLines.push(...stripAnsi(fullOutput).split('\n').filter(l => /\bat\s+/.test(l)));
 
-  for (const line of stackLines) {
+  const firstKnownTestFile = failures.find(f => f.file && isTestFile(f.file))?.file || null;
+
+  for (const line of allStackLines) {
     const match = line.match(/(?:file:\/\/\/)?([a-zA-Z]:[\\/][^:)\s]+|(?:\.{0,2}[\\/])?[a-zA-Z0-9_.\-\\/]+\.(?:js|jsx|ts|tsx|mjs|cjs|py|go|rs))(?::\d+)?/i);
     if (!match) continue;
-    let rawFile = match[1];
+    const rawFile = match[1];
     const candidate = path.isAbsolute(rawFile) ? rawFile : path.join(projectDir, rawFile);
     if (isSafeImplementationFile(projectDir, candidate)) {
       return {
         targetPath: path.resolve(candidate),
         relPath: path.relative(projectDir, candidate).replace(/\\/g, '/'),
-        testFilePath: failure.file && isTestFile(failure.file)
-          ? (path.isAbsolute(failure.file) ? failure.file : path.join(projectDir, failure.file))
+        testFilePath: firstKnownTestFile
+          ? (path.isAbsolute(firstKnownTestFile) ? firstKnownTestFile : path.join(projectDir, firstKnownTestFile))
           : null
       };
     }
   }
 
-  // 2. If failure.file itself is explicitly a non-test implementation file
-  if (failure.file) {
-    const candidate = path.isAbsolute(failure.file) ? failure.file : path.join(projectDir, failure.file);
+  // 2. Check if ANY failure.file itself is explicitly a non-test implementation file
+  for (const f of failures) {
+    if (!f.file) continue;
+    const candidate = path.isAbsolute(f.file) ? f.file : path.join(projectDir, f.file);
     if (isSafeImplementationFile(projectDir, candidate)) {
       return {
         targetPath: path.resolve(candidate),
@@ -255,37 +293,44 @@ export function resolveImplementationTarget(projectDir, failures, fullOutput = '
         testFilePath: null
       };
     }
+  }
 
-    // 3. If failure.file is a test file, inspect its local relative imports read-only
-    //    and accept ONLY if there is an unambiguous single local implementation target.
-    if (isTestFile(candidate) && fs.existsSync(candidate)) {
-      try {
-        const testSrc = fs.readFileSync(candidate, 'utf-8');
-        const importRegex = /(?:import\s+[\s\S]*?\s+from\s+|require\s*\(\s*)['"](\.\.?\/[^'"]+)['"]/g;
-        const candidates = new Set();
-        const exts = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
-        let m;
-        while ((m = importRegex.exec(testSrc)) !== null) {
-          const base = path.resolve(path.dirname(candidate), m[1]);
-          for (const ext of exts) {
-            const p = base + ext;
-            if (isSafeImplementationFile(projectDir, p)) {
-              candidates.add(p);
-              break;
-            }
+  // 3. Inspect existing test files across ALL failures (read-only) to find an unambiguous single local import
+  const testFileCandidates = new Set();
+  for (const f of failures) {
+    if (f.file && isTestFile(f.file)) {
+      testFileCandidates.add(path.isAbsolute(f.file) ? f.file : path.join(projectDir, f.file));
+    }
+  }
+
+  for (const candidate of testFileCandidates) {
+    if (!fs.existsSync(candidate)) continue;
+    try {
+      const testSrc = fs.readFileSync(candidate, 'utf-8');
+      const importRegex = /(?:import\s+[\s\S]*?\s+from\s+|require\s*\(\s*)['"](\.\.?\/[^'"]+)['"]/g;
+      const candidates = new Set();
+      const exts = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
+      let m;
+      while ((m = importRegex.exec(testSrc)) !== null) {
+        const base = path.resolve(path.dirname(candidate), m[1]);
+        for (const ext of exts) {
+          const p = base + ext;
+          if (isSafeImplementationFile(projectDir, p)) {
+            candidates.add(p);
+            break;
           }
         }
-        if (candidates.size === 1) {
-          const resolved = [...candidates][0];
-          return {
-            targetPath: resolved,
-            relPath: path.relative(projectDir, resolved).replace(/\\/g, '/'),
-            testFilePath: path.resolve(candidate)
-          };
-        }
-      } catch {
-        // ignore read error
       }
+      if (candidates.size === 1) {
+        const resolved = [...candidates][0];
+        return {
+          targetPath: resolved,
+          relPath: path.relative(projectDir, resolved).replace(/\\/g, '/'),
+          testFilePath: path.resolve(candidate)
+        };
+      }
+    } catch {
+      // ignore read error
     }
   }
 
@@ -381,14 +426,81 @@ function extractCodeFromResponse(rawText) {
   return (codeMatch ? codeMatch[1] : rawText).trim();
 }
 
+function cleanupTempCheckpoint(projectDir, checkpointId) {
+  if (!checkpointId) return;
+  try {
+    const cpDir = path.join(projectDir, '.agents', 'checkpoints', checkpointId);
+    if (fs.existsSync(cpDir)) {
+      fs.rmSync(cpDir, { recursive: true, force: true });
+    }
+    const checkpointsRoot = path.join(projectDir, '.agents', 'checkpoints');
+    if (fs.existsSync(checkpointsRoot) && fs.readdirSync(checkpointsRoot).length === 0) {
+      fs.rmSync(checkpointsRoot, { recursive: true, force: true });
+    }
+    const agentsRoot = path.join(projectDir, '.agents');
+    if (fs.existsSync(agentsRoot) && fs.readdirSync(agentsRoot).length === 0) {
+      fs.rmSync(agentsRoot, { recursive: true, force: true });
+    }
+  } catch {
+    // non-fatal cleanup error
+  }
+}
+
+/**
+ * Verifies that a test run exiting 0 actually completed test assertions and reported >= 1 passing test,
+ * preventing silent process.exit(0) sabotage from faking a green run.
+ */
+export function verifyTestOutputIndicatesPass(stdout = '', stderr = '', expectedTestNames = []) {
+  const clean = stripAnsi(`${stdout}\n${stderr}`).trim();
+  if (!clean) return false;
+
+  // Reject if explicit failure counters or failure markers appeared
+  const failCountMatch = clean.match(/(?:ℹ\s*fail|failed:?)\s*(\d+)/i);
+  if (failCountMatch && parseInt(failCountMatch[1], 10) > 0) return false;
+
+  // Node built-in test runner summary check: "ℹ pass N" where N >= 1
+  const nodePassMatch = clean.match(/ℹ\s*pass\s+(\d+)/i);
+  if (nodePassMatch) {
+    if (parseInt(nodePassMatch[1], 10) < 1) return false;
+
+    // Guard against premature worker process.exit(0) sabotage:
+    // When a worker calls process.exit(0) mid-test, node --test prints ONLY "✔ file.test.mjs"
+    // and NEVER prints the individual test name(s) that were previously failing.
+    const cleanExpected = expectedTestNames
+      .map(n => (n || '').replace(/\s*\(\d+(?:\.\d+)?m?s\)\s*$/i, '').trim())
+      .filter(n => n && n !== 'Unspecified Test Suite Failure' && !/\.(?:test|spec)\.[a-z0-9]+$/i.test(n));
+
+    if (cleanExpected.length > 0) {
+      const allExpectedReported = cleanExpected.every(name => clean.includes(name));
+      if (!allExpectedReported) return false;
+    } else {
+      // Fallback: ensure at least one ✔ line is NOT purely a test filename
+      const checkLines = clean.split('\n').map(l => l.trim()).filter(l => /^(?:✔|✓)\s+/.test(l));
+      if (checkLines.length > 0 && checkLines.every(l => /^(?:✔|✓)\s+[^\s]+\.(?:test|spec)\.[a-z0-9]+(?:\s*\([\d.]+m?s\))?$/i.test(l))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Vitest / Jest / Mocha / Pytest / Go / Cargo / TAP passing markers
+  if (/(?:\b\d+\s+passed\b|\bpassed\s+\d+\b|\bpassing\b|\bPASS\s+|test result:\s*ok|\bok\s+\d+\b|✔|✓)/i.test(clean)) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Transactional patch gate:
  * 1. Enforces test-file immutability (never edits test files).
- * 2. Audits proposed patch via auditDiff() for secrets, slop, or tampering BEFORE writing.
- * 3. Creates a pre-patch checkpoint (git checkpoint if in git repo + atomic in-memory backup).
- * 4. Writes patch, re-runs the test suite, and automatically rolls back if tests still fail.
+ * 2. Blocks newly introduced process.exit/abort/kill sabotage calls.
+ * 3. Audits proposed patch via auditDiff() for secrets, slop, or tampering BEFORE writing.
+ * 4. Creates a pre-patch checkpoint (git checkpoint if in git repo + atomic in-memory backup).
+ * 5. Writes patch, re-runs the test suite, verifies both exit 0 AND positive test pass signal,
+ *    and automatically rolls back + cleans up temp checkpoint if verification fails.
  */
-async function applyAndVerifyPatch(projectDir, target, patchedContent, testCmd, method) {
+async function applyAndVerifyPatch(projectDir, target, patchedContent, testCmd, method, expectedTestNames = []) {
   if (isTestFile(target.targetPath) || isTestFile(target.relPath)) {
     return { healed: false, reason: 'TEST_FILE_PROTECTED' };
   }
@@ -396,6 +508,13 @@ async function applyAndVerifyPatch(projectDir, target, patchedContent, testCmd, 
   const originalContent = fs.readFileSync(target.targetPath, 'utf-8');
   if (!patchedContent || patchedContent.trim() === originalContent.trim()) {
     return { healed: false, reason: 'NO_EFFECTIVE_CHANGE' };
+  }
+
+  // Gate 0: Block newly introduced process.exit / abort / kill sabotage in implementation patches
+  const processExitPattern = /\b(?:process\s*(?:\.\s*(?:exit|abort|kill)|\[\s*['"](?:exit|abort|kill)['"]\s*\])|Deno\s*\.\s*exit)\s*\(/i;
+  if (processExitPattern.test(patchedContent) && !processExitPattern.test(originalContent)) {
+    console.log(`  ${c.red}✖${c.reset} Patch rejected: introduces process.exit/abort/kill sabotage in ${c.cyan}${target.relPath}${c.reset}.\n`);
+    return { healed: false, reason: 'REJECTED_PROCESS_EXIT_SABOTAGE', file: target.relPath };
   }
 
   // Gate 1: Run diff security & anti-slop auditor before accepting patch
@@ -417,24 +536,27 @@ async function applyAndVerifyPatch(projectDir, target, patchedContent, testCmd, 
     }
   }
 
-  // Gate 3: Apply patch and re-run test suite to verify real fix
+  // Gate 3: Apply patch and re-run test suite to verify real fix + positive pass signal
   try {
     fs.writeFileSync(target.targetPath, patchedContent);
     const verifyCmd = testCmd || detectTestRunner(projectDir);
     const verifyRun = await runCommandCapture(projectDir, verifyCmd, false);
 
-    if (verifyRun.code === 0) {
-      console.log(`  ${c.green}✓${c.reset} Verified ${method} repair patch on ${c.cyan}${target.relPath}${c.reset} (re-test exited 0).\n`);
+    if (verifyRun.code === 0 && verifyTestOutputIndicatesPass(verifyRun.stdout, verifyRun.stderr, expectedTestNames)) {
+      console.log(`  ${c.green}✓${c.reset} Verified ${method} repair patch on ${c.cyan}${target.relPath}${c.reset} (re-test passed with exit 0).\n`);
       return { healed: true, method, file: target.relPath, verified: true, checkpointId };
     }
 
-    // Tests still failed -> immediate atomic rollback
+    // Tests failed or exited 0 without test runner pass confirmation -> immediate atomic rollback + cleanup
     fs.writeFileSync(target.targetPath, originalContent);
-    console.log(`  ${c.yellow}↩${c.reset} Patch on ${c.cyan}${target.relPath}${c.reset} failed verification (exit ${verifyRun.code}). Rolled back cleanly.\n`);
-    return { healed: false, reason: 'ROLLBACK_TEST_VERIFICATION_FAILED', file: target.relPath, checkpointId };
+    cleanupTempCheckpoint(projectDir, checkpointId);
+    const reason = verifyRun.code === 0 ? 'ROLLBACK_NO_TEST_PASS_SIGNAL' : 'ROLLBACK_TEST_VERIFICATION_FAILED';
+    console.log(`  ${c.yellow}↩${c.reset} Patch on ${c.cyan}${target.relPath}${c.reset} failed verification (${reason}). Rolled back cleanly.\n`);
+    return { healed: false, reason, file: target.relPath };
   } catch (err) {
     // Rollback on any unexpected runtime error
     fs.writeFileSync(target.targetPath, originalContent);
+    cleanupTempCheckpoint(projectDir, checkpointId);
     return { healed: false, reason: 'ROLLBACK_RUNTIME_ERROR', error: err.message };
   }
 }
@@ -449,18 +571,19 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
   // Ironclad target resolution: NEVER edit test files
   const target = resolveImplementationTarget(projectDir, failures, fullOutput);
   if (!target) {
-    const rawFile = failures[0]?.file;
-    if (rawFile && isTestFile(rawFile)) {
-      console.log(`  ${c.yellow}ℹ [Test-File Guard]: Refusing to modify test file (${rawFile}).${c.reset}`);
+    const protectedTest = failures.find(f => f.file && isTestFile(f.file))?.file;
+    if (protectedTest) {
+      console.log(`  ${c.yellow}ℹ [Test-File Guard]: Refusing to modify test file (${protectedTest}).${c.reset}`);
       console.log(`  No unambiguous implementation file resolved. Delegating to ${c.cyan}APEX_FIX_PROMPT.md${c.reset}.\n`);
       return { healed: false, reason: 'TEST_FILE_PROTECTED_DELEGATED_TO_IDE' };
     }
+    const rawFile = failures.find(f => f.file)?.file;
     console.log(`  ${c.yellow}ℹ Target implementation file not resolved (${rawFile || 'unknown'}). Delegating to APEX_FIX_PROMPT.md.${c.reset}\n`);
     return { healed: false, reason: 'TARGET_FILE_NOT_FOUND' };
   }
 
   const fileContent = fs.readFileSync(target.targetPath, 'utf-8');
-  const failureError = failures[0]?.error || 'Unknown assertion failure';
+  const failureError = failures.map(f => f.error).filter(Boolean).join('\n') || 'Unknown assertion failure';
   let testContextSnippet = '';
   if (target.testFilePath && fs.existsSync(target.testFilePath)) {
     try {
@@ -474,7 +597,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
     `You are a senior software engineer fixing a failing unit test.`,
     `STRICT RULES:`,
     `1. Fix the bug ONLY in the implementation file below (${target.relPath}).`,
-    `2. NEVER emit placeholders, TODO stubs, or untyped 'any' shortcuts.`,
+    `2. NEVER emit placeholders, TODO stubs, process.exit calls, or untyped 'any' shortcuts.`,
     `3. Output ONLY the complete fixed implementation file inside a single fenced code block. No prose.`,
     `Failure Output:\n${failureError}`,
     testContextSnippet ? `Read-Only Failing Test Specification:\n${testContextSnippet}` : '',
@@ -482,6 +605,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
   ].filter(Boolean).join('\n\n');
 
   const testCmd = options.testCmd || null;
+  const expectedTestNames = failures.map(f => f.name).filter(Boolean);
 
   // Tier 1: Local Ollama (0 API Key / 100% Offline, Two-Stage Timeout)
   const ollamaHost = (options.ollamaHost || process.env.OLLAMA_HOST || 'http://localhost:11434').replace(/\/$/, '');
@@ -526,9 +650,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
         const data = await genRes.json();
         const fixedCode = extractCodeFromResponse(data.response || '');
         if (fixedCode) {
-          const verifiedRes = await applyAndVerifyPatch(projectDir, target, fixedCode, testCmd, `LOCAL_OLLAMA (${preferredModel})`);
-          if (verifiedRes.healed) return verifiedRes;
-          return verifiedRes;
+          return await applyAndVerifyPatch(projectDir, target, fixedCode, testCmd, `LOCAL_OLLAMA (${preferredModel})`, expectedTestNames);
         }
       }
     }
@@ -546,7 +668,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
       let rawText = '';
 
       if (geminiKey) {
-        const model = process.env.APEX_GEMINI_MODEL || 'gemini-2.0-flash';
+        const model = process.env.APEX_GEMINI_MODEL || 'gemini-4-hydrogen';
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -555,7 +677,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
         const data = await res.json();
         rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       } else if (anthropicKey) {
-        const model = process.env.APEX_ANTHROPIC_MODEL || 'claude-3-7-sonnet-20250219';
+        const model = process.env.APEX_ANTHROPIC_MODEL || 'claude-sonnet-5-5';
         const res = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -572,7 +694,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
         const data = await res.json();
         rawText = data.content?.[0]?.text || '';
       } else if (openaiKey) {
-        const model = process.env.APEX_OPENAI_MODEL || 'gpt-4o';
+        const model = process.env.APEX_OPENAI_MODEL || 'gpt-6.1-sol';
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -590,7 +712,7 @@ export async function attemptAutoHeal(projectDir, failures, fullOutput, options 
 
       const fixedCode = extractCodeFromResponse(rawText);
       if (fixedCode) {
-        return await applyAndVerifyPatch(projectDir, target, fixedCode, testCmd, 'CLOUD_API');
+        return await applyAndVerifyPatch(projectDir, target, fixedCode, testCmd, 'CLOUD_API', expectedTestNames);
       }
     } catch (err) {
       console.error(`  ${c.yellow}! Optional cloud heal request failed: ${err.message}${c.reset}\n`);
@@ -660,8 +782,10 @@ export async function runTestLoop(projectDir = process.cwd(), customCmd = null, 
 // CLI Execution
 if (process.argv[1] && process.argv[1].endsWith('test-loop.js')) {
   const args = process.argv.slice(2);
-  const customCmd = args.find(a => !a.startsWith('--'));
-  runTestLoop(process.cwd(), customCmd).then(res => {
+  const healFlag = args.includes('--heal');
+  const cmdParts = args.filter(a => a !== '--heal');
+  const customCmd = cmdParts.length > 0 ? cmdParts.join(' ') : null;
+  runTestLoop(process.cwd(), customCmd, { heal: healFlag }).then(res => {
     process.exit(res.success ? 0 : 1);
   });
 }

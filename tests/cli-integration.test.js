@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import fs from 'fs';
+import os from 'os';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -31,10 +32,22 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /COMMANDS:/);
   });
 
-  test('should run doctor diagnostics with exit code 0', () => {
+  test('should run doctor diagnostics honestly in git and non-git directories', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" doctor`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /Running Environment Diagnostics/);
     assert.match(out, /Apex Agents engine is ready/);
+    assert.doesNotMatch(out, /SWE-Bench Mini/);
+
+    // Non-git empty temp dir MUST NOT falsely claim hooks are Installed/Active
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-doctor-nogit-'));
+    try {
+      const noGitOut = stripAnsi(execSync(`node "${APEX_BIN}" doctor`, { encoding: 'utf-8', cwd: emptyDir }));
+      assert.match(noGitOut, /Not a git repository/);
+      assert.doesNotMatch(noGitOut, /Pre-Commit Safety Hooks\s*:\s*Installed/);
+      assert.doesNotMatch(noGitOut, /Anti-Cheat Test Guard\s*:\s*Active/);
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    }
   });
 
   test('should list all 38 specialists and operational instincts', () => {
@@ -63,9 +76,16 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.doesNotMatch(quietOut, /@prompt-injection-shield/);
     assert.doesNotMatch(quietOut, /@cwv-lcp-doctor/);
 
-    // "Fix a typo in the README" must NOT include @cwv-lcp-doctor
+    // "Fix a typo in the README" must NOT force @tdd-champion or @cwv-lcp-doctor
     const readmeOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Fix a typo in the README"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.doesNotMatch(readmeOut, /@cwv-lcp-doctor/);
+    assert.doesNotMatch(readmeOut, /@tdd-champion/);
+    assert.match(readmeOut, /@readme-copywriter/);
+
+    // Pure REST API must NOT trigger WebSocket @network-security-auditor
+    const restOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Build REST API for blog posts"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.match(restOut, /@backend-systems-lead/);
+    assert.doesNotMatch(restOut, /@network-security-auditor/);
   });
 
   test('should inspect context budget with zero errors', () => {

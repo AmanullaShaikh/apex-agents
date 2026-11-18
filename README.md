@@ -262,7 +262,7 @@ npx apex-agents cost
 ```
 
 ```
-═════ APEX AGENTS: MULTI-MODEL TOKEN COST AUDITOR ═════
+═════ APEX AGENTS: MULTI-MODEL TOKEN COST AUDITOR (Sample Output) ═════
 Scanned Files    : 45
 Raw Token Volume : ~101,691 tokens (382.8 KB, subword regex estimate)
 With AST Compact : ~18,305 tokens (82% est. reduction)
@@ -273,16 +273,16 @@ MODEL CONTEXT & COST PROJECTIONS (Pricing ref: 2026-11, approximate):
 ├────────────────────────────┼──────────────────┼──────────────┼──────────────┤
 │ GPT-6 Astra                │ 1050k            │ 9.68%        │ $1.0169      │
 │ GPT-6.1 Sol                │ 1050k            │ 9.68%        │ $0.2034      │
-│ Gemini 4 Argon             │ 1000k            │ 10.17%       │ $0.2034      │
-│ Gemini 4 Hydrogen          │ 1000k            │ 10.17%       │ $0.1525      │
-│ Meta Muse Spark            │ 1000k            │ 10.17%       │ $0.1271      │
-│ Claude Sonnet 5.5 (est.)   │ 1000k            │ 10.17%       │ $0.3051      │
-│ Claude Opus 5.5 (est.)     │ 1000k            │ 10.17%       │ $1.5254      │
-│ Grok 4.7 (est.)            │ 2000k            │ 5.08%        │ $0.2034      │
-│ DeepSeek V4-Pro (est.)     │ 500k             │ 20.34%       │ $0.0559      │
-│ DeepSeek V4.1-Flash (est.) │ 256k             │ 39.72%       │ $0.0142      │
+│ Gemini 4 Argon             │ 1,048k (1M)      │ 9.70%        │ $0.2034      │
+│ Gemini 4 Hydrogen          │ 1,048k (1M)      │ 9.70%        │ $0.1525      │
+│ Meta Muse Spark            │ 1,048k (1M)      │ 9.70%        │ $0.1271      │
+│ Claude Sonnet 5.5          │ 1000k            │ 10.17%       │ $0.2034      │
+│ Claude Opus 5.5            │ 1000k            │ 10.17%       │ $0.4068      │
+│ Grok 4.7                   │ 500k             │ 20.34%       │ $0.2034      │
+│ DeepSeek V4-Pro            │ 1000k            │ 10.17%       │ $0.0671      │
+│ DeepSeek V4.1-Flash        │ 1000k            │ 10.17%       │ $0.0153      │
 └────────────────────────────┴──────────────────┴──────────────┴──────────────┘
-Note: Entries marked (est.) use approximate unverified pricing; vendor rates may change.
+Note: Reference vendor rates as of Nov 2026 (approximate; Gemini 4 Argon promo $2/$10 shifts to $4/$20 Dec 1, 2026; DeepSeek off-peak tiers).
 
 💡 Apex Savings Estimate: Running npx apex-agents compact saves ~$8.339 every 10 turns on GPT-6 Astra.
 ```
@@ -298,11 +298,11 @@ npx apex-agents swe-eval
 ```
 
 ```
-  ✓ PASS [SWE-1: AST Skeleton Fidelity] - Preserved signatures, stripped internal bodies cleanly
-  ✓ PASS [SWE-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s) for auth()
-  ✓ PASS [SWE-3: Graph PageRank Centrality Convergence] - Hub ranked #1 with score 13.3%
-  ✓ PASS [SWE-4: Anti-Cheat Test Tampering Defense] - Detected 2 test weakening issue(s) via AST diff engine
-  ✓ PASS [SWE-5: Test Failure Trace Diagnosis] - Extracted failing trace for UserService test at tests/user.test.ts:33
+  ✓ PASS [VEC-1: AST Skeleton Fidelity] - Preserved signatures, stripped internal bodies cleanly
+  ✓ PASS [VEC-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s) for auth()
+  ✓ PASS [VEC-3: Graph PageRank Centrality Convergence] - Hub ranked #1 with score 13.3%
+  ✓ PASS [VEC-4: Anti-Cheat Test Tampering Defense] - Detected 2 test weakening issue(s) via diff engine
+  ✓ PASS [VEC-5: Test Failure Trace Diagnosis] - Extracted failing trace for UserService test at tests/user.test.ts:33
 
 ═════ SELF-CHECK SUMMARY ═════
   Vectors Passed : 5/5

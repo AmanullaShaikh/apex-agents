@@ -1,7 +1,7 @@
 {
   "name": "apex-agents",
   "version": "2.1.0",
-  "description": "The Sovereign AI Engineering Agency: Babel AST Context Compactor with PageRank & Caller Graph, Git-Native Checkpoint & Instant Rollback, Spec-First Architectural Compiler, Semantic Symbol Tracer, Deep Production AST Bug Hunter, Multi-Model Token Cost Predictor, SWE-Bench Mini Benchmark, Self-Healing Test-Loop, Codebase Dependency Graph & Cycle Detection, Anti-Test-Tampering Security, Session Handoff Engine, Persistent Cross-Session Memory, Physical Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Codex, Windsurf, Copilot, and Antigravity",
+  "description": "Developer Tooling & Babel AST Context Compactor Harness: PageRank & Caller Graph Compactor, Git-Native Checkpoint & Rollback, Spec-First Contract Compiler, Semantic Symbol Tracer, Static AST Bug Hunter, Multi-Model Token Cost Estimator, Transactional Test-Loop Runner, Codebase Dependency Graph, Anti-Test-Tampering Diff Auditor, Session Handoff, Persistent Memory, Git Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Windsurf, Copilot, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
     "apex-agents": "bin/apex.js",

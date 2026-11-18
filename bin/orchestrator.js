@@ -77,23 +77,25 @@ export function generateSwarmDag(objective) {
       wave: 2,
       phase: 'Phase 3: Backend & Wire Protocol Engineering',
       agent: '@backend-systems-lead',
-      role: 'Implement distributed endpoints with Idempotency-Key support and structured error envelopes.',
+      role: 'Implement backend endpoints with schema validation and structured error envelopes.',
       dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
       concurrency: 'parallel',
       tokenBudget: 10000,
       sandboxBranch: 'apex/task-backend-api'
     });
-    tasks.push({
-      id: 'task-net-audit',
-      wave: 2,
-      phase: 'Phase 3: Backend & Wire Protocol Engineering',
-      agent: '@network-security-auditor',
-      role: 'Audit WebSocket upgrade handshake, CSWSH defenses, and sliding-window rate limits.',
-      dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
-      concurrency: 'parallel',
-      tokenBudget: 6000,
-      sandboxBranch: 'apex/task-net-audit'
-    });
+    if (/\b(websocket|websockets|webrtc|realtime|real-time|stream|streaming|socket|tls)\b/i.test(lower)) {
+      tasks.push({
+        id: 'task-net-audit',
+        wave: 2,
+        phase: 'Phase 3: Backend & Wire Protocol Engineering',
+        agent: '@network-security-auditor',
+        role: 'Audit WebSocket upgrade handshake, CSWSH defenses, and sliding-window rate limits.',
+        dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
+        concurrency: 'parallel',
+        tokenBudget: 6000,
+        sandboxBranch: 'apex/task-net-audit'
+      });
+    }
   }
 
   // Phase 4: UI & Video / Media Systems
@@ -176,18 +178,36 @@ export function generateSwarmDag(objective) {
 
   // Phase 5: Verification & Zero-Slop Gate
   const prevDeps = tasks.map(t => t.id);
-  const gateDeps = ['task-gate-tdd'];
-  tasks.push({
-    id: 'task-gate-tdd',
-    wave: 4,
-    phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
-    agent: '@tdd-champion',
-    role: 'Write failing reproduction unit tests before code, verifying edge-case coverage.',
-    dependsOn: prevDeps,
-    concurrency: 'sequential',
-    tokenBudget: 8000,
-    sandboxBranch: 'apex/task-gate-tdd'
-  });
+  const isDocsOnly = tasks.length === 0 && /\b(readme|typo|typos|docs|documentation|changelog|comment|comments|markdown)\b/i.test(lower);
+  const gateDeps = [];
+
+  if (isDocsOnly) {
+    gateDeps.push('task-docs-edit');
+    tasks.push({
+      id: 'task-docs-edit',
+      wave: 4,
+      phase: 'Phase 5: Documentation Verification',
+      agent: '@readme-copywriter',
+      role: 'Apply precise documentation fix and verify links, formatting, and factual accuracy.',
+      dependsOn: prevDeps,
+      concurrency: 'sequential',
+      tokenBudget: 3000,
+      sandboxBranch: 'apex/task-docs-edit'
+    });
+  } else {
+    gateDeps.push('task-gate-tdd');
+    tasks.push({
+      id: 'task-gate-tdd',
+      wave: 4,
+      phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
+      agent: '@tdd-champion',
+      role: 'Write failing reproduction unit tests before code, verifying edge-case coverage.',
+      dependsOn: prevDeps,
+      concurrency: 'sequential',
+      tokenBudget: 8000,
+      sandboxBranch: 'apex/task-gate-tdd'
+    });
+  }
 
   if (hasFrontend) {
     gateDeps.push('task-gate-cwv');
@@ -260,8 +280,11 @@ export async function planSwarm(objective, options = {}) {
   }
   console.log(`└────────────────────────────────────────────────────────────────────────────────────────┘\n`);
 
+  const WORKTREE_LIMIT = 3;
+  const scaffoldTasks = tasks.slice(0, WORKTREE_LIMIT);
+
   console.log(`${c.cyan}${c.bold}ISOLATED GIT WORKTREE SANDBOX COMMANDS:${c.reset}`);
-  for (const t of tasks.slice(0, 4)) {
+  for (const t of scaffoldTasks) {
     console.log(`  ${c.gray}git worktree add .worktrees/${t.id} -b ${t.sandboxBranch}${c.reset}`);
   }
   console.log();
@@ -270,7 +293,7 @@ export async function planSwarm(objective, options = {}) {
     console.log(`${c.cyan}${c.bold}⚡ [DAG Execution]: Spawning physical Git Worktree sandboxes...${c.reset}`);
     try {
       const { handleStart } = await import('../scripts/worktree-sandbox.js');
-      for (const task of tasks.slice(0, 3)) {
+      for (const task of scaffoldTasks) {
         try {
           handleStart(task.id);
           const worktreeDir = path.join(process.cwd(), '.worktrees', task.id);

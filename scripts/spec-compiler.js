@@ -64,9 +64,7 @@ export function discoverCodebaseContracts(projectDir = process.cwd(), featureInt
     const semanticMatches = discovered.filter(d =>
       intentKeywords.some(kw => d.name.toLowerCase().includes(kw) || d.file.toLowerCase().includes(kw))
     );
-    if (semanticMatches.length > 0) {
-      return semanticMatches.slice(0, 6);
-    }
+    return semanticMatches.slice(0, 6);
   }
 
   return discovered.slice(0, 6);
@@ -118,17 +116,76 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
   }
 
   const lower = cleanIntent.toLowerCase();
-  const isUi = /\b(ui|frontend|react|vue|svelte|component|theme|dark\s*mode|toggle|button|modal|dialog|card|form|input|page|nav|sidebar|animation|css|style|layout|widget)\b/i.test(lower);
-  const isCli = !isUi && /\b(cli|command[\s-]?line|parser|terminal|stdin|stdout|argv|log\s+file|script)\b/i.test(lower);
-  const isCache = !isUi && !isCli && /\b(cache|caching|redis|memcached|lru|ttl|queue|worker|broker)\b/i.test(lower);
-  const isPayment = !isUi && !isCli && !isCache && /\b(payment|checkout|webhook|order|stripe|billing|transfer|transaction)\b/i.test(lower);
-  const isAuth = !isUi && !isCli && !isCache && !isPayment && /\b(auth|authentication|login|signup|password|jwt|session|token|credential|oauth)\b/i.test(lower);
-  const isRestApi = !isUi && !isCli && !isCache && !isPayment && !isAuth && /\b(api|rest|crud|endpoint|route|http|server|graphql|microservice)\b/i.test(lower);
+  const isGraphql = /\b(graphql|gql|subgraph|resolver|federation)\b/i.test(lower);
+  const isDatabase = !isGraphql && /\b(postgres|postgresql|mysql|sqlite|sql|migration|prisma|drizzle|schema\s+migration|database)\b/i.test(lower);
+  const isUi = !isGraphql && !isDatabase && /\b(ui|frontend|react|vue|svelte|component|theme|dark\s*mode|toggle|button|modal|dialog|card|form|input|page|nav|sidebar|animation|css|style|layout|widget)\b/i.test(lower);
+  const isCli = !isGraphql && !isDatabase && !isUi && /\b(cli|command[\s-]?line|parser|terminal|stdin|stdout|argv|log\s+file)\b/i.test(lower);
+  const isCache = !isGraphql && !isDatabase && !isUi && !isCli && /\b(cache|caching|redis|memcached|lru|ttl|queue|worker|broker)\b/i.test(lower);
+  const isPayment = !isGraphql && !isDatabase && !isUi && !isCli && !isCache && /\b(payment|checkout|webhook|order|stripe|billing|transfer|transaction)\b/i.test(lower);
+  const isAuth = !isGraphql && !isDatabase && !isUi && !isCli && !isCache && !isPayment && /\b(auth|authentication|login|signup|password|jwt|session|token|credential|oauth)\b/i.test(lower);
+  const isRestApi = !isGraphql && !isDatabase && !isUi && !isCli && !isCache && !isPayment && !isAuth && /\b(api|rest|crud|endpoint|route|http|server|microservice)\b/i.test(lower);
 
   md += `\`\`\`typescript\n`;
   md += `import { z } from 'zod';\n\n`;
 
-  if (isUi) {
+  if (isGraphql) {
+    md += `// 1. Zod Runtime GraphQL Resolver Input Schema\n`;
+    md += `export const ${pascalCase(slug)}InputSchema = z.object({\n`;
+    md += `  id: z.string().min(1),\n`;
+    md += `  limit: z.number().int().min(1).max(100).default(20),\n`;
+    md += `  cursor: z.string().optional()\n`;
+    md += `});\n\n`;
+    md += `export type ${pascalCase(slug)}Input = z.infer<typeof ${pascalCase(slug)}InputSchema>;\n\n`;
+    md += `// 2. GraphQL Resolver Context & DataLoader Interface for ${title}\n`;
+    md += `export interface ${pascalCase(slug)}Context {\n`;
+    md += `  actorId: string;\n`;
+    md += `  requestId: string;\n`;
+    md += `}\n\n`;
+    md += `// 3. Discriminated Union Resolver Payload\n`;
+    md += `export type ${pascalCase(slug)}Result =\n`;
+    md += `  | { __typename: '${pascalCase(slug)}Success'; data: Record<string, unknown> }\n`;
+    md += `  | { __typename: '${pascalCase(slug)}Error'; message: string; code: ${pascalCase(slug)}ErrorCode };\n\n`;
+    md += `export type ${pascalCase(slug)}ErrorCode =\n`;
+    md += `  | 'BAD_USER_INPUT'\n`;
+    md += `  | 'UNAUTHENTICATED'\n`;
+    md += `  | 'NOT_FOUND'\n`;
+    md += `  | 'INTERNAL_SERVER_ERROR';\n`;
+    md += `\`\`\`\n\n`;
+    md += `### ◈ GraphQL Schema & Resolver Contract\n`;
+    md += `| Operation Type | Operation Name | Endpoint | Batching Policy |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`Query\` | \`${slug.replace(/-/g, '_')}\` | \`/graphql\` | DataLoader per-request batching |\n`;
+    md += `| \`Mutation\` | \`update_${slug.replace(/-/g, '_')}\` | \`/graphql\` | Explicit input validation + typed union |\n\n`;
+  } else if (isDatabase) {
+    md += `// 1. Zod Runtime Database Migration & Schema Config\n`;
+    md += `export const ${pascalCase(slug)}MigrationSchema = z.object({\n`;
+    md += `  version: z.string().regex(/^\\d{14}_[a-z0-9_]+$/),\n`;
+    md += `  transactional: z.boolean().default(true),\n`;
+    md += `  lockTimeoutMs: z.number().int().positive().default(5000),\n`;
+    md += `  statementTimeoutMs: z.number().int().positive().default(30000)\n`;
+    md += `});\n\n`;
+    md += `export type ${pascalCase(slug)}MigrationConfig = z.infer<typeof ${pascalCase(slug)}MigrationSchema>;\n\n`;
+    md += `// 2. Reversible Migration Interface for ${title}\n`;
+    md += `export interface ${pascalCase(slug)}Migration {\n`;
+    md += `  up(tx: unknown): Promise<void>;\n`;
+    md += `  down(tx: unknown): Promise<void>;\n`;
+    md += `}\n\n`;
+    md += `// 3. Discriminated Union Migration Result\n`;
+    md += `export type ${pascalCase(slug)}Result =\n`;
+    md += `  | { success: true; appliedVersion: string; durationMs: number }\n`;
+    md += `  | { success: false; rolledBack: boolean; error: string; code: ${pascalCase(slug)}ErrorCode };\n\n`;
+    md += `export type ${pascalCase(slug)}ErrorCode =\n`;
+    md += `  | 'LOCK_TIMEOUT'\n`;
+    md += `  | 'CONSTRAINT_VIOLATION'\n`;
+    md += `  | 'MIGRATION_CONFLICT'\n`;
+    md += `  | 'CONNECTION_ERROR';\n`;
+    md += `\`\`\`\n\n`;
+    md += `### 🗄️ Database Migration & Rollback Contract\n`;
+    md += `| Phase | Direction | Safety Policy | Verification |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`up()\` | Forward DDL | Wrapped in transaction + \`lock_timeout\` | Schema checksum + row count check |\n`;
+    md += `| \`down()\` | Rollback DDL | Reversible without data loss | Re-apply idempotency check |\n\n`;
+  } else if (isUi) {
     const isForm = /\b(form|login|signup|input)\b/i.test(lower);
     md += `// 1. Zod Runtime UI Component Props Schema\n`;
     md += `export const ${pascalCase(slug)}PropsSchema = z.object({\n`;
@@ -360,7 +417,27 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
 
   md += `## 3. 🔄 STATE MACHINE & EVENT TRANSITIONS\n\n`;
   md += `\`\`\`text\n`;
-  if (isUi) {
+  if (isGraphql) {
+    md += `[IDLE] ──(GraphQL Document)──► [PARSE_AND_VALIDATE]\n`;
+    md += `                                       │\n`;
+    md += `               ┌───────────────────────┴───────────────────────┐\n`;
+    md += `               ▼                                               ▼\n`;
+    md += `       [BAD_USER_INPUT]                                [RESOLVE_BATCHED]\n`;
+    md += `               │                                               │\n`;
+    md += `               ▼                                       ┌───────┴───────┐\n`;
+    md += `       [TYPED ERROR UNION]                             ▼               ▼\n`;
+    md += `                                                [RESOLVER_FAIL]   [DATA_PAYLOAD]\n`;
+  } else if (isDatabase) {
+    md += `[PENDING] ──(Acquire Migration Lock)──► [BEGIN_TX]\n`;
+    md += `                                            │\n`;
+    md += `               ┌────────────────────────────┴────────────────────────────┐\n`;
+    md += `               ▼                                                         ▼\n`;
+    md += `        [LOCK_TIMEOUT]                                             [APPLY_DDL]\n`;
+    md += `               │                                                         │\n`;
+    md += `               ▼                                                 ┌───────┴───────┐\n`;
+    md += `        [ABORT_CLEAN]                                            ▼               ▼\n`;
+    md += `                                                         [ROLLBACK_TX]    [COMMIT_VERSION]\n`;
+  } else if (isUi) {
     md += `[UNMOUNTED] ──(Mount Component)──► [IDLE]\n`;
     md += `                                      │\n`;
     md += `                        (User Event / Prop Change)\n`;

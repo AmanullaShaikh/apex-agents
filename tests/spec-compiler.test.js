@@ -6,10 +6,13 @@ import os from 'os';
 import { compileSpec, validateSpec } from '../scripts/spec-compiler.js';
 
 describe('Spec-First Architectural Compiler Suite', () => {
-  test('should compile a comprehensive 5-phase SPEC.md from intent', () => {
+  test('should compile a comprehensive 5-phase SPEC.md and only link semantically relevant contracts', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-spec-test-'));
     try {
-      fs.writeFileSync(path.join(tmpDir, 'types.ts'), 'export interface UserAccount { id: string; }\nexport type AuthToken = string;\n');
+      fs.writeFileSync(
+        path.join(tmpDir, 'types.ts'),
+        'export interface SubscriptionRecord { id: string; }\nexport interface UnrelatedPizzaOven { temp: number; }\n'
+      );
       const res = compileSpec('Stripe Webhook Subscription Sync', tmpDir);
       assert.strictEqual(fs.existsSync(res.path), true);
       assert.match(res.content, /APEX AGENTS: ARCHITECTURAL SPECIFICATION/);
@@ -21,7 +24,9 @@ describe('Spec-First Architectural Compiler Suite', () => {
       assert.match(res.content, /Discriminated Union Result/);
       assert.match(res.content, /Ingress Wire Protocol Contract/);
       assert.match(res.content, /Discovered Codebase Contracts Linked/);
-      assert.match(res.content, /UserAccount/);
+      assert.match(res.content, /SubscriptionRecord/);
+      // Unrelated types must NOT be blindly linked
+      assert.doesNotMatch(res.content, /UnrelatedPizzaOven/);
 
       // Validate generated spec
       const val = validateSpec(res.content);
@@ -82,6 +87,17 @@ describe('Spec-First Architectural Compiler Suite', () => {
       assert.match(cacheSpec.content, /CACHE_HIT/);
       assert.doesNotMatch(cacheSpec.content, /\/api\/v1\//);
       assert.doesNotMatch(cacheSpec.content, /Idempotency-Key/);
+
+      const gqlSpec = compileSpec('GraphQL API for billing', tmpDir);
+      assert.match(gqlSpec.content, /GraphQL Schema & Resolver Contract/);
+      assert.match(gqlSpec.content, /\/graphql/);
+      assert.doesNotMatch(gqlSpec.content, /\/api\/v1\//);
+
+      const dbSpec = compileSpec('PostgreSQL database migration script', tmpDir);
+      assert.match(dbSpec.content, /Database Migration & Rollback Contract/);
+      assert.match(dbSpec.content, /BEGIN_TX/);
+      assert.doesNotMatch(dbSpec.content, /CLI Invocation & Exit Code Contract/);
+      assert.doesNotMatch(dbSpec.content, /\/api\/v1\//);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

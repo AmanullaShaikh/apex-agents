@@ -37,7 +37,7 @@ export const MODEL_PRICING = [
   {
     name: 'Gemini 4 Argon',
     provider: 'Google',
-    contextWindow: 1000000,
+    contextWindow: 1048576,
     inputPricePerMillion: 2.00,
     outputPricePerMillion: 10.00,
     verified: true
@@ -45,7 +45,7 @@ export const MODEL_PRICING = [
   {
     name: 'Gemini 4 Hydrogen',
     provider: 'Google',
-    contextWindow: 1000000,
+    contextWindow: 1048576,
     inputPricePerMillion: 1.50,
     outputPricePerMillion: 7.50,
     verified: true
@@ -53,50 +53,50 @@ export const MODEL_PRICING = [
   {
     name: 'Meta Muse Spark',
     provider: 'Meta',
-    contextWindow: 1000000,
+    contextWindow: 1048576,
     inputPricePerMillion: 1.25,
     outputPricePerMillion: 4.25,
     verified: true
   },
   {
-    name: 'Claude Sonnet 5.5 (est.)',
+    name: 'Claude Sonnet 5.5',
     provider: 'Anthropic',
     contextWindow: 1000000,
-    inputPricePerMillion: 3.00,
-    outputPricePerMillion: 15.00,
-    verified: false
-  },
-  {
-    name: 'Claude Opus 5.5 (est.)',
-    provider: 'Anthropic',
-    contextWindow: 1000000,
-    inputPricePerMillion: 15.00,
-    outputPricePerMillion: 75.00,
-    verified: false
-  },
-  {
-    name: 'Grok 4.7 (est.)',
-    provider: 'xAI',
-    contextWindow: 2000000,
     inputPricePerMillion: 2.00,
     outputPricePerMillion: 10.00,
-    verified: false
+    verified: true
   },
   {
-    name: 'DeepSeek V4-Pro (est.)',
-    provider: 'DeepSeek',
+    name: 'Claude Opus 5.5',
+    provider: 'Anthropic',
+    contextWindow: 1000000,
+    inputPricePerMillion: 4.00,
+    outputPricePerMillion: 20.00,
+    verified: true
+  },
+  {
+    name: 'Grok 4.7',
+    provider: 'xAI',
     contextWindow: 500000,
-    inputPricePerMillion: 0.55,
-    outputPricePerMillion: 2.19,
-    verified: false
+    inputPricePerMillion: 2.00,
+    outputPricePerMillion: 6.00,
+    verified: true
   },
   {
-    name: 'DeepSeek V4.1-Flash (est.)',
+    name: 'DeepSeek V4-Pro',
     provider: 'DeepSeek',
-    contextWindow: 256000,
-    inputPricePerMillion: 0.14,
-    outputPricePerMillion: 0.28,
-    verified: false
+    contextWindow: 1000000,
+    inputPricePerMillion: 0.66,
+    outputPricePerMillion: 1.98,
+    verified: true
+  },
+  {
+    name: 'DeepSeek V4.1-Flash',
+    provider: 'DeepSeek',
+    contextWindow: 1000000,
+    inputPricePerMillion: 0.15,
+    outputPricePerMillion: 0.60,
+    verified: true
   }
 ];
 
@@ -243,13 +243,14 @@ if (process.argv[1] && process.argv[1].endsWith('token-cost.js')) {
   console.log(`├────────────────────────────┼──────────────────┼──────────────┼──────────────┤`);
   report.modelProjections.forEach(m => {
     const modelPad = m.model.padEnd(26);
-    const winPad = `${(m.contextLimit / 1000)}k`.padEnd(16);
+    const winLabel = m.contextLimit === 1048576 ? '1,048k (1M)' : `${Math.round(m.contextLimit / 1000)}k`;
+    const winPad = winLabel.padEnd(16);
     const usagePad = `${m.windowUsagePercent}%`.padEnd(12);
     const costPad = `$${m.costPerTurn}`.padEnd(12);
     console.log(`│ ${modelPad} │ ${winPad} │ ${usagePad} │ ${costPad} │`);
   });
   console.log(`└────────────────────────────┴──────────────────┴──────────────┴──────────────┘`);
-  console.log(`${c.gray}Note: Entries marked (est.) use approximate unverified pricing; vendor rates may change.${c.reset}\n`);
+  console.log(`${c.gray}Note: Reference vendor rates as of Nov 2026 (approximate; Gemini 4 Argon promo $2/$10 shifts to $4/$20 Dec 1, 2026; DeepSeek off-peak tiers).${c.reset}\n`);
 
   console.log(`💡 ${c.green}${c.bold}Apex Savings Estimate:${c.reset} Running ${c.cyan}npx apex-agents compact${c.reset} saves ~${c.green}$${report.dollarSavingsTenTurnsBaseline}${c.reset} every 10 turns on ${report.baselineModel}.\n`);
 }

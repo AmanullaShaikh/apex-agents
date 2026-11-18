@@ -55,7 +55,7 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apex Agents Explorer | Autonomous AI Engineering Agency</title>
+  <title>Apex Agents Explorer | Developer Tooling & AST Harness</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { background-color: #080a10; color: #e2e8f0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }

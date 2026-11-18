@@ -21,7 +21,7 @@ const c = {
 };
 
 /**
- * Runs 5 rigorous SWE-bench style benchmark vectors against local engines.
+ * Runs 5 internal self-check vectors against local AST, graph, diff, and test-loop engines.
  */
 export async function runSweMiniBenchmark() {
   const results = [];
@@ -41,24 +41,24 @@ export async function runSweMiniBenchmark() {
                    compacted.includes('fetchUser(id: string): Promise<User>') &&
                    !compacted.includes('api.get');
     results.push({
-      vector: 'SWE-1: AST Skeleton Fidelity',
+      vector: 'VEC-1: AST Skeleton Fidelity',
       passed,
       details: passed ? 'Preserved signatures, stripped internal bodies cleanly' : 'Failed to compact'
     });
   } catch (err) {
-    results.push({ vector: 'SWE-1: AST Skeleton Fidelity', passed: false, details: err.message });
+    results.push({ vector: 'VEC-1: AST Skeleton Fidelity', passed: false, details: err.message });
   }
 
   // Vector 2: Reverse Caller Resolution
   try {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swe-v2-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-v2-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'service.ts'), 'export function auth() {}');
       fs.writeFileSync(path.join(tmpDir, 'route.ts'), 'import { auth } from "./service"; auth();');
       const callers = extractSymbolCallers(tmpDir);
       const passed = Object.values(callers).some(fileMap => fileMap['auth'] && fileMap['auth'].length > 0);
       results.push({
-        vector: 'SWE-2: Cross-File Reverse Caller Resolution',
+        vector: 'VEC-2: Cross-File Reverse Caller Resolution',
         passed: Boolean(passed),
         details: passed ? 'Resolved cross-file call site(s) for auth()' : 'Failed to resolve'
       });
@@ -66,7 +66,7 @@ export async function runSweMiniBenchmark() {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   } catch (err) {
-    results.push({ vector: 'SWE-2: Cross-File Reverse Caller Resolution', passed: false, details: err.message });
+    results.push({ vector: 'VEC-2: Cross-File Reverse Caller Resolution', passed: false, details: err.message });
   }
 
   // Vector 3: PageRank Centrality Ranking
@@ -81,12 +81,12 @@ export async function runSweMiniBenchmark() {
     const sorted = Array.from(ranks.entries()).sort((a, b) => b[1] - a[1]);
     const passed = sorted[0] && sorted[0][0] === 'hub.ts';
     results.push({
-      vector: 'SWE-3: Graph PageRank Centrality Convergence',
+      vector: 'VEC-3: Graph PageRank Centrality Convergence',
       passed,
       details: passed ? `Hub ranked #1 with score ${(sorted[0][1] * 100).toFixed(1)}%` : 'Ranking flawed'
     });
   } catch (err) {
-    results.push({ vector: 'SWE-3: Graph PageRank Centrality Convergence', passed: false, details: err.message });
+    results.push({ vector: 'VEC-3: Graph PageRank Centrality Convergence', passed: false, details: err.message });
   }
 
   // Vector 4: Anti-Cheat Test Tampering Detection
@@ -102,15 +102,15 @@ export async function runSweMiniBenchmark() {
     const auditRes = auditDiff(suspiciousDiff);
     const passed = !auditRes.clean && auditRes.stats.tampering > 0;
     results.push({
-      vector: 'SWE-4: Anti-Cheat Test Tampering Defense',
+      vector: 'VEC-4: Anti-Cheat Test Tampering Defense',
       passed,
-      details: passed ? `Detected ${auditRes.stats.tampering} test weakening issue(s) via AST diff engine` : 'Failed evasion check'
+      details: passed ? `Detected ${auditRes.stats.tampering} test weakening issue(s) via diff engine` : 'Failed evasion check'
     });
   } catch (err) {
-    results.push({ vector: 'SWE-4: Anti-Cheat Test Tampering Defense', passed: false, details: err.message });
+    results.push({ vector: 'VEC-4: Anti-Cheat Test Tampering Defense', passed: false, details: err.message });
   }
 
-  // Vector 5: Self-Healing Test Failure Diagnosis
+  // Vector 5: Test Failure Trace Diagnosis
   try {
     const sampleCrash = [
       '✖ UserService test',
@@ -120,12 +120,12 @@ export async function runSweMiniBenchmark() {
     const failures = parseTestFailures(sampleCrash);
     const passed = failures.length > 0 && failures[0].file && failures[0].line === 33 && failures[0].name === 'UserService test';
     results.push({
-      vector: 'SWE-5: Test Failure Trace Diagnosis',
+      vector: 'VEC-5: Test Failure Trace Diagnosis',
       passed,
       details: passed ? `Extracted failing trace for ${failures[0].name} at ${failures[0].file}:${failures[0].line}` : 'Parse failed'
     });
   } catch (err) {
-    results.push({ vector: 'SWE-5: Test Failure Trace Diagnosis', passed: false, details: err.message });
+    results.push({ vector: 'VEC-5: Test Failure Trace Diagnosis', passed: false, details: err.message });
   }
 
   const passedCount = results.filter(r => r.passed).length;

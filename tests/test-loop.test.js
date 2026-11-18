@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import http from 'http';
+import { execSync } from 'child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   detectTestRunner,
@@ -248,6 +249,103 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
       assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
     } finally {
       server.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should end-to-end heal real node --test failures via runTestLoop, block process.exit sabotage, and clean rollback checkpoints', async () => {
+    const { runTestLoop } = await import('../scripts/test-loop.js');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-e2e-heal-'));
+    let mode = 'direct_exit';
+    let ollamaHits = 0;
+
+    const exitWord = 'proc' + 'ess.' + 'exit(0);';
+    const obfExit = 'const k = "ex" + "it"; globalThis["proc" + "ess"][k](0);';
+
+    const server = http.createServer(async (req, res) => {
+      if (req.url === '/api/tags') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ models: [{ name: 'qwen2.5-coder:latest' }] }));
+      } else if (req.url === '/api/generate') {
+        ollamaHits += 1;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (mode === 'direct_exit') {
+          res.end(JSON.stringify({ response: '```js\nexport function greet() { ' + exitWord + ' }\n```' }));
+        } else if (mode === 'obf_exit') {
+          res.end(JSON.stringify({ response: '```js\nexport function greet() { ' + obfExit + ' }\n```' }));
+        } else {
+          res.end(JSON.stringify({ response: '```js\nexport function greet() { return "hello"; }\n```' }));
+        }
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const ollamaHost = `http://127.0.0.1:${server.address().port}`;
+
+    try {
+      // Initialize real git repo to verify rollback checkpoint cleanup
+      execSync('git init', { cwd: tmpDir, stdio: 'pipe' });
+      execSync('git config user.email "test@apex.local"', { cwd: tmpDir, stdio: 'pipe' });
+      execSync('git config user.name "Apex Test"', { cwd: tmpDir, stdio: 'pipe' });
+
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      const srcFile = path.join(tmpDir, 'src', 'greet.mjs');
+      const testFile = path.join(tmpDir, 'greet.test.mjs');
+      const originalSrc = 'export function greet() { return "hi"; }\n';
+      const originalTest = `import { test } from 'node:test';\nimport assert from 'node:assert';\nimport { greet } from './src/greet.mjs';\ntest('greet returns hello', () => { assert.strictEqual(greet(), 'hello'); });\n`;
+      fs.writeFileSync(srcFile, originalSrc);
+      fs.writeFileSync(testFile, originalTest);
+      execSync('git add -A && git commit -m "init"', { cwd: tmpDir, stdio: 'pipe' });
+
+      // 1. Direct exit sabotage -> rejected by Gate 0 before writing
+      mode = 'direct_exit';
+      const r1 = await runTestLoop(tmpDir, 'node --test greet.test.mjs', { heal: true, ollamaHost });
+      assert.strictEqual(r1.success, false);
+      assert.strictEqual(r1.autoHeal.reason, 'REJECTED_PROCESS_EXIT_SABOTAGE');
+      assert.strictEqual(fs.readFileSync(srcFile, 'utf-8'), originalSrc);
+      assert.ok(ollamaHits >= 1, 'End-to-end runTestLoop must reach Ollama on real node --test output');
+
+      // 2. Obfuscated exit sabotage -> rolled back by Gate 1B (no pass signal) + temp checkpoint cleaned
+      mode = 'obf_exit';
+      const r2 = await runTestLoop(tmpDir, 'node --test greet.test.mjs', { heal: true, ollamaHost });
+      assert.strictEqual(r2.success, false);
+      assert.strictEqual(r2.autoHeal.reason, 'ROLLBACK_NO_TEST_PASS_SIGNAL');
+      assert.strictEqual(fs.readFileSync(srcFile, 'utf-8'), originalSrc);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, '.agents', 'checkpoints')), false, 'Rollback must clean up temp pre-heal checkpoint');
+
+      // 3. Real valid patch -> end-to-end healed and verified exit 0
+      mode = 'valid';
+      const r3 = await runTestLoop(tmpDir, 'node --test greet.test.mjs', { heal: true, ollamaHost });
+      assert.strictEqual(r3.success, true);
+      assert.strictEqual(r3.autoHeal.healed, true);
+      assert.strictEqual(r3.autoHeal.verified, true);
+      assert.match(fs.readFileSync(srcFile, 'utf-8'), /return "hello"/);
+      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
+    } finally {
+      server.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should support unquoted multi-token CLI test commands without spawning Node REPL', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-unquoted-cli-'));
+    try {
+      const testFile = path.join(tmpDir, 'ok.test.mjs');
+      fs.writeFileSync(testFile, `import { test } from 'node:test';\nimport assert from 'node:assert';\ntest('ok', () => { assert.strictEqual(1 + 1, 2); });\n`);
+      const scriptPath = path.resolve(process.cwd(), 'scripts', 'test-loop.js');
+      const cleanEnv = { ...process.env };
+      delete cleanEnv.NODE_TEST_CONTEXT;
+      const out = execSync(`node "${scriptPath}" --heal node --test ok.test.mjs`, {
+        cwd: tmpDir,
+        encoding: 'utf-8',
+        timeout: 8000,
+        env: cleanEnv
+      });
+      assert.match(out, /ALL TESTS PASSING/);
+    } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
