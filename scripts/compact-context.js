@@ -321,6 +321,151 @@ function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
   return result;
 }
 
+function createBraceScannerState() {
+  return {
+    inBlockComment: false,
+    blockCommentDepth: 0,
+    inGoRawString: false,
+    rustRawHashes: -1
+  };
+}
+
+/**
+ * Counts real code `{` and `}` braces on a single line while skipping:
+ * - double-quoted strings (`"..."` with `\"` escapes)
+ * - Go backtick raw strings (`` `...` ``) and Rust raw strings (`r#"..."#`) across lines
+ * - Rust lifetimes (`'a`, `'static`) vs valid char literals (`'}'`, `'\n'`, `'\u{7d}'`)
+ * - Go rune literals (`'}'`, `'\''`)
+ * - `//` line comments and multi-line `/* ... *\/` block comments (nested in Rust)
+ */
+function countCodeBraces(line, state, lang = 'go') {
+  const isRust = lang === 'rust';
+  let open = 0;
+  let close = 0;
+  let inDoubleQuote = false;
+  let escaped = false;
+
+  for (let j = 0; j < line.length; j++) {
+    const ch = line[j];
+
+    // 1. Multi-line block comment state
+    if (state.inBlockComment) {
+      if (isRust && ch === '/' && line[j + 1] === '*') {
+        state.blockCommentDepth++;
+        j++;
+      } else if (ch === '*' && line[j + 1] === '/') {
+        state.blockCommentDepth--;
+        if (state.blockCommentDepth <= 0) {
+          state.inBlockComment = false;
+          state.blockCommentDepth = 0;
+        }
+        j++;
+      }
+      continue;
+    }
+
+    // 2. Multi-line Go raw backtick string state
+    if (state.inGoRawString) {
+      if (ch === '`') {
+        state.inGoRawString = false;
+      }
+      continue;
+    }
+
+    // 3. Multi-line Rust raw string state (r"...", r#"..."#, r##"..."##)
+    if (state.rustRawHashes >= 0) {
+      if (ch === '"') {
+        let hashes = 0;
+        while (hashes < state.rustRawHashes && line[j + 1 + hashes] === '#') {
+          hashes++;
+        }
+        if (hashes === state.rustRawHashes) {
+          state.rustRawHashes = -1;
+          j += hashes;
+        }
+      }
+      continue;
+    }
+
+    // 4. Single-line double-quoted string state
+    if (inDoubleQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inDoubleQuote = false;
+      }
+      continue;
+    }
+
+    // 5. Line comment `//` skips rest of line
+    if (ch === '/' && line[j + 1] === '/') {
+      break;
+    }
+
+    // 6. Block comment start `/*`
+    if (ch === '/' && line[j + 1] === '*') {
+      state.inBlockComment = true;
+      state.blockCommentDepth = 1;
+      j++;
+      continue;
+    }
+
+    // 7. Rust raw string start `r#"..."#` / `br#"..."#`
+    if (isRust && (ch === 'r' || (ch === 'b' && line[j + 1] === 'r'))) {
+      const startOffset = ch === 'b' ? 2 : 1;
+      const prevCh = j > 0 ? line[j - 1] : '';
+      if (!/[a-zA-Z0-9_]/.test(prevCh)) {
+        const rawMatch = /^(#*)(")/.exec(line.slice(j + startOffset));
+        if (rawMatch) {
+          state.rustRawHashes = rawMatch[1].length;
+          j += startOffset + rawMatch[1].length;
+          continue;
+        }
+      }
+    }
+
+    // 8. Go raw backtick string start
+    if (!isRust && ch === '`') {
+      state.inGoRawString = true;
+      continue;
+    }
+
+    // 9. Double-quoted string start
+    if (ch === '"') {
+      inDoubleQuote = true;
+      escaped = false;
+      continue;
+    }
+
+    // 10. Single quote: Rust char literal vs lifetime, or Go rune literal
+    if (ch === "'") {
+      if (isRust) {
+        const charMatch = /^'(?:[^'\\]|\\(?:[nrt0\\'"]|x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]{1,6}\}))'/.exec(line.slice(j));
+        if (charMatch) {
+          j += charMatch[0].length - 1;
+        }
+        continue;
+      } else {
+        const runeMatch = /^'(?:[^'\\]|\\(?:[abfnrtv\\'"]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[0-7]{3}))'/.exec(line.slice(j));
+        if (runeMatch) {
+          j += runeMatch[0].length - 1;
+        }
+        continue;
+      }
+    }
+
+    if (ch === '{') {
+      open++;
+    } else if (ch === '}') {
+      close++;
+    }
+  }
+
+  return { open, close, delta: open - close };
+}
+
 /**
  * Multi-Language Compactor: Go (.go)
  * Preserves package, imports, struct/interface definitions, and func signatures; replaces bodies with {}.
@@ -330,6 +475,7 @@ export function compactGoCode(code) {
   const compacted = [];
   let inFunc = false;
   let braceDepth = 0;
+  let scanState = createBraceScannerState();
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -337,36 +483,38 @@ export function compactGoCode(code) {
     if (!trimmed) continue;
 
     if (inFunc) {
-      const openCount = (line.match(/{/g) || []).length;
-      const closeCount = (line.match(/}/g) || []).length;
-      braceDepth += openCount - closeCount;
+      const { delta } = countCodeBraces(line, scanState, 'go');
+      braceDepth += delta;
       if (braceDepth <= 0) {
         inFunc = false;
         braceDepth = 0;
+        scanState = createBraceScannerState();
       }
       continue;
     }
 
-    // Single-line inline function (including nested braces like `func (s *S) Get(k string) int { if v, ok := s.m[k]; ok { return v }; return 0 }`)
-    if (/^func\s+(\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
-      const strippedLine = stripSingleLineBalancedBodies(
-        line,
-        /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*\{/g,
-        { lang: 'go' }
-      );
-      compacted.push(strippedLine);
-      continue;
-    }
-
     if (/^func\s+(\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/.test(trimmed)) {
-      if (trimmed.includes('{')) {
+      const lineBraces = countCodeBraces(line, createBraceScannerState(), 'go');
+
+      // Single-line inline function (balanced braces on one line, including nested braces and comments)
+      if (lineBraces.open > 0 && lineBraces.open === lineBraces.close) {
+        const strippedLine = stripSingleLineBalancedBodies(
+          line,
+          /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*\{/g,
+          { lang: 'go' }
+        );
+        compacted.push(strippedLine);
+        continue;
+      }
+
+      if (lineBraces.open > 0) {
         const sig = line.slice(0, line.indexOf('{') + 1);
         compacted.push(sig + ' /* stripped */ }');
-        const openCount = (line.match(/{/g) || []).length;
-        const closeCount = (line.match(/}/g) || []).length;
-        if (openCount > closeCount) {
+        scanState = createBraceScannerState();
+        const { open, close } = countCodeBraces(line, scanState, 'go');
+        if (open > close) {
           inFunc = true;
-          braceDepth = openCount - closeCount;
+          braceDepth = open - close;
         }
       } else {
         let sigLines = [line];
@@ -375,16 +523,23 @@ export function compactGoCode(code) {
           i++;
           const nextLine = lines[i];
           sigLines.push(nextLine);
-          if (nextLine.includes('{')) {
+          const nextBraces = countCodeBraces(nextLine, createBraceScannerState(), 'go');
+          if (nextBraces.open > 0) {
             foundOpenBrace = true;
             const fullSig = sigLines.join('\n');
             const idx = fullSig.indexOf('{');
             compacted.push(fullSig.slice(0, idx + 1) + ' /* stripped */ }');
-            const openCount = (fullSig.match(/{/g) || []).length;
-            const closeCount = (fullSig.match(/}/g) || []).length;
-            if (openCount > closeCount) {
+            scanState = createBraceScannerState();
+            let openTotal = 0;
+            let closeTotal = 0;
+            for (const sl of sigLines) {
+              const b = countCodeBraces(sl, scanState, 'go');
+              openTotal += b.open;
+              closeTotal += b.close;
+            }
+            if (openTotal > closeTotal) {
               inFunc = true;
-              braceDepth = openCount - closeCount;
+              braceDepth = openTotal - closeTotal;
             }
             break;
           }
@@ -412,45 +567,50 @@ export function compactRustCode(code) {
   const compacted = [];
   let inFnBody = false;
   let fnBraceDepth = 0;
+  let scanState = createBraceScannerState();
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Inside function body, count braces until function finishes
+    // Inside function body, count real code braces until function finishes
     if (inFnBody) {
-      const openCount = (line.match(/{/g) || []).length;
-      const closeCount = (line.match(/}/g) || []).length;
-      fnBraceDepth += openCount - closeCount;
+      const { delta } = countCodeBraces(line, scanState, 'rust');
+      fnBraceDepth += delta;
       if (fnBraceDepth <= 0) {
         inFnBody = false;
         fnBraceDepth = 0;
+        scanState = createBraceScannerState();
       }
       continue;
     }
 
-    // Single-line inline function / method (including nested braces like `impl Cache { pub fn get(&self, k: &str) -> Option<i32> { if let Some(v) = self.m.get(k) { return Some(*v); } None } }`)
-    if (/\bfn\s+[a-zA-Z0-9_]+/.test(trimmed) && trimmed.includes('{') && trimmed.includes('}')) {
-      const strippedLine = stripSingleLineBalancedBodies(
-        line,
-        /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*\{/g,
-        { lang: 'rust' }
-      );
-      compacted.push(strippedLine);
-      continue;
+    // Single-line inline function / method (e.g. `impl Cache { pub fn get<'a>(&'a self) -> &'a str { ... } }`)
+    if (/\bfn\s+[a-zA-Z0-9_]+/.test(trimmed)) {
+      const lineBraces = countCodeBraces(line, createBraceScannerState(), 'rust');
+      if (lineBraces.open > 0 && lineBraces.open === lineBraces.close) {
+        const strippedLine = stripSingleLineBalancedBodies(
+          line,
+          /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*\{/g,
+          { lang: 'rust' }
+        );
+        compacted.push(strippedLine);
+        continue;
+      }
     }
 
     // Function/method signatures: fn, pub fn, pub(crate) fn, pub(super) fn, async fn, const fn, unsafe fn
     if (/^(pub(\s*\([^)]*\))?\s+)?(async\s+)?(const\s+)?(unsafe\s+)?(extern\s+("[^"]*"\s+)?)?fn\s+[a-zA-Z0-9_]+/i.test(trimmed)) {
-      if (trimmed.includes('{')) {
+      const lineBraces = countCodeBraces(line, createBraceScannerState(), 'rust');
+      if (lineBraces.open > 0) {
         const sig = line.slice(0, line.indexOf('{') + 1);
         compacted.push(sig + ' /* stripped */ }');
-        const openCount = (line.match(/{/g) || []).length;
-        const closeCount = (line.match(/}/g) || []).length;
-        if (openCount > closeCount) {
+        scanState = createBraceScannerState();
+        const { open, close } = countCodeBraces(line, scanState, 'rust');
+        if (open > close) {
           inFnBody = true;
-          fnBraceDepth = openCount - closeCount;
+          fnBraceDepth = open - close;
         }
       } else {
         // Multi-line signature until '{'
@@ -460,16 +620,23 @@ export function compactRustCode(code) {
           i++;
           const nextLine = lines[i];
           sigLines.push(nextLine);
-          if (nextLine.includes('{')) {
+          const nextBraces = countCodeBraces(nextLine, createBraceScannerState(), 'rust');
+          if (nextBraces.open > 0) {
             foundOpenBrace = true;
             const fullSig = sigLines.join('\n');
             const idx = fullSig.indexOf('{');
             compacted.push(fullSig.slice(0, idx + 1) + ' /* stripped */ }');
-            const openCount = (fullSig.match(/{/g) || []).length;
-            const closeCount = (fullSig.match(/}/g) || []).length;
-            if (openCount > closeCount) {
+            scanState = createBraceScannerState();
+            let openTotal = 0;
+            let closeTotal = 0;
+            for (const sl of sigLines) {
+              const b = countCodeBraces(sl, scanState, 'rust');
+              openTotal += b.open;
+              closeTotal += b.close;
+            }
+            if (openTotal > closeTotal) {
               inFnBody = true;
-              fnBraceDepth = openCount - closeCount;
+              fnBraceDepth = openTotal - closeTotal;
             }
             break;
           }

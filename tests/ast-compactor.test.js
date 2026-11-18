@@ -173,6 +173,41 @@ func (s *Server) Start() error {
     const commentGoResult = compactSourceCode(commentGo, { ext: 'go' });
     assert.strictEqual(commentGoResult, 'func f() int { /* stripped */ }');
 
+    // Verify multi-line Rust & Go bodies with "}" strings, raw strings, // } comments, and multi-line /* } */ comments never leak
+    const multiRust = [
+      'pub fn multi() -> &\'static str {',
+      '    let a = "}";',
+      '    let b = r#"',
+      '}',
+      '"#;',
+      '    // } comment brace',
+      '    /*',
+      '      }',
+      '    */',
+      '    let secret_after_brace_str = "leaked_multi_rust";',
+      '    secret_after_brace_str',
+      '}'
+    ].join('\n');
+    const multiRustResult = compactSourceCode(multiRust, { ext: 'rs' });
+    assert.strictEqual(multiRustResult, 'pub fn multi() -> &\'static str { /* stripped */ }');
+    assert.doesNotMatch(multiRustResult, /leaked_multi_rust/);
+
+    const multiGo = [
+      'func multi() string {',
+      '    a := "}"',
+      '    b := `',
+      '}',
+      '`',
+      '    // } comment brace',
+      '    /* } */',
+      '    secret := "leaked_multi_go"',
+      '    return secret',
+      '}'
+    ].join('\n');
+    const multiGoResult = compactSourceCode(multiGo, { ext: 'go' });
+    assert.strictEqual(multiGoResult, 'func multi() string { /* stripped */ }');
+    assert.doesNotMatch(multiGoResult, /leaked_multi_go/);
+
     // Verify single-line Go method stripping with nested braces
     const singleLineGo = 'func (s *S) Get(k string) int { if v, ok := s.m[k]; ok { return v }; return 0 }';
     const singleLineGoResult = compactSourceCode(singleLineGo, { ext: 'go' });
