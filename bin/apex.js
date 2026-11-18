@@ -3,7 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,36 +45,28 @@ function printHelp() {
   console.log(`  ${c.green}init | setup${c.reset}    One-shot setup: injects router, exports Cursor rules & pre-commit hooks`);
   console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
   console.log(`  ${c.green}studio | tui${c.reset}    Launch the interactive keyboard-driven terminal studio`);
-  console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks & AI slop`);
+  console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks, test tampering & slop`);
   console.log(`  ${c.green}budget${c.reset}          Analyze context window token bloat & generate .cursorignore`);
-  console.log(`  ${c.green}eval | benchmark${c.reset} Run automated verification benchmark suite across agency`);
-  console.log(`  ${c.green}memory [cmd]${c.reset}     Manage persistent cross-session memory [record|recall|sync|clear]`);
-  console.log(`  ${c.green}design <preset>${c.reset}  Inject DESIGN.md design system tokens [linear|stripe|apple|raycast]`);
-  console.log(`  ${c.green}caveman [on|off]${c.reset} Toggle Caveman 65% token drop telegraphic mode`);
+  console.log(`  ${c.green}memory [cmd]${c.reset}    Manage persistent cross-session memory [record|recall|sync|clear]`);
   console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
   console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
-  console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens by 85%+ with AST PageRank & callers [--xml|--json|--top|--budget]`);
-  console.log(`  ${c.green}test-loop${c.reset}       Run test suite, synthesize APEX_FIX_PROMPT.md on failure, optional --heal`);
+  console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens with Babel AST PageRank & callers [--xml|--json|--top|--budget]`);
+  console.log(`  ${c.green}test-loop${c.reset}       Run test suite & synthesize structured APEX_FIX_PROMPT.md on failure`);
   console.log(`  ${c.green}checkpoint${c.reset}      Save atomic git-native working tree snapshot [save <label>|list|rollback]`);
-  console.log(`  ${c.green}rollback${c.reset}        Instant restore to previous checkpoint if AI corrupted codebase`);
-  console.log(`  ${c.green}spec <feature>${c.reset}  Compile 5-phase zero-slop architectural SPEC.md before coding`);
+  console.log(`  ${c.green}rollback${c.reset}        Restore working tree, .env & hooks to previous checkpoint`);
   console.log(`  ${c.green}trace <symbol>${c.reset}  Trace declaration & cross-file call sites with AST call-graph`);
-  console.log(`  ${c.green}audit-bugs${c.reset}      Deep AST scan for production bugs (SQL injection, hook leaks, floating promises)`);
-  console.log(`  ${c.green}cost${c.reset}            Multi-model context window & cost estimator (GPT-6 Astra, Gemini 4, Meta Muse Spark, etc.)`);
-  console.log(`  ${c.green}swe-eval${c.reset}        Run 5-vector internal AST & tooling self-check suite`);
-  console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
+  console.log(`  ${c.green}audit-bugs${c.reset}      Static AST scan for runtime bugs (SQL injection, hook leaks, floating promises)`);
+  console.log(`  ${c.green}cost${c.reset}            Measure repo token volume, AST compaction savings & optional --price-in=<$/1M>`);
+  console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to reduce context drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
-  console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a parallel DAG swarm plan & scaffold worktrees`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
   console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)`);
   console.log(`  ${c.green}sandbox${c.reset}         Manage isolated Git Worktree sandboxes [start|clean|status]`);
-  console.log(`  ${c.green}scope-guard${c.reset}     Detect and prevent unintended agent file drift`);
-  console.log(`  ${c.green}orphans${c.reset}         Scan repository for unwired or orphaned source files`);
   console.log(`  ${c.green}dashboard${c.reset}       Open the interactive visual Agent Explorer in browser`);
   console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
-  console.log(`  ${c.green}test${c.reset}            Run the automated schema and zero-slop validation suite`);
-  console.log(`  ${c.green}doctor${c.reset}          Verify environment, permissions, and agent setups\n`);
+  console.log(`  ${c.green}test${c.reset}            Run the automated schema validation suite`);
+  console.log(`  ${c.green}doctor${c.reset}          Verify environment, git hooks, and agent setup\n`);
 }
 
 function getAvailableAgents() {
@@ -148,7 +140,7 @@ function handleInstall() {
     { name: 'Local Workspace (.agents/apex)', dir: path.join(cwd, '.agents', 'apex') }
   ];
 
-  console.log(`${c.bold}Deploying Apex Agents Agency...${c.reset}\n`);
+  console.log(`${c.bold}Deploying Apex Agents...${c.reset}\n`);
 
   for (const target of targets) {
     try {
@@ -294,12 +286,6 @@ function handleRollback(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
-function handleSpec(args) {
-  const specScript = path.join(ROOT_DIR, 'scripts', 'spec-compiler.js');
-  const child = spawn(process.execPath, [specScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
 function handleTrace(args) {
   const traceScript = path.join(ROOT_DIR, 'scripts', 'symbol-tracer.js');
   const child = spawn(process.execPath, [traceScript, ...args], { stdio: 'inherit' });
@@ -318,12 +304,6 @@ function handleCost(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
-function handleSweEval(args) {
-  const sweScript = path.join(ROOT_DIR, 'scripts', 'swe-eval.js');
-  const child = spawn(process.execPath, [sweScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
 function handleExportAll(args) {
   const exporterScript = path.join(ROOT_DIR, 'scripts', 'export-all.js');
   const child = spawn(process.execPath, [exporterScript, ...args], { stdio: 'inherit' });
@@ -336,15 +316,9 @@ function handleStudio() {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
-function handlePlan(args) {
-  const orchestratorScript = path.join(__dirname, 'orchestrator.js');
-  const child = spawn(process.execPath, [orchestratorScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
 function handleInit(args) {
   banner();
-  console.log(`${c.bold}⚡ Initializing Apex Agents Full Agency Suite in Project...${c.reset}\n`);
+  console.log(`${c.bold}⚡ Initializing Apex Agents Developer Tooling Suite in Project...${c.reset}\n`);
 
   console.log(`${c.cyan}1. Injecting Lean Agent Directives (CLAUDE.md & .cursorrules)...${c.reset}`);
   handleInject(args);
@@ -353,19 +327,19 @@ function handleInit(args) {
   handleCursorRules();
 
   console.log(`${c.cyan}3. Installing Pre-Commit Hardened Safety Hooks...${c.reset}`);
-  const gitDir = path.join(process.cwd(), '.git');
-  if (fs.existsSync(gitDir)) {
+  const gitCommonDir = resolveGitCommonDir(process.cwd());
+  if (gitCommonDir) {
     const hooksScript = path.join(ROOT_DIR, 'scripts', 'install-hooks.js');
     spawn(process.execPath, [hooksScript], { stdio: 'inherit' });
   } else {
-    console.log(`  ${c.yellow}! Skipped git hook installation (no .git directory in current workspace)${c.reset}`);
+    console.log(`  ${c.yellow}! Skipped git hook installation (no git repository in current workspace)${c.reset}`);
   }
 
   console.log(`\n${c.green}${c.bold}🚀 APEX AGENTS SUITE FULLY INITIALIZED!${c.reset}`);
-  console.log(`${c.bold}Your repository is now shielded by:${c.reset}`);
-  console.log(`  • 38 Domain Specialists ready in Cursor & Claude Code`);
+  console.log(`${c.bold}Your repository is now equipped with:${c.reset}`);
+  console.log(`  • 38 Domain Specialist prompt packs in Cursor & Claude Code`);
   console.log(`  • Pre-commit anti-test-tampering and secret leak gates`);
-  console.log(`  • Type-level context compactor ('npx apex-agents compact')`);
+  console.log(`  • Babel AST context compactor ('npx apex-agents compact')`);
   console.log(`  • Cross-session persistent memory ('npx apex-agents memory')\n`);
 }
 
@@ -378,18 +352,6 @@ function handleInstallHooks() {
 function handleSandbox(subAction, name) {
   const sandboxScript = path.join(ROOT_DIR, 'scripts', 'worktree-sandbox.js');
   const child = spawn(process.execPath, [sandboxScript, subAction, name || ''], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
-function handleScopeGuard() {
-  const scopeScript = path.join(ROOT_DIR, 'scripts', 'scope-enforcer.js');
-  const child = spawn(process.execPath, [scopeScript], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
-function handleOrphans() {
-  const orphansScript = path.join(ROOT_DIR, 'scripts', 'detect-orphans.js');
-  const child = spawn(process.execPath, [orphansScript], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
 }
 
@@ -415,17 +377,31 @@ function handleTest() {
   });
 }
 
+function resolveGitCommonDir(cwd) {
+  try {
+    const common = execSync('git rev-parse --git-common-dir', {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (!common) return null;
+    return path.resolve(cwd, common);
+  } catch {
+    return null;
+  }
+}
+
 function handleDoctor() {
   banner();
   console.log(`${c.bold}Running Environment Diagnostics...${c.reset}\n`);
 
   const homeDir = os.homedir();
   const cwd = process.cwd();
-  const gitDir = path.join(cwd, '.git');
-  const hasGit = fs.existsSync(gitDir);
-  const preCommitPath = path.join(gitDir, 'hooks', 'pre-commit');
+  const gitCommonDir = resolveGitCommonDir(cwd);
+  const hasGit = Boolean(gitCommonDir);
+  const preCommitPath = gitCommonDir ? path.join(gitCommonDir, 'hooks', 'pre-commit') : null;
   let hookInstalled = false;
-  if (hasGit && fs.existsSync(preCommitPath)) {
+  if (preCommitPath && fs.existsSync(preCommitPath)) {
     try {
       const hookContent = fs.readFileSync(preCommitPath, 'utf-8');
       hookInstalled = /apex-agents|audit-diff/i.test(hookContent);
@@ -453,12 +429,9 @@ function handleDoctor() {
     { name: 'AST PageRank Compactor', status: 'Ready (npx apex-agents compact)' },
     { name: 'Test-Loop Runner', status: 'Ready (npx apex-agents test-loop)' },
     { name: 'Git-Native Checkpoints', status: hasGit ? 'Ready (npx apex-agents checkpoint)' : 'Requires git repo' },
-    { name: 'Spec-First Compiler', status: 'Ready (npx apex-agents spec)' },
     { name: 'Semantic Symbol Tracer', status: 'Ready (npx apex-agents trace)' },
-    { name: 'AST Production Bug Hunter', status: 'Ready (npx apex-agents audit-bugs)' },
-    { name: 'Multi-Model Cost Auditor', status: 'Ready (npx apex-agents cost)' },
-    { name: 'Internal AST Self-Check', status: 'Ready (npx apex-agents swe-eval)' },
-    { name: 'AST Context Compactor', status: 'Available (Babel AST Engine)' },
+    { name: 'AST Bug Hunter', status: 'Ready (npx apex-agents audit-bugs)' },
+    { name: 'Token Volume Auditor', status: 'Ready (npx apex-agents cost)' },
     { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
     { name: 'Architecture Diagram', status: 'Available (npx apex-agents diagram)' },
     { name: 'Session Handoff Engine', status: 'Available (npx apex-agents handoff)' },
@@ -467,8 +440,6 @@ function handleDoctor() {
     { name: 'Terminal Studio (TUI)', status: 'Available (npx apex-agents studio)' },
     { name: 'Git Worktree Sandbox', status: hasGit ? 'Available (npx apex-agents sandbox)' : 'Requires git repo' },
     { name: 'Pre-Commit Safety Hooks', status: hookStatus },
-    { name: 'Anti-Drift Scope Guard', status: 'Available (npx apex-agents scope-guard)' },
-    { name: 'Swarm DAG Planner', status: 'Available (npx apex-agents plan)' },
     { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
     { name: 'Interactive Dashboard', status: 'Available (npx apex-agents dashboard)' }
   ];
@@ -476,7 +447,7 @@ function handleDoctor() {
   for (const check of checks) {
     console.log(`  • ${check.name.padEnd(25)}: ${c.cyan}${check.status}${c.reset}`);
   }
-  console.log(`\n${c.green}✓ Apex Agents engine is ready for deployment.${c.reset}\n`);
+  console.log(`\n${c.green}✓ Apex Agents engine is ready.${c.reset}\n`);
 }
 
 function handleReview(args) {
@@ -488,27 +459,6 @@ function handleReview(args) {
 function handleBudget(args) {
   const budgetScript = path.join(ROOT_DIR, 'scripts', 'token-budget.js');
   const child = spawn(process.execPath, [budgetScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
-function handleEval(args) {
-  if (args.includes('--swe')) {
-    return handleSweEval(args);
-  }
-  const evalScript = path.join(ROOT_DIR, 'scripts', 'benchmark-eval.js');
-  const child = spawn(process.execPath, [evalScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
-function handleDesign(args) {
-  const designScript = path.join(ROOT_DIR, 'scripts', 'inject-design.js');
-  const child = spawn(process.execPath, [designScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
-function handleCaveman(args) {
-  const cavemanScript = path.join(ROOT_DIR, 'scripts', 'caveman-mode.js');
-  const child = spawn(process.execPath, [cavemanScript, ...args], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
 }
 
@@ -587,18 +537,8 @@ switch (command) {
   case 'budget':
     handleBudget(args.slice(1));
     break;
-  case 'eval':
-  case 'benchmark':
-    handleEval(args.slice(1));
-    break;
   case 'memory':
     handleMemory(args.slice(1));
-    break;
-  case 'design':
-    handleDesign(args.slice(1));
-    break;
-  case 'caveman':
-    handleCaveman(args.slice(1));
     break;
   case 'graph':
     handleGraph(args.slice(1));
@@ -620,9 +560,6 @@ switch (command) {
   case 'restore':
     handleRollback(args.slice(1));
     break;
-  case 'spec':
-    handleSpec(args.slice(1));
-    break;
   case 'trace':
     handleTrace(args.slice(1));
     break;
@@ -633,18 +570,12 @@ switch (command) {
   case 'cost':
     handleCost(args.slice(1));
     break;
-  case 'swe-eval':
-    handleSweEval(args.slice(1));
-    break;
   case 'export-all':
     handleExportAll(args.slice(1));
     break;
   case 'studio':
   case 'tui':
     handleStudio();
-    break;
-  case 'plan':
-    handlePlan(args.slice(1));
     break;
   case 'inject':
     handleInject(args.slice(1));
@@ -660,12 +591,6 @@ switch (command) {
     break;
   case 'sandbox':
     handleSandbox(args[1], args[2]);
-    break;
-  case 'scope-guard':
-    handleScopeGuard();
-    break;
-  case 'orphans':
-    handleOrphans();
     break;
   case 'dashboard':
     handleDashboard();

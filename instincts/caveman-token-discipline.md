@@ -1,7 +1,7 @@
 <!-- Apex Agents v2.1.0 Operational Instinct -->
-# Caveman Token Discipline & Extreme Brevity
+# Token Discipline & Concise Technical Prose
 
-Derived from Julius Brussee's *Caveman* ("why use many token when few token do trick"). Viral protocol that reduces conversational token consumption by up to 65% during large-scale autonomous agent loops.
+Protocol for keeping conversational explanations terse and factual during multi-turn coding sessions.
 
 ## Operational Rules:
 
@@ -19,4 +19,4 @@ Derived from Julius Brussee's *Caveman* ("why use many token when few token do t
    - All compression occurs strictly in prose and conversational metadata; code remains 100% complete and compilable.
 
 4. **Activation**:
-   - Active automatically during high-volume autonomous loops (`--caveman` mode) to maximize context window longevity and reduce API billing.
+   - Applied as a standing communication instinct in IDE coding sessions to reduce prose noise and preserve context window space for code and tool outputs.

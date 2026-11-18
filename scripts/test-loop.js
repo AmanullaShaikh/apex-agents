@@ -3,8 +3,6 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { auditDiff } from './audit-diff.js';
-import { createCheckpoint } from './checkpoint.js';
 
 const c = {
   reset: '\x1b[0m',
@@ -172,7 +170,7 @@ export function parseTestFailures(output) {
 }
 
 /**
- * Generates structured APEX_FIX_PROMPT.md for AI agents.
+ * Generates structured APEX_FIX_PROMPT.md for IDE coding agents (Cursor, Claude Code, Windsurf).
  */
 export function generateFixPrompt(projectDir, failures, fullOutput) {
   const outputPath = path.join(projectDir, 'APEX_FIX_PROMPT.md');
@@ -208,7 +206,7 @@ export function generateFixPrompt(projectDir, failures, fullOutput) {
   md += `4. **FIX** the actual implementation code in the target module.\n\n`;
 
   md += `## 🛠️ REQUIRED AGENT WORKFLOW\n`;
-  md += `1. Inspect the failing file and the implementation file.\n`;
+  md += `1. Inspect the failing test file and the implementation file.\n`;
   md += `2. Identify why the assertion failed (root cause analysis).\n`;
   md += `3. Modify the source code to satisfy the test contract.\n`;
   md += `4. Run \`npx apex-agents test-loop\` to verify the fix.\n\n`;
@@ -218,123 +216,6 @@ export function generateFixPrompt(projectDir, failures, fullOutput) {
 
   fs.writeFileSync(outputPath, md);
   return outputPath;
-}
-
-/**
- * Ironclad guard: returns true if a path belongs to a test suite or spec file.
- * Auto-heal is strictly forbidden from ever modifying test files.
- */
-export function isTestFile(filePath) {
-  if (!filePath || typeof filePath !== 'string') return false;
-  const normalized = filePath.replace(/\\/g, '/');
-  return (
-    /\.(test|spec)\.[a-zA-Z0-9]+$/i.test(normalized) ||
-    /(?:^|\/)(?:__tests__|tests|test)\//i.test(normalized)
-  );
-}
-
-function isSafeImplementationFile(projectDir, candidatePath) {
-  if (!candidatePath) return false;
-  const resolvedRoot = path.resolve(projectDir);
-  const resolvedTarget = path.resolve(candidatePath);
-  if (!resolvedTarget.startsWith(resolvedRoot + path.sep) && resolvedTarget !== resolvedRoot) {
-    return false;
-  }
-  const normalized = resolvedTarget.replace(/\\/g, '/');
-  if (normalized.includes('/node_modules/') || normalized.includes('/.git/')) return false;
-  if (isTestFile(resolvedTarget)) return false;
-  try {
-    return fs.existsSync(resolvedTarget) && fs.statSync(resolvedTarget).isFile();
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Resolves a real, non-test implementation source file from failure traces or test imports.
- * Never returns a test file.
- */
-export function resolveImplementationTarget(projectDir, failures, fullOutput = '') {
-  if (!failures || failures.length === 0) return null;
-
-  // 1. Scan stack frames across ALL failures + fullOutput for the first local non-test source file
-  const allStackLines = [];
-  for (const f of failures) {
-    if (Array.isArray(f.stack)) allStackLines.push(...f.stack);
-  }
-  allStackLines.push(...stripAnsi(fullOutput).split('\n').filter(l => /\bat\s+/.test(l)));
-
-  const firstKnownTestFile = failures.find(f => f.file && isTestFile(f.file))?.file || null;
-
-  for (const line of allStackLines) {
-    const match = line.match(/(?:file:\/\/\/)?([a-zA-Z]:[\\/][^:)\s]+|(?:\.{0,2}[\\/])?[a-zA-Z0-9_.\-\\/]+\.(?:js|jsx|ts|tsx|mjs|cjs|py|go|rs))(?::\d+)?/i);
-    if (!match) continue;
-    const rawFile = match[1];
-    const candidate = path.isAbsolute(rawFile) ? rawFile : path.join(projectDir, rawFile);
-    if (isSafeImplementationFile(projectDir, candidate)) {
-      return {
-        targetPath: path.resolve(candidate),
-        relPath: path.relative(projectDir, candidate).replace(/\\/g, '/'),
-        testFilePath: firstKnownTestFile
-          ? (path.isAbsolute(firstKnownTestFile) ? firstKnownTestFile : path.join(projectDir, firstKnownTestFile))
-          : null
-      };
-    }
-  }
-
-  // 2. Check if ANY failure.file itself is explicitly a non-test implementation file
-  for (const f of failures) {
-    if (!f.file) continue;
-    const candidate = path.isAbsolute(f.file) ? f.file : path.join(projectDir, f.file);
-    if (isSafeImplementationFile(projectDir, candidate)) {
-      return {
-        targetPath: path.resolve(candidate),
-        relPath: path.relative(projectDir, candidate).replace(/\\/g, '/'),
-        testFilePath: null
-      };
-    }
-  }
-
-  // 3. Inspect existing test files across ALL failures (read-only) to find an unambiguous single local import
-  const testFileCandidates = new Set();
-  for (const f of failures) {
-    if (f.file && isTestFile(f.file)) {
-      testFileCandidates.add(path.isAbsolute(f.file) ? f.file : path.join(projectDir, f.file));
-    }
-  }
-
-  for (const candidate of testFileCandidates) {
-    if (!fs.existsSync(candidate)) continue;
-    try {
-      const testSrc = fs.readFileSync(candidate, 'utf-8');
-      const importRegex = /(?:import\s+[\s\S]*?\s+from\s+|require\s*\(\s*)['"](\.\.?\/[^'"]+)['"]/g;
-      const candidates = new Set();
-      const exts = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
-      let m;
-      while ((m = importRegex.exec(testSrc)) !== null) {
-        const base = path.resolve(path.dirname(candidate), m[1]);
-        for (const ext of exts) {
-          const p = base + ext;
-          if (isSafeImplementationFile(projectDir, p)) {
-            candidates.add(p);
-            break;
-          }
-        }
-      }
-      if (candidates.size === 1) {
-        const resolved = [...candidates][0];
-        return {
-          targetPath: resolved,
-          relPath: path.relative(projectDir, resolved).replace(/\\/g, '/'),
-          testFilePath: path.resolve(candidate)
-        };
-      }
-    } catch {
-      // ignore read error
-    }
-  }
-
-  return null;
 }
 
 /**
@@ -406,329 +287,10 @@ function runCommandCapture(projectDir, cmdStr, streamToConsole = false) {
   });
 }
 
-function synthesizeUnifiedDiff(relFile, originalContent, patchedContent) {
-  const origLines = originalContent.split('\n');
-  const newLines = patchedContent.split('\n');
-  const lines = [
-    `diff --git a/${relFile} b/${relFile}`,
-    `--- a/${relFile}`,
-    `+++ b/${relFile}`,
-    `@@ -1,${origLines.length} +1,${newLines.length} @@`
-  ];
-  origLines.forEach(l => lines.push(`-${l}`));
-  newLines.forEach(l => lines.push(`+${l}`));
-  return lines.join('\n');
-}
-
-function extractCodeFromResponse(rawText) {
-  if (!rawText || typeof rawText !== 'string') return '';
-  const codeMatch = rawText.match(/```(?:[a-zA-Z0-9_-]+)?\r?\n([\s\S]*?)\r?\n```/);
-  return (codeMatch ? codeMatch[1] : rawText).trim();
-}
-
-function cleanupTempCheckpoint(projectDir, checkpointId) {
-  if (!checkpointId) return;
-  try {
-    const cpDir = path.join(projectDir, '.agents', 'checkpoints', checkpointId);
-    if (fs.existsSync(cpDir)) {
-      fs.rmSync(cpDir, { recursive: true, force: true });
-    }
-    const checkpointsRoot = path.join(projectDir, '.agents', 'checkpoints');
-    if (fs.existsSync(checkpointsRoot) && fs.readdirSync(checkpointsRoot).length === 0) {
-      fs.rmSync(checkpointsRoot, { recursive: true, force: true });
-    }
-    const agentsRoot = path.join(projectDir, '.agents');
-    if (fs.existsSync(agentsRoot) && fs.readdirSync(agentsRoot).length === 0) {
-      fs.rmSync(agentsRoot, { recursive: true, force: true });
-    }
-  } catch {
-    // non-fatal cleanup error
-  }
-}
-
 /**
- * Verifies that a test run exiting 0 actually completed test assertions and reported >= 1 passing test,
- * preventing silent process.exit(0) sabotage from faking a green run.
+ * Runs the deterministic test-loop runner and synthesizes structured fix prompts on failure.
  */
-export function verifyTestOutputIndicatesPass(stdout = '', stderr = '', expectedTestNames = []) {
-  const clean = stripAnsi(`${stdout}\n${stderr}`).trim();
-  if (!clean) return false;
-
-  // Reject if explicit failure counters or failure markers appeared
-  const failCountMatch = clean.match(/(?:ℹ\s*fail|failed:?)\s*(\d+)/i);
-  if (failCountMatch && parseInt(failCountMatch[1], 10) > 0) return false;
-
-  // Node built-in test runner summary check: "ℹ pass N" where N >= 1
-  const nodePassMatch = clean.match(/ℹ\s*pass\s+(\d+)/i);
-  if (nodePassMatch) {
-    if (parseInt(nodePassMatch[1], 10) < 1) return false;
-
-    // Guard against premature worker process.exit(0) sabotage:
-    // When a worker calls process.exit(0) mid-test, node --test prints ONLY "✔ file.test.mjs"
-    // and NEVER prints the individual test name(s) that were previously failing.
-    const cleanExpected = expectedTestNames
-      .map(n => (n || '').replace(/\s*\(\d+(?:\.\d+)?m?s\)\s*$/i, '').trim())
-      .filter(n => n && n !== 'Unspecified Test Suite Failure' && !/\.(?:test|spec)\.[a-z0-9]+$/i.test(n));
-
-    if (cleanExpected.length > 0) {
-      const allExpectedReported = cleanExpected.every(name => clean.includes(name));
-      if (!allExpectedReported) return false;
-    } else {
-      // Fallback: ensure at least one ✔ line is NOT purely a test filename
-      const checkLines = clean.split('\n').map(l => l.trim()).filter(l => /^(?:✔|✓)\s+/.test(l));
-      if (checkLines.length > 0 && checkLines.every(l => /^(?:✔|✓)\s+[^\s]+\.(?:test|spec)\.[a-z0-9]+(?:\s*\([\d.]+m?s\))?$/i.test(l))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // Vitest / Jest / Mocha / Pytest / Go / Cargo / TAP passing markers
-  if (/(?:\b\d+\s+passed\b|\bpassed\s+\d+\b|\bpassing\b|\bPASS\s+|test result:\s*ok|\bok\s+\d+\b|✔|✓)/i.test(clean)) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Transactional patch gate:
- * 1. Enforces test-file immutability (never edits test files).
- * 2. Blocks newly introduced process.exit/abort/kill sabotage calls.
- * 3. Audits proposed patch via auditDiff() for secrets, slop, or tampering BEFORE writing.
- * 4. Creates a pre-patch checkpoint (git checkpoint if in git repo + atomic in-memory backup).
- * 5. Writes patch, re-runs the test suite, verifies both exit 0 AND positive test pass signal,
- *    and automatically rolls back + cleans up temp checkpoint if verification fails.
- */
-async function applyAndVerifyPatch(projectDir, target, patchedContent, testCmd, method, expectedTestNames = []) {
-  if (isTestFile(target.targetPath) || isTestFile(target.relPath)) {
-    return { healed: false, reason: 'TEST_FILE_PROTECTED' };
-  }
-
-  const originalContent = fs.readFileSync(target.targetPath, 'utf-8');
-  if (!patchedContent || patchedContent.trim() === originalContent.trim()) {
-    return { healed: false, reason: 'NO_EFFECTIVE_CHANGE' };
-  }
-
-  // Gate 0: Block newly introduced process.exit / abort / kill sabotage in implementation patches
-  const processExitPattern = /\b(?:process\s*(?:\.\s*(?:exit|abort|kill)|\[\s*['"](?:exit|abort|kill)['"]\s*\])|Deno\s*\.\s*exit)\s*\(/i;
-  if (processExitPattern.test(patchedContent) && !processExitPattern.test(originalContent)) {
-    console.log(`  ${c.red}✖${c.reset} Patch rejected: introduces process.exit/abort/kill sabotage in ${c.cyan}${target.relPath}${c.reset}.\n`);
-    return { healed: false, reason: 'REJECTED_PROCESS_EXIT_SABOTAGE', file: target.relPath };
-  }
-
-  // Gate 1: Run diff security & anti-slop auditor before accepting patch
-  const syntheticDiff = synthesizeUnifiedDiff(target.relPath, originalContent, patchedContent);
-  const diffAudit = auditDiff(syntheticDiff);
-  if (!diffAudit.clean) {
-    console.log(`  ${c.red}✖${c.reset} Patch rejected by zero-slop diff auditor (${diffAudit.stats.secrets} secrets, ${diffAudit.stats.tampering} tamper, ${diffAudit.stats.slop} slop). Original file untouched.\n`);
-    return { healed: false, reason: 'REJECTED_BY_DIFF_AUDITOR', findings: diffAudit.findings };
-  }
-
-  // Gate 2: Pre-patch checkpoint (git checkpoint if repo exists + atomic backup)
-  let checkpointId = null;
-  if (fs.existsSync(path.join(projectDir, '.git'))) {
-    try {
-      const cp = createCheckpoint(`pre-heal-${path.basename(target.relPath)}`, projectDir);
-      checkpointId = cp?.id || null;
-    } catch {
-      // Proceed with atomic in-memory backup
-    }
-  }
-
-  // Gate 3: Apply patch and re-run test suite to verify real fix + positive pass signal
-  try {
-    fs.writeFileSync(target.targetPath, patchedContent);
-    const verifyCmd = testCmd || detectTestRunner(projectDir);
-    const verifyRun = await runCommandCapture(projectDir, verifyCmd, false);
-
-    if (verifyRun.code === 0 && verifyTestOutputIndicatesPass(verifyRun.stdout, verifyRun.stderr, expectedTestNames)) {
-      console.log(`  ${c.green}✓${c.reset} Verified ${method} repair patch on ${c.cyan}${target.relPath}${c.reset} (re-test passed with exit 0).\n`);
-      return { healed: true, method, file: target.relPath, verified: true, checkpointId };
-    }
-
-    // Tests failed or exited 0 without test runner pass confirmation -> immediate atomic rollback + cleanup
-    fs.writeFileSync(target.targetPath, originalContent);
-    cleanupTempCheckpoint(projectDir, checkpointId);
-    const reason = verifyRun.code === 0 ? 'ROLLBACK_NO_TEST_PASS_SIGNAL' : 'ROLLBACK_TEST_VERIFICATION_FAILED';
-    console.log(`  ${c.yellow}↩${c.reset} Patch on ${c.cyan}${target.relPath}${c.reset} failed verification (${reason}). Rolled back cleanly.\n`);
-    return { healed: false, reason, file: target.relPath };
-  } catch (err) {
-    // Rollback on any unexpected runtime error
-    fs.writeFileSync(target.targetPath, originalContent);
-    cleanupTempCheckpoint(projectDir, checkpointId);
-    return { healed: false, reason: 'ROLLBACK_RUNTIME_ERROR', error: err.message };
-  }
-}
-
-export async function attemptAutoHeal(projectDir, failures, fullOutput, options = {}) {
-  if (!failures || failures.length === 0) {
-    return { healed: false, reason: 'NO_FAILURES' };
-  }
-
-  console.log(`\n${c.cyan}${c.bold}⚡ [Test-Loop Repair Engine]: Analyzing failure traces...${c.reset}`);
-
-  // Ironclad target resolution: NEVER edit test files
-  const target = resolveImplementationTarget(projectDir, failures, fullOutput);
-  if (!target) {
-    const protectedTest = failures.find(f => f.file && isTestFile(f.file))?.file;
-    if (protectedTest) {
-      console.log(`  ${c.yellow}ℹ [Test-File Guard]: Refusing to modify test file (${protectedTest}).${c.reset}`);
-      console.log(`  No unambiguous implementation file resolved. Delegating to ${c.cyan}APEX_FIX_PROMPT.md${c.reset}.\n`);
-      return { healed: false, reason: 'TEST_FILE_PROTECTED_DELEGATED_TO_IDE' };
-    }
-    const rawFile = failures.find(f => f.file)?.file;
-    console.log(`  ${c.yellow}ℹ Target implementation file not resolved (${rawFile || 'unknown'}). Delegating to APEX_FIX_PROMPT.md.${c.reset}\n`);
-    return { healed: false, reason: 'TARGET_FILE_NOT_FOUND' };
-  }
-
-  const fileContent = fs.readFileSync(target.targetPath, 'utf-8');
-  const failureError = failures.map(f => f.error).filter(Boolean).join('\n') || 'Unknown assertion failure';
-  let testContextSnippet = '';
-  if (target.testFilePath && fs.existsSync(target.testFilePath)) {
-    try {
-      testContextSnippet = fs.readFileSync(target.testFilePath, 'utf-8').slice(0, 3000);
-    } catch {
-      // ignore
-    }
-  }
-
-  const prompt = [
-    `You are a senior software engineer fixing a failing unit test.`,
-    `STRICT RULES:`,
-    `1. Fix the bug ONLY in the implementation file below (${target.relPath}).`,
-    `2. NEVER emit placeholders, TODO stubs, process.exit calls, or untyped 'any' shortcuts.`,
-    `3. Output ONLY the complete fixed implementation file inside a single fenced code block. No prose.`,
-    `Failure Output:\n${failureError}`,
-    testContextSnippet ? `Read-Only Failing Test Specification:\n${testContextSnippet}` : '',
-    `Implementation File (${target.relPath}):\n${fileContent}`
-  ].filter(Boolean).join('\n\n');
-
-  const testCmd = options.testCmd || null;
-  const expectedTestNames = failures.map(f => f.name).filter(Boolean);
-
-  // Tier 1: Local Ollama (0 API Key / 100% Offline, Two-Stage Timeout)
-  const ollamaHost = (options.ollamaHost || process.env.OLLAMA_HOST || 'http://localhost:11434').replace(/\/$/, '');
-  const probeTimeoutMs = options.ollamaProbeTimeoutMs || 1500;
-  const genTimeoutMs = options.ollamaTimeoutMs || 120000;
-
-  try {
-    // Stage 1: Fast liveness probe (1.5s)
-    const probeController = new AbortController();
-    const probeTimer = setTimeout(() => probeController.abort(), probeTimeoutMs);
-    const tagsRes = await fetch(`${ollamaHost}/api/tags`, {
-      method: 'GET',
-      signal: probeController.signal
-    });
-    clearTimeout(probeTimer);
-
-    if (tagsRes.ok) {
-      const tagsData = await tagsRes.json().catch(() => ({}));
-      const installedModels = Array.isArray(tagsData.models) ? tagsData.models.map(m => m.name) : [];
-      const preferredModel = options.ollamaModel ||
-        process.env.OLLAMA_MODEL ||
-        installedModels.find(n => /qwen2\.5-coder|deepseek-coder|codellama/i.test(n)) ||
-        installedModels[0] ||
-        'qwen2.5-coder:latest';
-
-      // Stage 2: Full generation timeout (default 120s)
-      const genController = new AbortController();
-      const genTimer = setTimeout(() => genController.abort(), genTimeoutMs);
-      const genRes = await fetch(`${ollamaHost}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: preferredModel,
-          prompt,
-          stream: false
-        }),
-        signal: genController.signal
-      });
-      clearTimeout(genTimer);
-
-      if (genRes.ok) {
-        const data = await genRes.json();
-        const fixedCode = extractCodeFromResponse(data.response || '');
-        if (fixedCode) {
-          return await applyAndVerifyPatch(projectDir, target, fixedCode, testCmd, `LOCAL_OLLAMA (${preferredModel})`, expectedTestNames);
-        }
-      }
-    }
-  } catch {
-    // Local Ollama not running or unreachable; fall through cleanly
-  }
-
-  // Tier 2: Optional Cloud LLM API (Only if user explicitly provides keys in env)
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-
-  if (geminiKey || anthropicKey || openaiKey) {
-    try {
-      let rawText = '';
-
-      if (geminiKey) {
-        const model = process.env.APEX_GEMINI_MODEL || 'gemini-4-hydrogen';
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        const data = await res.json();
-        rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      } else if (anthropicKey) {
-        const model = process.env.APEX_ANTHROPIC_MODEL || 'claude-sonnet-5-5';
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicKey,
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: 4096,
-            messages: [{ role: 'user', content: prompt }]
-          })
-        });
-        const data = await res.json();
-        rawText = data.content?.[0]?.text || '';
-      } else if (openaiKey) {
-        const model = process.env.APEX_OPENAI_MODEL || 'gpt-6.1-sol';
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiKey}`
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }]
-          })
-        });
-        const data = await res.json();
-        rawText = data.choices?.[0]?.message?.content || '';
-      }
-
-      const fixedCode = extractCodeFromResponse(rawText);
-      if (fixedCode) {
-        return await applyAndVerifyPatch(projectDir, target, fixedCode, testCmd, 'CLOUD_API', expectedTestNames);
-      }
-    } catch (err) {
-      console.error(`  ${c.yellow}! Optional cloud heal request failed: ${err.message}${c.reset}\n`);
-    }
-  }
-
-  // Tier 3: Zero-Paid-API IDE Agent Handoff
-  console.log(`  ${c.yellow}ℹ [Zero-Paid-API Mode]: No local Ollama instance or optional cloud key active.${c.reset}`);
-  console.log(`  Handoff ready in ${c.cyan}APEX_FIX_PROMPT.md${c.reset} for your active IDE agent (Cursor / Claude Code / Windsurf).\n`);
-  return { healed: false, reason: 'DELEGATED_TO_IDE_AGENT' };
-}
-
-/**
- * Runs the test-loop runner and synthesizes structured fix prompts on failure.
- */
-export async function runTestLoop(projectDir = process.cwd(), customCmd = null, options = {}) {
+export async function runTestLoop(projectDir = process.cwd(), customCmd = null) {
   const cmdStr = customCmd || detectTestRunner(projectDir);
   console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: TEST-LOOP RUNNER ═════${c.reset}`);
   console.log(`Executing test suite: ${c.yellow}${cmdStr}${c.reset} in ${c.cyan}${projectDir}${c.reset}...\n`);
@@ -758,34 +320,15 @@ export async function runTestLoop(projectDir = process.cwd(), customCmd = null, 
   const fixPromptFile = generateFixPrompt(projectDir, failures, fullOutput);
 
   console.log(`  ${c.green}✓${c.reset} Generated Fix Prompt: ${c.cyan}${fixPromptFile}${c.reset}`);
-
-  const shouldHeal = options.heal || process.argv.includes('--heal');
-  if (shouldHeal) {
-    const healRes = await attemptAutoHeal(projectDir, failures, fullOutput, {
-      ...options,
-      testCmd: cmdStr
-    });
-    if (healRes.healed && healRes.verified) {
-      if (fs.existsSync(promptPath)) {
-        fs.unlinkSync(promptPath);
-      }
-      return { success: true, code: 0, failures, fixPromptFile: null, autoHeal: healRes };
-    }
-    console.log(`${c.bold}Next Action:${c.reset} Feed ${c.cyan}APEX_FIX_PROMPT.md${c.reset} to your active IDE agent.\n`);
-    return { success: false, code, failures, fixPromptFile, autoHeal: healRes };
-  }
-
-  console.log(`\n${c.bold}Next Action:${c.reset} Feed ${c.cyan}APEX_FIX_PROMPT.md${c.reset} into Cursor or Claude Code to repair implementation.\n`);
+  console.log(`\n${c.bold}Next Action:${c.reset} Feed ${c.cyan}APEX_FIX_PROMPT.md${c.reset} into Cursor, Claude Code, or Windsurf to repair implementation.\n`);
   return { success: false, code, failures, fixPromptFile };
 }
 
 // CLI Execution
 if (process.argv[1] && process.argv[1].endsWith('test-loop.js')) {
   const args = process.argv.slice(2);
-  const healFlag = args.includes('--heal');
-  const cmdParts = args.filter(a => a !== '--heal');
-  const customCmd = cmdParts.length > 0 ? cmdParts.join(' ') : null;
-  runTestLoop(process.cwd(), customCmd, { heal: healFlag }).then(res => {
+  const customCmd = args.length > 0 ? args.join(' ') : null;
+  runTestLoop(process.cwd(), customCmd).then(res => {
     process.exit(res.success ? 0 : 1);
   });
 }

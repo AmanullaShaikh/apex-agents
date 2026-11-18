@@ -30,15 +30,16 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" --help`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /USAGE:/);
     assert.match(out, /COMMANDS:/);
+    assert.doesNotMatch(out, /Sovereign/i);
   });
 
-  test('should run doctor diagnostics honestly in git and non-git directories', () => {
+  test('should run doctor diagnostics honestly in git, non-git, and git worktree directories', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" doctor`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /Running Environment Diagnostics/);
     assert.match(out, /Apex Agents engine is ready/);
     assert.doesNotMatch(out, /SWE-Bench Mini/);
 
-    // Non-git empty temp dir MUST NOT falsely claim hooks are Installed/Active
+    // 1. Non-git empty temp dir MUST NOT falsely claim hooks are Installed/Active
     const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-doctor-nogit-'));
     try {
       const noGitOut = stripAnsi(execSync(`node "${APEX_BIN}" doctor`, { encoding: 'utf-8', cwd: emptyDir }));
@@ -48,6 +49,32 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     } finally {
       fs.rmSync(emptyDir, { recursive: true, force: true });
     }
+
+    // 2. Git worktree MUST detect hooks installed in the shared common git dir
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-doctor-wt-repo-'));
+    const wtDir = path.join(os.tmpdir(), `apex-doctor-wt-linked-${Date.now()}`);
+    try {
+      execSync('git init', { cwd: repoDir, stdio: 'pipe' });
+      execSync('git config user.email "test@apex.local"', { cwd: repoDir, stdio: 'pipe' });
+      execSync('git config user.name "Apex Test"', { cwd: repoDir, stdio: 'pipe' });
+      fs.writeFileSync(path.join(repoDir, 'README.md'), '# temp repo\n');
+      execSync('git add -A && git commit -m "init"', { cwd: repoDir, stdio: 'pipe' });
+
+      execSync(`node "${APEX_BIN}" install-hooks`, { cwd: repoDir, stdio: 'pipe' });
+      execSync(`git worktree add -b feat-wt "${wtDir}"`, { cwd: repoDir, stdio: 'pipe' });
+
+      const wtOut = stripAnsi(execSync(`node "${APEX_BIN}" doctor`, { encoding: 'utf-8', cwd: wtDir }));
+      assert.match(wtOut, /Pre-Commit Safety Hooks\s*:\s*Installed/);
+      assert.match(wtOut, /Anti-Cheat Test Guard\s*:\s*Active/);
+    } finally {
+      try {
+        execSync(`git worktree remove --force "${wtDir}"`, { cwd: repoDir, stdio: 'pipe' });
+      } catch {
+        // fallback cleanup below
+      }
+      fs.rmSync(wtDir, { recursive: true, force: true });
+      fs.rmSync(repoDir, { recursive: true, force: true });
+    }
   });
 
   test('should list all 38 specialists and operational instincts', () => {
@@ -56,46 +83,22 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /Total Specialists:\s*38/);
   });
 
-  test('should execute multi-agent swarm planning with strict word boundaries and apex/ branches', () => {
-    const out = stripAnsi(execSync(`node "${APEX_BIN}" plan "Build real-time video streaming pipeline with postgres and auth"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.match(out, /SWARM DAG PLANNER/);
-    assert.match(out, /@auth-identity-guard/);
-    assert.match(out, /@database-tuner/);
-    assert.match(out, /@tdd-champion/);
-    assert.match(out, /DAG EXECUTION TOPOLOGY/);
-    assert.match(out, /ISOLATED GIT WORKTREE SANDBOX/);
-    assert.match(out, /-b apex\/task-sec-auth/);
-    // "Build" must NOT false-trigger @frontend-architect or @cwv-lcp-doctor
-    assert.doesNotMatch(out, /@frontend-architect/);
-    assert.doesNotMatch(out, /@cwv-lcp-doctor/);
-
-    // "Write quiet email digest" must NOT false-trigger ui/ai/cwv
-    const quietOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Write quiet email digest"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.doesNotMatch(quietOut, /@frontend-architect/);
-    assert.doesNotMatch(quietOut, /@rag-pipeline-architect/);
-    assert.doesNotMatch(quietOut, /@prompt-injection-shield/);
-    assert.doesNotMatch(quietOut, /@cwv-lcp-doctor/);
-
-    // "Fix a typo in the README" must NOT force @tdd-champion or @cwv-lcp-doctor
-    const readmeOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Fix a typo in the README"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.doesNotMatch(readmeOut, /@cwv-lcp-doctor/);
-    assert.doesNotMatch(readmeOut, /@tdd-champion/);
-    assert.match(readmeOut, /@readme-copywriter/);
-
-    // Pure REST API must NOT trigger WebSocket @network-security-auditor
-    const restOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Build REST API for blog posts"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
-    assert.match(restOut, /@backend-systems-lead/);
-    assert.doesNotMatch(restOut, /@network-security-auditor/);
-  });
-
   test('should inspect context budget with zero errors', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" budget`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /APEX AGENTS CONTEXT BUDGET OPTIMIZER/);
     assert.match(out, /CONTEXT SUMMARY/);
   });
 
-  test('should initialize agency suite with apex-agents init', async () => {
-    const fs = await import('fs');
+  test('should run token volume and AST compaction cost auditor with and without --price-in', () => {
+    const out = stripAnsi(execSync(`node "${APEX_BIN}" cost`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.match(out, /TOKEN VOLUME & AST COMPACTION AUDITOR/);
+    assert.match(out, /measured reduction/);
+
+    const pricedOut = stripAnsi(execSync(`node "${APEX_BIN}" cost --price-in=2.00`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.match(pricedOut, /CUSTOM COST CALCULATION \(\$2\/1M input tokens\)/);
+  });
+
+  test('should initialize apex-agents suite with apex-agents init', () => {
     const tempDir = path.join(ROOT_DIR, '.test_tmp_init');
     fs.mkdirSync(tempDir, { recursive: true });
 
@@ -121,10 +124,12 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.ok(fs.existsSync(runnerScript), 'run-tests.js must exist');
   });
 
-  test('should reject unknown CLI commands with exit code 1', () => {
-    assert.throws(() => {
-      execSync(`node "${APEX_BIN}" foobar`, { stdio: 'pipe', cwd: ROOT_DIR });
-    }, /Command failed/);
+  test('should reject unknown and removed CLI commands with exit code 1', () => {
+    for (const cmd of ['foobar', 'plan', 'spec', 'caveman', 'eval', 'swe-eval', 'design', 'orphans', 'scope-guard']) {
+      assert.throws(() => {
+        execSync(`node "${APEX_BIN}" ${cmd}`, { stdio: 'pipe', cwd: ROOT_DIR });
+      }, /Command failed/, `Removed/unknown command "${cmd}" must exit non-zero`);
+    }
   });
 
   test('should reject unknown sandbox actions with exit code 1', () => {

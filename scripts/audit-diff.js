@@ -15,15 +15,17 @@ const c = {
   gray: '\x1b[90m'
 };
 
-const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]|feff|00ad|2060|180e)/gi;
+export const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]|feff|00ad|2060|180e)/gi;
 
-const SECRET_PATTERNS = [
+export const SECRET_PATTERNS = [
   { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
+  { name: 'Stripe Publishable Key', regex: /pk_live_[0-9a-zA-Z]{24}/ },
   { name: 'OpenAI API Key', regex: /sk-proj-[0-9a-zA-Z-_]{48,}/ },
   { name: 'Anthropic API Key', regex: /sk-ant-api03-[0-9a-zA-Z-_]{80,}/ },
   { name: 'AWS Access Key ID', regex: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: 'Base64 Encoded AWS Key', regex: /\bQUtJ[0-9a-zA-Z+/=_-]{16,}\b/ },
   { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
+  { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
   { name: 'Private Key Header', regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----/ },
   { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
@@ -269,7 +271,7 @@ export function auditDiff(rawDiff) {
     if (line.startsWith('+') && !line.startsWith('+++')) {
       const addedText = line.substring(1);
 
-      const isSelfAuditTest = currentFile.includes('diff-audit.test.') || currentFile.includes('benchmark-eval.');
+      const isSelfAuditTest = currentFile.includes('diff-audit.test.');
 
       // Check secrets
       if (!isSelfAuditTest) {

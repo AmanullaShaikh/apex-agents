@@ -1,7 +1,7 @@
 # ⚡ Apex Agents
 
-> **The Sovereign AI Engineering Harness & Developer Tooling Engine.**  
-> A dual-layer framework combining a **real-time Node.js Babel AST tooling suite** with **38 specialized domain-expert directives** and **native Model Context Protocol (MCP)** integration for **Cursor, Claude Code, Windsurf, Copilot, Codex, and Antigravity**.
+> **Local AST Context Compactor, Git Rollback Vault & Developer Tooling Suite for AI Coding Assistants.**  
+> A focused Node.js CLI combining a **Babel AST tooling engine**, **git-native checkpoint/rollback**, **static bug & anti-tamper diff guards**, **native MCP server**, and **38 curated system-prompt packs** for **Cursor, Claude Code, Windsurf, Copilot, and Antigravity**.
 
 <div align="center">
 
@@ -9,217 +9,124 @@
 [![NPM Version](https://img.shields.io/npm/v/apex-agents.svg?style=flat-square&color=38bdf8)](https://www.npmjs.com/package/apex-agents)
 [![CI & Integrity Suite](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml)
 [![Babel AST Engine](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
-[![Context Reduction](https://img.shields.io/badge/Context%20Reduction-85%25--88.5%25-6366f1.svg?style=flat-square)](#1-ast-context-compactor-apex-agents-compact)
-[![Engine Self-Check](https://img.shields.io/badge/Engine%20Self--Check-5%2F5%20Vectors%20Passing-10b981.svg?style=flat-square)](#7-internal-ast--engine-self-check-apex-agents-swe-eval)
-[![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#10-native-model-context-protocol-mcp-server)
+[![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#8-native-model-context-protocol-mcp-server)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/apex-agents/pulls)
 
 </div>
 
 ---
 
-## 💡 The Core Problem: Why AI Coding Agents Fail
+## 💡 Why This Toolkit Exists
 
-Leading AI coding models (GPT-6 Astra, Gemini 4 Argon, Claude Sonnet, Meta Muse Spark) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
+AI coding assistants (Cursor, Claude Code, Windsurf) perform well on isolated edits, but repeatedly hit three practical failure modes in larger repositories:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        THE 3 FATAL AI CODING TRAPS                     │
+│                       THE 3 AI CODING FAILURE MODES                    │
 ├────────────────────────────────┬───────────────────────────────────────┤
-│ 1. Context Window Tax          │ Dumping raw source files floods the   │
-│    (80k-150k token blowup)     │ window, degrading reasoning and       │
-│                                │ burning $2-$5 per multi-turn loop.    │
+│ 1. Context Window Bloat        │ Dumping raw implementation files      │
+│                                │ floods context and hurts precision.   │
 ├────────────────────────────────┼───────────────────────────────────────┤
-│ 2. Spec Hallucination & Drift  │ Agents begin writing implementation   │
-│    (Breaking remote callers)   │ prematurely without contracts,        │
-│                                │ breaking distant call sites.          │
+│ 2. Silent Test Tampering       │ When tests fail, models sometimes     │
+│                                │ insert `it.skip` or delete assertions.│
 ├────────────────────────────────┼───────────────────────────────────────┤
-│ 3. Silent Test Tampering       │ When unit tests fail, agents secretly │
-│    (Faking green test runs)    │ add `test.skip`, `it.only`, or        │
-│                                │ comment out assertions to fake passes.│
+│ 3. Destructive Multi-File Edits│ Broken refactors leave dirty working  │
+│                                │ trees, untracked junk, or broken .env.│
 └────────────────────────────────┴───────────────────────────────────────┘
 ```
 
-**Apex Agents solves this with a physical, executable tooling layer and sovereign agent protocols.**
+### 🔬 What Apex Agents IS vs What It Is NOT
 
----
-
-## 🏛️ Sovereign Architecture: Executable Tooling + Agentic Intelligence
-
-Apex Agents is engineered with **100% architectural transparency**. It separates physical AST computation from probabilistic LLM reasoning:
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   APEX AGENTS v2.1.0 ARCHITECTURE                      │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                        │
-│  LAYER 1: EXECUTABLE TOOLING ENGINE (100% Physical Node.js Code)       │
-│  ┌───────────────────────┬──────────────────────┬────────────────────┐ │
-│  │ AST Context Compactor │ Checkpoint & Rollback│ Spec Compiler      │ │
-│  │ (PageRank & Callers)  │ (Git-native sub-100ms│ (5-Phase Zero-Slop │ │
-│  │  85%+ Token Drop)     │  Instant Recovery)   │  SPEC.md Contracts)│ │
-│  ├───────────────────────┼──────────────────────┼────────────────────┤ │
-│  │ Symbol Tracer Dossier │ Production Bug Hunter│ Multi-Model Costs  │ │
-│  │ (Cross-file AST graph │ (SQLi, hook leaks,   │ (Claude, GPT,      │ │
-│  │  ~100t Call-Sites)    │  floating promises)  │  DeepSeek, Gemini) │ │
-│  ├───────────────────────┼──────────────────────┼────────────────────┤ │
-│  │ Self-Healing TestLoop │ Pre-Commit Auditor   │ Dependency Graph   │ │
-│  │ (Autonomous APEX_FIX) │ (Secrets & AntiCheat)│ (Cycles & PageRank)│ │
-│  ├───────────────────────┼──────────────────────┼────────────────────┤ │
-│  │ Session Handoff (~85t)│ Persistent Memory    │ Git Worktree       │ │
-│  │ (XML Context Defense) │ (.agents/memory.json)│ Sandboxes          │ │
-│  └───────────────────────┴──────────────────────┴────────────────────┘ │
-│                                                                        │
-│  LAYER 2: AGENTIC SYSTEM PROTOCOLS (38 Specialists + 13 Instincts)     │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │ Structured Markdown Manifests (.md) with Strict YAML Metadata,    │ │
-│  │ Negative Constraints, Execution Workflows & Verification Gates.   │ │
-│  │ Exported directly to .cursor/rules, CLAUDE.md, and Native MCP.    │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-### 🔬 What Apex Agents IS vs What it is NOT
-
-| Aspect | What Apex Agents IS | What it is NOT |
+| Aspect | What Apex Agents IS | What It Is NOT |
 | :--- | :--- | :--- |
-| **Tooling Layer** | Real, runnable JavaScript tools powered by `@babel/parser`, Git CLI, and Node.js stdio. | Not vaporware or mock scripts; every command runs physically on your filesystem. |
-| **Specialist Personas** | Production-hardened **System Instruction Protocols** for LLMs (Claude, GPT, Gemini). | Not standalone C++/Rust software binaries (e.g. not a replacement for Ghidra or PostgreSQL). |
-| **Execution** | Dispatches tasks through Claude Code, Cursor Rules, or the built-in MCP server. | Not a closed proprietary LLM; it enhances your existing AI coding harness. |
-| **Quality Gate** | Enforces zero-slop discipline, pre-commit secret leak checks, and anti-test-tampering. | Not a black-box auto-coder that pushes untested changes. |
-
-> [!IMPORTANT]
-> **Engineering Transparency & Security Boundaries**:
-> Static analysis and AST inspection operate as a **Layer-1 heuristic gate** catching variable-based SQL injection, hook memory leaks, credential leaks, and test tampering within local developer workflows. For untrusted, autonomous external agents running arbitrary shell binaries, full sandbox containment requires containerized environments (Docker / microVMs) or Git Worktree isolation (`npx apex-agents sandbox`).
+| **Tooling Layer** | Local Node.js CLI powered by `@babel/parser`, Git CLI, and JSON-RPC stdio. | Not a hosted SaaS or proprietary model wrapper; runs 100% offline with zero paid API keys. |
+| **Specialist Personas** | Structured **Markdown System Prompt Packs** (`agents/` and `instincts/`). | Not standalone compilers, runtimes, or background multi-agent daemons. |
+| **Safety Gates** | Static AST bug checks, secret leak scanning, and anti-test-tampering diff audits. | Not a container sandbox; untrusted binary execution still requires Docker/VMs or Git Worktrees. |
 
 ---
 
 ## 🚀 Quickstart
 
-Run directly using `npx` — **zero global installation required**:
+Run directly with `npx` — **zero global installation or API keys required**:
 
 ```bash
-# Initialize in your current project (exports rules & installs pre-commit hooks)
+# Initialize in your current project (injects rules, exports .cursor/rules & installs pre-commit hook)
 npx apex-agents init
 ```
 
-### ⚡ Essential Command Arsenal (v2.1.0)
+### ⚡ Command Reference (v2.1.0)
 
-| Command | Category | What it Physically Does |
+| Command | Category | What It Physically Does |
 | :--- | :--- | :--- |
-| `npx apex-agents init` | Setup | Copies agent rules into `.cursor/rules` and installs pre-commit hooks in `.git/hooks/` |
-| `npx apex-agents compact` | Performance | Runs Babel AST engine to compact JS/TS/Py/Go/Rust files down to signatures with PageRank & Callers |
-| `npx apex-agents test-loop` | Self-Healing | Executes test suite and synthesizes failure traces into zero-slop `APEX_FIX_PROMPT.md` |
-| `npx apex-agents checkpoint` | Safe State | Creates atomic git-native snapshot of working tree (`save <label>`, `list`, `rollback`) |
-| `npx apex-agents rollback` | Safe State | Restores codebase in 100ms if an AI coding agent corrupts files or breaks tests |
-| `npx apex-agents spec <feat>` | Architecture | Compiles 5-phase zero-slop architectural `SPEC.md` and contracts before coding |
-| `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
-| `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
-| `npx apex-agents cost` | Economics | Estimates repository tokens (subword regex) and costs across GPT-6 Astra, Gemini 4, Meta Muse Spark & more |
-| `npx apex-agents plan <goal>` | Planning | Calculates dependency waves and scaffolds isolated git worktrees with contract specifications |
-| `npx apex-agents swe-eval` | Self-Check | Runs 5-vector internal AST, PageRank, and diff-audit verification suite |
-| `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
-| `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
-| `npx apex-agents handoff` | Context | Serializes active git state and blockers into a clean ~85 token `<session_handoff>` XML block |
-| `npx apex-agents memory [cmd]` | State | Stores technical architecture decisions in `.agents/memory.json` and syncs to `CLAUDE.md` |
-| `npx apex-agents studio` | Interface | Launches the keyboard-driven interactive Terminal Studio |
-| `npx apex-agents design <preset>` | UI/UX | Injects design token guidelines (`linear`, `stripe`, `apple`, `raycast`) into `DESIGN.md` |
-| `npx apex-agents caveman on` | Token Saver | Enables telegraphic brevity mode (cuts response tokens by 50-65% during heavy loops) |
-| `npx apex-agents budget` | Token Saver | Analyzes context window bloat and generates optimal `.cursorignore` files |
-| `npx apex-agents sandbox <cmd>` | Isolation | Creates and manages isolated Git Worktrees (`.worktrees/`) for safe AI experimentation |
-| `npx apex-agents mcp` | Protocol | Starts the native Model Context Protocol (MCP) server for Claude Desktop & Cursor |
-| `npx apex-agents doctor` | Diagnostics | Verifies your local environment, Node.js runtime, and hook integrity |
-| `npx apex-agents eval` | Integrity | Executes the 5-vector internal verification suite across local engines |
+| `npx apex-agents init` | Setup | Injects directives into `CLAUDE.md`/`.cursorrules`, exports `.cursor/rules/*.mdc`, installs pre-commit hook |
+| `npx apex-agents compact` | Context | Babel AST compactor stripping JS/TS/Py/Go/Rust bodies to signatures with PageRank & reverse callers |
+| `npx apex-agents graph` | Architecture | Builds AST import/export dependency graph, computes PageRank centrality, and detects import cycles |
+| `npx apex-agents diagram` | Architecture | Generates a standalone dark-mode HTML dependency diagram |
+| `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file call sites into a compact LLM dossier |
+| `npx apex-agents checkpoint` | Safe State | Saves atomic git working-tree snapshot including untracked files, `.env`, and `.git/hooks` |
+| `npx apex-agents rollback` | Safe State | Restores working tree, deletes rogue untracked files, and restores `.env` & git hooks |
+| `npx apex-agents audit-bugs` | Static Scan | Babel AST scanner for raw SQL injection, React `useEffect` timer leaks, and floating promises |
+| `npx apex-agents review` | Security | Git diff auditor blocking credential leaks, lazy `TODO` stubs, and test tampering (`it.skip`, etc.) |
+| `npx apex-agents test-loop` | Testing | Detects test runner, runs suite, and writes structured `APEX_FIX_PROMPT.md` on failure |
+| `npx apex-agents cost` | Metrics | Measures repo token volume (subword regex), actual AST compaction savings, and optional `--price-in=<$/1M>` |
+| `npx apex-agents budget` | Metrics | Inspects context bloat and generates recommended `.cursorignore` rules |
+| `npx apex-agents sandbox <cmd>` | Isolation | Creates and cleans isolated Git Worktrees (`.worktrees/`, branch `apex/<name>`) |
+| `npx apex-agents handoff` | State | Serializes git status and recent commits into a compact `<session_handoff>` XML block |
+| `npx apex-agents memory [cmd]` | State | Records project architecture decisions in `.agents/memory.json` and syncs to `CLAUDE.md` |
+| `npx apex-agents mcp` | Protocol | Starts the native stdio Model Context Protocol (MCP) server for Claude Desktop & Cursor |
+| `npx apex-agents export-all` | Export | Writes rule configs for Claude Code, Cursor, Windsurf, Copilot, and Aider |
+| `npx apex-agents studio` | Interface | Interactive keyboard-driven terminal explorer for browsing specialist prompt packs |
+| `npx apex-agents dashboard` | Interface | Opens local HTML explorer (`dashboard.html`) in your browser |
+| `npx apex-agents doctor` | Diagnostics | Checks Node.js runtime, git common dir (worktree-aware), hooks, and `.cursor/rules` |
 
 ---
 
 ## 🗜️ 1. AST Context Compactor (`apex-agents compact`)
 
-Raw source code floods LLM context windows with internal implementation details that the model doesn't need to understand architecture.
-
-The Babel AST Context Compactor parses **TypeScript, JavaScript, JSX, Python (`.py`), Go (`.go`), and Rust (`.rs`)** files, stripping internal function bodies down to signatures (`{}` or `pass`) while preserving 100% syntactically valid interfaces, types, exports, and parameter signatures:
+Instead of dumping full source files into an AI chat, `apex-agents compact` parses **TypeScript, JavaScript, JSX, Python (`.py`), Go (`.go`), and Rust (`.rs`)**, replacing internal function bodies with `{}` or `pass` while keeping interfaces, types, exports, parameter signatures, and cross-file callers:
 
 ```bash
-# Basic compaction across repository -> APEX_CONTEXT.md
+# Compact repository -> APEX_CONTEXT.md
 npx apex-agents compact
 
-# Pack as structured XML (optimized for Claude & Gemini prompt boundaries)
+# Output structured XML or JSON
 npx apex-agents compact --xml
+npx apex-agents compact --json
 
-# Filter to top 10 architectural hubs by PageRank centrality
+# Prioritize top 10 hubs by PageRank or enforce a token cap
 npx apex-agents compact --top=10
-
-# Limit compacted context to a strict token budget (e.g. 8,000 tokens)
 npx apex-agents compact --budget=8000
 ```
 
-```
-┌────────────────────────────────────────────────────────┐
-│               APEX AST CONTEXT COMPACTOR               │
-├────────────────────────────────────────────────────────┤
-│ Original Token Size : ~12,931 tokens (48.9 KB)         │
-│ Compacted Token Size: ~1,490 tokens (5.6 KB)          │
-│ Token Reduction     : 88.5% SAVINGS                    │
-│ Output Artifact     : APEX_CONTEXT.md / XML / JSON     │
-└────────────────────────────────────────────────────────┘
-```
-
-### 🔗 Advanced AST Engineering Features
-- **Reverse Caller Annotation**: Injects cross-file callers directly above signatures:
+- **Reverse Caller Annotation**:
   ```typescript
   // 🔗 Callers (2): src/controllers/user.ts:45, src/routes/auth.ts:12
   export function authenticateUser(token: string): Promise<Session>;
   ```
-- **PageRank Graph Centrality**: Prioritizes high-degree architectural hubs (`schema.ts`, `types.ts`, `auth.ts`) when packing context budgets.
-- **Multi-Format Context Packing**: Outputs clean Markdown (`APEX_CONTEXT.md`), XML (`APEX_CONTEXT.xml` with CDATA blocks for Claude), or JSON (`APEX_CONTEXT.json`).
-- **Multi-Language Skeletons**: Supports TypeScript/JS, Python (`def foo(): pass`), Go (`func Foo() {}`), and Rust (`fn foo() {}`).
+- **PageRank Centrality**: Ranks core hub modules (`types.ts`, `auth.ts`, `db.ts`) first when fitting inside a `--budget`.
 
 ---
 
-## 💾 2. Git-Native Checkpoint & Instant Rollback (`apex-agents checkpoint`)
+## 💾 2. Git-Native Checkpoint & Rollback (`apex-agents checkpoint`)
 
-Autonomous AI coding agents frequently corrupt files, hallucinate non-existent libraries, or break working state. Git stash or commit workflows are clunky and risk polluting your commit tree.
-
-`apex-agents checkpoint` captures an atomic working tree snapshot into `.agents/checkpoints/` in under 100ms:
+Before letting an AI assistant run a large refactor, snapshot your exact working state (tracked diffs, untracked files including unicode paths, gitignored `.env` files, and `.git/hooks`):
 
 ```bash
-# Save an atomic checkpoint before letting an agent refactor code
+# Save an atomic snapshot
 npx apex-agents checkpoint "before auth refactor"
 
-# View all saved checkpoints with timestamp and modified file counts
+# List saved checkpoints
 npx apex-agents checkpoints list
 
-# Instant rollback to previous checkpoint if the agent broke code
+# Roll back working tree, delete rogue untracked files, and restore .env & hooks
 npx apex-agents rollback
 ```
 
 ---
 
-## 📐 3. Spec-First Architectural Compiler (`apex-agents spec`)
+## 🔍 3. Semantic Symbol Tracer (`apex-agents trace`)
 
-When developers ask an AI agent to build a feature, the agent often writes premature code based on flawed assumptions.
-
-`apex-agents spec` translates any feature intent into a rigorous, zero-slop `SPEC.md` using the 5-phase gstack architectural standard:
-
-```bash
-npx apex-agents spec "Stripe Webhook Subscription Sync with PostgreSQL"
-```
-
-### What `SPEC.md` Enforces Before Any Code is Written:
-1. **Intent & Scope Boundaries**: Explicitly locks in-scope items and forbids scope creep.
-2. **TypeScript & DB Contracts**: Concrete domain interfaces, payload shapes, and migration schemas.
-3. **State Machine & Failure Transitions**: ASCII state diagrams with retry limits and idempotency keys.
-4. **Strict Negative Constraints**: Forbids `TODO` and `FIXME` stubs, untyped `any`, and test-cheating shortcuts.
-5. **TDD Acceptance Matrix**: Table of concrete test cases verifying happy paths and network failure recovery.
-6. **Sequential Execution Protocol**: Red-Green-Refactor checklist with verification gates.
-
----
-
-## 🔍 4. Semantic Symbol Tracer & Call-Graph (`apex-agents trace`)
-
-Feeding entire files into LLMs just to refactor a single function burns thousands of unnecessary tokens.
-
-`apex-agents trace` uses AST parsing to instantly locate any function, interface, or class, map its parameters, and find all downstream callers across the codebase into a compact ~100-token LLM dossier:
+Locate any symbol's declaration and every cross-file call site without loading entire files:
 
 ```bash
 npx apex-agents trace authenticateUser
@@ -237,149 +144,91 @@ npx apex-agents trace authenticateUser
 
 ---
 
-## 🪲 5. Production AST Bug Hunter (`apex-agents audit-bugs`)
+## 🪲 4. Static AST Bug Hunter (`apex-agents audit-bugs`)
 
-AI code often looks syntactically valid and passes basic linters, yet harbors critical runtime flaws.
-
-`apex-agents audit-bugs` parses your AST to catch deep production bugs before deployment:
+Traverses JS/TS ASTs with Babel to flag common runtime bugs:
 
 ```bash
 npx apex-agents audit-bugs
 ```
 
-- **Raw SQL Injection**: Catches string concatenations (`"SELECT * FROM " + input`) and template literal interpolations in database query calls.
-- **React Hook Timer & Memory Leaks**: Detects `useEffect` setups (`setInterval`, `addEventListener`) missing cleanup return functions.
-- **Floating Unhandled Promises**: Detects un-awaited async calls (`.save()`, `.fetch()`, `.delete()`) that risk unhandled rejection crashes.
+- **SQL Injection**: String concatenation, template literals, multi-hop variable aliases, computed member calls (`db['query']`), `.call`/`.apply`/`.bind`, and `Reflect.get` sinks.
+- **React Hook Timer Leaks**: `useEffect` calls registering `setInterval` or `addEventListener` without a cleanup return function.
+- **Floating Promises**: Un-awaited async persistence/network calls risking unhandled rejections.
 
 ---
 
-## 💰 6. Multi-Model Token Cost Predictor (`apex-agents cost`)
+## 📊 5. Token Volume & AST Compaction Auditor (`apex-agents cost`)
 
-Gain full visibility into token volume and pricing projections before loading codebases into LLMs:
+Measures repository token volume (using a fast local subword regex approximation) and calculates **actual measured AST compaction savings** across your codebase. Pass `--price-in` to compute cost for your own model's live input rate without relying on stale hardcoded vendor tables:
 
 ```bash
+# Measure token volume and real AST compaction savings
 npx apex-agents cost
-```
 
-```
-═════ APEX AGENTS: MULTI-MODEL TOKEN COST AUDITOR (Sample Output) ═════
-Scanned Files    : 45
-Raw Token Volume : ~101,691 tokens (382.8 KB, subword regex estimate)
-With AST Compact : ~18,305 tokens (82% est. reduction)
-
-MODEL CONTEXT & COST PROJECTIONS (Pricing ref: 2026-11, approximate):
-┌────────────────────────────┬──────────────────┬──────────────┬──────────────┐
-│ Model                      │ Context Window   │ Window Used  │ Single Cost  │
-├────────────────────────────┼──────────────────┼──────────────┼──────────────┤
-│ GPT-6 Astra                │ 1050k            │ 9.68%        │ $1.0169      │
-│ GPT-6.1 Sol                │ 1050k            │ 9.68%        │ $0.2034      │
-│ Gemini 4 Argon             │ 1,048k (1M)      │ 9.70%        │ $0.2034      │
-│ Gemini 4 Hydrogen          │ 1,048k (1M)      │ 9.70%        │ $0.1525      │
-│ Meta Muse Spark            │ 1,048k (1M)      │ 9.70%        │ $0.1271      │
-│ Claude Sonnet 5.5          │ 1000k            │ 10.17%       │ $0.2034      │
-│ Claude Opus 5.5            │ 1000k            │ 10.17%       │ $0.4068      │
-│ Grok 4.7                   │ 500k             │ 20.34%       │ $0.2034      │
-│ DeepSeek V4-Pro            │ 1000k            │ 10.17%       │ $0.0671      │
-│ DeepSeek V4.1-Flash        │ 1000k            │ 10.17%       │ $0.0153      │
-└────────────────────────────┴──────────────────┴──────────────┴──────────────┘
-Note: Reference vendor rates as of Nov 2026 (approximate; Gemini 4 Argon promo $2/$10 shifts to $4/$20 Dec 1, 2026; DeepSeek off-peak tiers).
-
-💡 Apex Savings Estimate: Running npx apex-agents compact saves ~$8.339 every 10 turns on GPT-6 Astra.
+# Optional: calculate dollar cost using your model's current $/1M input token rate
+npx apex-agents cost --price-in=2.00
 ```
 
 ---
 
-## 🏆 7. Internal AST & Engine Self-Check (`apex-agents swe-eval`)
+## 🔁 6. Deterministic Test-Loop Runner (`apex-agents test-loop`)
 
-Verify your local AST compactor, cross-file caller resolver, PageRank graph convergence, anti-cheat diff auditor, and test failure trace parser across 5 internal self-check vectors:
-
-```bash
-npx apex-agents swe-eval
-```
-
-```
-  ✓ PASS [VEC-1: AST Skeleton Fidelity] - Preserved signatures, stripped internal bodies cleanly
-  ✓ PASS [VEC-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s) for auth()
-  ✓ PASS [VEC-3: Graph PageRank Centrality Convergence] - Hub ranked #1 with score 13.3%
-  ✓ PASS [VEC-4: Anti-Cheat Test Tampering Defense] - Detected 2 test weakening issue(s) via diff engine
-  ✓ PASS [VEC-5: Test Failure Trace Diagnosis] - Extracted failing trace for UserService test at tests/user.test.ts:33
-
-═════ SELF-CHECK SUMMARY ═════
-  Vectors Passed : 5/5
-  Status         : PASS (5/5 Internal Vectors)
-```
-
----
-
-## 🔁 8. Transactional Test-Loop Runner (`apex-agents test-loop`)
-
-When AI coding agents write code that breaks unit tests, manual copy-pasting of error traces wastes developer time and causes hallucination loops.
-
-`apex-agents test-loop` executes your project's test suite, parses failure traces into a zero-slop `APEX_FIX_PROMPT.md`, and optionally runs transactional repair (`--heal`) with strict test-file immutability:
+Runs your project's test runner (auto-detecting `npm`, `pnpm`, `yarn`, `bun`, `vitest`, `jest`, `pytest`, `cargo test`, `go test`, or any custom command) and writes a structured `APEX_FIX_PROMPT.md` on failure for your IDE agent:
 
 ```bash
-# Auto-detects test runner (Node, pnpm, bun, yarn, cargo, pytest, go test)
+# Auto-detect project test runner
 npx apex-agents test-loop
 
-# Or specify a custom test command
-npx apex-agents test-loop "npm run test:e2e"
+# Or pass a custom command (quoted or unquoted)
+npx apex-agents test-loop node --test tests/auth.test.js
 ```
 
 ```
 ┌─────────────────┐       Pass (Exit 0)       ┌────────────────────────┐
-│  Run Test Suite ├──────────────────────────►│ Clean verification     │
-└────────┬────────┘                           │ (Removes fix prompt)   │
-         │ Fail (Exit > 0)                    └────────────────────────┘
+│  Run Test Suite ├──────────────────────────►│ Removes stale prompt   │
+└────────┬────────┘                           └────────────────────────┘
+         │ Fail (Exit > 0)
          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Parse failures & emit APEX_FIX_PROMPT.md (anti-tampering rules)     │
-└────────┬─────────────────────────────────────────────────────────────┘
-         ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  Safe Transactional --heal Gate (Zero Paid API Required):            │
-│  • Test-File Guard: strictly refuses to edit *.test.* / *.spec.*     │
-│  • Tier 1: Local Ollama (fast /api/tags probe + 120s generation)     │
-│  • Tier 2: Optional Cloud API (only if env key explicitly set)       │
-│  • Pre-patch checkpoint → auditDiff() → re-test → auto-rollback      │
-│  • Tier 3: Zero-paid-API handoff via APEX_FIX_PROMPT.md to IDE agent │
+│  Parse failures (file, line, expected vs actual, stack trace)        │
+│  Emit APEX_FIX_PROMPT.md with anti-test-tampering constraints        │
+│  Hand off directly to Cursor, Claude Code, or Windsurf               │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🛡️ 9. Pre-Commit Security & Anti-Cheat Diff Auditor (`apex-agents review`)
-
-Apex Agents installs an automated pre-commit hook that intercepts security vulnerabilities and AI slop before commits are recorded:
+## 🛡️ 7. Pre-Commit Security & Anti-Cheat Diff Auditor (`apex-agents review`)
 
 ```bash
-# Audit working tree changes
+# Audit working tree diff
 npx apex-agents review
 
-# Audit staged changes with strict failure flags
+# Audit staged diff with strict exit code on violations
 npx apex-agents review --staged --strict
 ```
 
-### What it Intercepts:
-- **Critical Secret Leaks**: High-entropy scans for AWS Access Keys, Stripe Secret Keys, OpenAI Keys, GitHub Tokens, and raw private keys.
-- **AI Slop & Lazy Placeholders**: Detects cosmetic placeholders (lazy `TODO` stubs, omitted code ellipsis, and unimplemented exception throws).
-- **Anti-Cheat Test Tampering**: Intercepts attempts by AI agents to fake green test runs by modifying test suites (`it.only`, `test.only`, `it.skip`, commenting out assertions).
+- **Secret Leak Detection** (shared with `scripts/scan-secrets.js`): Detects AWS keys, Stripe keys, OpenAI/Anthropic keys, GitHub tokens, Slack tokens, private keys, base64 payloads, split/concatenated strings, hex/unicode escapes, zero-width characters, and bitwise `String.fromCharCode` obfuscation.
+- **Anti-Cheat Test Tampering**: Intercepts `it.skip`, `it.only`, commented assertions, early returns, `process.exit`, assertion shadowing, dead branches, and tautological assertions in test diffs.
+- **Placeholder Detection**: Flags `TODO`/`FIXME` placeholders, empty `catch {}` blocks, and unimplemented stubs in source diffs.
 
 ---
 
-## 🔌 10. Native Model Context Protocol (MCP) Server
+## 🔌 8. Native Model Context Protocol (MCP) Server
 
-Apex Agents includes a native Model Context Protocol (JSON-RPC 2.0 stdio) server, exposing both physical AST engineering tools and agent personas directly inside **Claude Desktop**, **Cursor**, **Windsurf**, and **Antigravity**.
+Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 stdio to **Claude Desktop**, **Cursor**, **Windsurf**, and **Antigravity**:
 
-### Physical MCP Tools Exposed:
-- `apex_compact_code`: Token-reducing Babel AST compactor (80-90% token reduction while preserving types and signatures).
-- `apex_audit_code_bugs`: Static AST vulnerability & bug hunter (SQLi, unhandled timer leaks, floating promises).
-- `apex_checkpoint`: Git-native working tree snapshot including untracked files, `.env`, and git hooks.
-- `apex_rollback`: Instant atomic rollback to previous checkpoint.
-- `apex_trace_symbol`: Cross-file symbol definition and caller site tracing.
-- `apex_audit_diff`: Diff auditor intercepting credential leaks and test tampering (`.skip`, commented assertions).
-- `list_specialists` / `summon_specialist`: Direct access to all 38 specialist instructions and operational instincts.
+### MCP Tools Exposed
+- `apex_compact_code`: Babel AST compactor preserving signatures and types.
+- `apex_audit_code_bugs`: Static AST scanner for SQLi, hook leaks, and floating promises.
+- `apex_checkpoint`: Git-native working tree snapshot (including untracked files, `.env`, hooks).
+- `apex_rollback`: Atomic rollback to a saved checkpoint.
+- `apex_trace_symbol`: Cross-file symbol declaration and caller lookup.
+- `apex_audit_diff`: Security and anti-test-tampering diff auditor.
+- `list_specialists` / `summon_specialist`: Browse and load the 38 specialist prompt packs and 13 operational instincts.
 
-### Configuration (`claude_desktop_config.json`):
+### Configuration (`claude_desktop_config.json`)
 ```json
 {
   "mcpServers": {
@@ -393,92 +242,41 @@ Apex Agents includes a native Model Context Protocol (JSON-RPC 2.0 stdio) server
 
 ---
 
-## 🏛️ Agency Divisions & Specialists (38 Expert Personas)
+## 🏛️ Specialist Prompt Packs (38 Domain Directives across 10 Divisions)
 
-> **Architectural Note**: Each specialist below is a domain-specific **System Instruction Protocol** (`agents/<division>/<name>.md`). When summoned, it injects strict negative constraints, execution workflows, and verification gates into your AI coding session.
+> **Note**: Each specialist is a structured Markdown system-instruction file (`agents/<division>/<name>.md`) containing role boundaries, negative constraints, workflows, and verification gates.
 
-### 1. 🛠️ Core Engineering
-- **Frontend Architect** (`@frontend-architect`): Enforces React 19 standards, server components, GPU compositing, and accessibility.
-- **TypeScript Pro** (`@typescript-pro`): Enforces zero-any policy, discriminated unions, and advanced generic constraints.
-- **Backend Systems Lead** (`@backend-systems-lead`): Governs distributed architecture, idempotency keys, and circuit breakers.
-- **Database Tuner** (`@database-tuner`): Prevents sequential table sweeps, optimizes composite B-Tree indexes, and audits write overhead.
-- **API & Microservices Lead** (`@api-microservices-lead`): Designs REST, gRPC, and WebSocket streaming contracts.
-- **State Machine Architect** (`@state-machine-architect`): Prevents boolean state explosion by modeling flows with XState.
-- **Fullstack General** (`@fullstack-general`): Implements clean vertical slices with end-to-end schema validation.
-
-### 2. 🤖 AI, LLM & Agentic Systems
-- **RAG Pipeline Architect** (`@rag-pipeline-architect`): Designs hybrid retrieval (BM25 + vector) and cross-encoder re-ranking.
-- **LLM Eval Benchmarker** (`@eval-benchmarker`): Establishes deterministic hallucination benchmarks and faithfulness scoring.
-- **Prompt Injection Shield** (`@prompt-injection-shield`): Guides defense against prompt injection, jailbreaks, and context extraction.
-- **MCP Server Builder** (`@mcp-server-builder`): Standards for authoring Model Context Protocol tools and schemas.
-
-### 3. 🎬 Media & Video Processing
-- **Remotion Motion Engineer** (`@remotion-motion-engineer`): Guides deterministic React video rendering with clamped spring physics.
-- **FFmpeg Pipeline Master** (`@ffmpeg-pipeline-master`): Formulates production FFmpeg encoding flags (H.264/HEVC, web faststart, hardware acceleration).
-
-### 4. 🌐 Cloud-Native & Distributed Scale
-- **System Design Architect** (`@system-design-architect`): High-availability sharding, caching strategies, and CAP theorem trade-offs.
-- **Serverless Edge Lead** (`@serverless-edge-lead`): Optimizes Cloudflare Workers, sub-50ms cold starts, and edge streaming.
-- **GraphQL Federation** (`@graphql-federation-architect`): Subgraph federation and DataLoader N+1 batch resolution.
-- **Event Sourcing Specialist** (`@event-sourcing-specialist`): Designs append-only event stores, CQRS models, and transactional outboxes.
-
-### 5. 🔍 Reverse Engineering & Security Analysis
-- **Binary & Assembly Inspector** (`@binary-decompiler`): Guides analysis of disassembled code, WASM bytecode, and function prologues without hallucination.
-- **AST & Code Inspector** (`@binary-ast-inspector`): Source map reconstruction and AST-level de-obfuscation workflows.
-- **Network Protocol Auditor** (`@network-security-auditor`): Audits TLS 1.3 handshakes, WebSocket frames, and binary wire protocols.
-
-### 6. 🛡️ Security & Red Team
-- **AppSec Auditor** (`@appsec-auditor`): Systematically assesses OWASP Top 10 vulnerabilities (SQLi, XSS, SSRF, IDOR).
-- **Secret Leak Sentinel** (`@secret-leak-sentinel`): Pre-commit high-entropy credential detection and `.env` boundary enforcement.
-- **Auth & Identity Guard** (`@auth-identity-guard`): Enforces secure OAuth2, PKCE, token refresh cycles, and session integrity.
-- **Dependency Scanner** (`@dependency-vulnerability-scanner`): Audits supply-chain CVEs and transitive dependency risks.
-
-### 7. ⚡ Deep Performance
-- **CWV & LCP Doctor** (`@cwv-lcp-doctor`): Optimizes Core Web Vitals (sub-2.5s LCP, zero CLS, main-thread INP scheduling).
-- **Memory Leak Hunter** (`@memory-leak-hunter`): Diagnoses V8 heap snapshots, event listener leaks, and detached DOM trees.
-- **Bundle Dietician** (`@bundle-dietician`): Eliminates dead code, tree-shakes bundles, and purges phantom dependencies.
-- **SQL Query Optimizer** (`@sql-query-optimizer`): Transforms slow relational queries with keyset pagination and covering indexes.
-
-### 8. 🧪 Quality Assurance & Testing
-- **TDD Champion** (`@tdd-champion`): Enforces the Red-Green-Refactor cycle and unit/branch coverage standards.
-- **E2E Playwright Tester** (`@e2e-playwright-tester`): Authors resilient, deterministic end-to-end tests with trace recording.
-- **Edge-Case Fuzzer** (`@edge-case-fuzzer`): Generates extreme input boundary tests (unicode, zero-bytes, race conditions).
-
-### 9. ☁️ DevOps & Infrastructure
-- **Docker & Container Architect** (`@docker-slimmer`): Designs secure, minimal multi-stage Dockerfiles with non-root execution.
-- **CI/CD Pipeline Master** (`@ci-cd-pipeline-master`): Configures cross-platform GitHub Actions workflows with caching and matrix builds.
-- **Kubernetes Architect** (`@k8s-cloud-architect`): Authors Helm charts, resource limits, HPA scaling, and zero-downtime deployments.
-
-### 10. 🚀 Product Launch & DevRel
-- **Growth Marketer** (`@growth-marketer`): Conversion Rate Optimization (CRO), technical copywriting, and launch playbooks.
-- **Prompt Architect** (`@prompt-architect`): 6-step hierarchical system prompts for Claude Sonnet 5.5, GPT-6, and Gemini 4.
-- **PR Artisan** (`@pr-artisan`): Creates clean, conventional pull request documentation and changelogs.
-- **README Copywriter** (`@readme-copywriter`): Authors clear, authentic, high-converting open-source documentation.
+1. **Core Engineering**: `@frontend-architect`, `@typescript-pro`, `@backend-systems-lead`, `@database-tuner`, `@api-microservices-lead`, `@state-machine-architect`, `@fullstack-general`
+2. **AI, LLM & Agentic Systems**: `@rag-pipeline-architect`, `@eval-benchmarker`, `@prompt-injection-shield`, `@mcp-server-builder`
+3. **Media & Video Processing**: `@remotion-motion-engineer`, `@ffmpeg-pipeline-master`
+4. **Cloud-Native & Distributed Scale**: `@system-design-architect`, `@serverless-edge-lead`, `@graphql-federation-architect`, `@event-sourcing-specialist`
+5. **Reverse Engineering & Analysis**: `@binary-decompiler`, `@binary-ast-inspector`, `@network-security-auditor`
+6. **Security & Red Team**: `@appsec-auditor`, `@secret-leak-sentinel`, `@auth-identity-guard`, `@dependency-vulnerability-scanner`
+7. **Performance**: `@cwv-lcp-doctor`, `@memory-leak-hunter`, `@bundle-dietician`, `@sql-query-optimizer`
+8. **Quality Assurance & Testing**: `@tdd-champion`, `@e2e-playwright-tester`, `@edge-case-fuzzer`
+9. **DevOps & Infrastructure**: `@docker-slimmer`, `@ci-cd-pipeline-master`, `@k8s-cloud-architect`
+10. **Product & DevRel**: `@growth-marketer`, `@prompt-architect`, `@pr-artisan`, `@readme-copywriter`
 
 ---
 
-## ⚡ The 13 Operational Instincts
+## ⚡ 13 Operational Instincts (`instincts/`)
 
-These behavioral rules are loaded into the AI agent's memory to govern its autonomous execution:
-
-1. **Zero-Slop Contract**: Strictly forbids lazy placeholder comments, empty handlers, and cosmetic skinning.
-2. **Verification Before Completion**: Mandates compiler checks, linters, and test execution before claiming success.
-3. **Test-Driven Discipline**: Requires writing reproducing tests before applying bug fixes.
-4. **Context Retention**: Injects periodic structured `STATE` blocks to prevent attention drift across long threads.
-5. **Anti-Loop Root Cause**: Circuit breaker that halts infinite retry loops after 2 consecutive failures.
-6. **Anti-Drift Scope Boundary**: Restricts file modifications strictly to the targeted task boundary.
-7. **Rationalization Breaker**: Eliminates common LLM excuses (*"The code looks right so it must work"*).
-8. **Systematic Investigation**: 4-phase rule: `Reproduce` ➔ `Isolate` ➔ `Hypothesize` ➔ `Verify`.
-9. **LLM Hallucination Defense**: Requires verifying package versions and APIs before generating code.
-10. **Minimalist Code Discipline**: *"The best code is the code you never wrote."* Deletes dead code before adding new lines.
-11. **Caveman Token Discipline**: Telegraphic brevity mode that eliminates conversational filler to conserve token budgets.
-12. **Editorial Diagram Rules**: Clean, self-contained HTML/SVG architecture cards instead of messy graph spaghetti.
-13. **Anti-Cheat Test Tampering**: Strictly forbids skipping tests (`it.skip`) or commenting out assertions to fake passing builds.
+1. Zero-Slop Contract
+2. Verification Before Completion
+3. Test-Driven Discipline
+4. Context Retention (`STATE` blocks)
+5. Anti-Loop Root Cause Circuit Breaker
+6. Anti-Drift Scope Boundary
+7. Rationalization Breaker
+8. Systematic Investigation
+9. Hallucination Defense
+10. Minimalist Code Discipline
+11. Concise Token Discipline
+12. Clean Diagram Rules
+13. Anti-Cheat Test Tampering
 
 ---
 
 ## 📜 License
 
-Distributed under the **MIT License**. Free for personal and commercial engineering teams worldwide.
-
-Authored with precision by **Amanulla Shaikh** for the global autonomous AI engineering ecosystem.
+Distributed under the **MIT License**. Authored by **Amanulla Shaikh**.

@@ -59,7 +59,7 @@ function getInstinctContent(instinctId) {
 const TOOLS = [
   {
     name: 'list_specialists',
-    description: 'Lists all available specialized agents in the Apex Agents Agency by division',
+    description: 'Lists all available specialized agents in Apex Agents by division',
     inputSchema: {
       type: 'object',
       properties: {}

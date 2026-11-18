@@ -3,57 +3,63 @@ import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { computeTokenCost, estimateTokens } from '../scripts/token-cost.js';
+import { computeTokenCost, estimateTokens, countBpeTokens } from '../scripts/token-cost.js';
 
-describe('Multi-Model Token Cost & Window Predictor Suite', () => {
-  test('should estimate tokens accurately from char counts', () => {
+describe('Token Volume & Measured AST Compaction Auditor Suite', () => {
+  test('should estimate tokens from numeric char counts', () => {
     assert.strictEqual(estimateTokens(380), 100);
     assert.strictEqual(estimateTokens(0), 0);
   });
 
-  test('should estimate tokens using subword BPE tokenizer regex', () => {
+  test('should estimate tokens using subword regex tokenizer', () => {
     const text = 'function calculateTotal(price: number, tax: number): number { return price * (1 + tax); }';
-    const tokens = estimateTokens(text);
+    const tokens = countBpeTokens(text);
     assert.ok(tokens > 10 && tokens < 35);
+    assert.strictEqual(estimateTokens(text), tokens);
     assert.strictEqual(estimateTokens(''), 0);
   });
 
-  test('should compute multi-model context window usage and pricing', () => {
+  test('should measure actual AST compaction savings without hardcoded vendor tables', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-cost-test-'));
     try {
-      fs.writeFileSync(path.join(tmpDir, 'large.ts'), 'const x = "hello world";\n'.repeat(100));
+      const sampleTs = `
+        export interface Invoice {
+          id: string;
+          subtotal: number;
+          taxRate: number;
+        }
+
+        export function calculateInvoiceTotal(inv: Invoice): number {
+          const base = inv.subtotal;
+          const tax = base * inv.taxRate;
+          const discount = base > 500 ? base * 0.05 : 0;
+          const handlingFee = 12.5;
+          const intermediate = base + tax - discount + handlingFee;
+          const rounded = Math.round(intermediate * 100) / 100;
+          return rounded;
+        }
+      `.repeat(5);
+
+      fs.writeFileSync(path.join(tmpDir, 'billing.ts'), sampleTs);
+      fs.writeFileSync(path.join(tmpDir, 'notes.md'), '# Notes\nShort project note.\n');
 
       const report = computeTokenCost(tmpDir);
-      assert.strictEqual(report.scannedFiles, 1);
-      assert.strictEqual(report.pricingUpdated, '2026-11');
+      assert.strictEqual(report.scannedFiles, 2);
       assert.ok(report.totalTokens > 0);
-      assert.ok(report.compactedTokensEst < report.totalTokens);
-      assert.strictEqual(report.modelProjections.length, 10);
+      assert.ok(report.rawCodeTokens > 0);
+      assert.ok(report.compactedCodeTokens > 0);
+      assert.ok(report.compactedCodeTokens < report.rawCodeTokens, 'AST compaction must genuinely shrink code tokens');
+      assert.ok(report.codeSavingsPercent > 20, `Expected real >20% AST reduction, got ${report.codeSavingsPercent}%`);
+      assert.strictEqual(report.customCost, null);
+      assert.strictEqual(report.topFiles.length, 2);
+      assert.strictEqual(report.topFiles[0].file, 'billing.ts');
 
-      const astra = report.modelProjections.find(m => m.model === 'GPT-6 Astra');
-      assert.ok(astra);
-      assert.strictEqual(astra.contextLimit, 1050000);
-      assert.ok(astra.costPerTurn >= 0);
-
-      const argon = report.modelProjections.find(m => m.model === 'Gemini 4 Argon');
-      assert.ok(argon);
-      assert.strictEqual(argon.contextLimit, 1048576);
-
-      const spark = report.modelProjections.find(m => m.model === 'Meta Muse Spark');
-      assert.ok(spark);
-      assert.strictEqual(spark.contextLimit, 1048576);
-
-      const sonnet = report.modelProjections.find(m => m.model === 'Claude Sonnet 5.5');
-      assert.ok(sonnet);
-      assert.strictEqual(sonnet.contextLimit, 1000000);
-
-      const grok = report.modelProjections.find(m => m.model === 'Grok 4.7');
-      assert.ok(grok);
-      assert.strictEqual(grok.contextLimit, 500000);
-
-      const deepseek = report.modelProjections.find(m => m.model === 'DeepSeek V4-Pro');
-      assert.ok(deepseek);
-      assert.strictEqual(deepseek.contextLimit, 1000000);
+      // Custom user-supplied rate (--price-in=<$/1M>)
+      const pricedReport = computeTokenCost(tmpDir, { priceInPerMillion: 2.0 });
+      assert.ok(pricedReport.customCost);
+      assert.strictEqual(pricedReport.customCost.priceInPerMillion, 2.0);
+      assert.ok(pricedReport.customCost.rawCodeCostPerLoad >= pricedReport.customCost.compactedCodeCostPerLoad);
+      assert.ok(pricedReport.customCost.savingsTenTurns >= 0);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

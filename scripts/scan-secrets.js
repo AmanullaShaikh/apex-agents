@@ -2,114 +2,14 @@
 
 import fs from 'fs';
 import path from 'path';
+import {
+  SECRET_PATTERNS,
+  ZERO_WIDTH_REGEX,
+  foldStringLiterals,
+  inspectBase64Payloads
+} from './audit-diff.js';
 
-// High-confidence regex signatures for sensitive credentials
-const SECRET_PATTERNS = [
-  { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
-  { name: 'Stripe Publishable Key', regex: /pk_live_[0-9a-zA-Z]{24}/ },
-  { name: 'OpenAI API Key', regex: /sk-proj-[0-9a-zA-Z-_]{48,}/ },
-  { name: 'Anthropic API Key', regex: /sk-ant-api03-[0-9a-zA-Z-_]{80,}/ },
-  { name: 'AWS Access Key ID', regex: /\bAKIA[0-9A-Z]{16}\b/ },
-  { name: 'Base64 Encoded AWS Key', regex: /\bQUtJQS[0-9a-zA-Z+/=]{16,}\b/ },
-  { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
-  { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
-  { name: 'Private SSH Key', regex: /-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----/ },
-  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
-  { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
-];
-
-const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]|feff|00ad|2060|180e)/gi;
-
-export function foldStringLiterals(text) {
-  let folded = text.replace(ZERO_WIDTH_REGEX, '');
-
-  // 0. Decode hex (\xHH) and unicode (\uHHHH) escape sequences in strings
-  folded = folded.replace(/\\x([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
-  folded = folded.replace(/\\u([0-9a-fA-F]{4})/g, (m, u) => String.fromCharCode(parseInt(u, 16)));
-
-  // 1. Evaluate Buffer.from(hex, 'hex')
-  folded = folded.replace(/Buffer\.from\s*\(\s*['"]([0-9a-fA-F]{8,})['"]\s*,\s*['"]hex['"]\s*\)(\.toString\(\s*['"]?utf-?8['"]?\s*\))?/g, (m, hex) => {
-    try {
-      return "'" + Buffer.from(hex, 'hex').toString('utf-8') + "'";
-    } catch {
-      return m;
-    }
-  });
-
-  // 2. Evaluate String.fromCharCode(...) / String.fromCodePoint(...) including bitwise, arithmetic, and hex expressions
-  folded = folded.replace(/String\.(fromCharCode|fromCodePoint)\s*\(\s*([0-9a-fA-FxX\s,\^\&\|\+\-\*\/\(\)]+)\s*\)/g, (m, fn, nums) => {
-    try {
-      const chars = nums.split(',').map(expr => {
-        const trimmed = expr.trim();
-        if (/^[0-9a-fA-FxX\s\^\&\|\+\-\*\/\(\)]+$/.test(trimmed)) {
-          return String.fromCharCode(Function(`'use strict'; return (${trimmed});`)());
-        }
-        return '';
-      }).join('');
-      return "'" + chars + "'";
-    } catch {
-      return m;
-    }
-  });
-
-  // 3. Evaluate String.split('').reverse().join('')
-  folded = folded.replace(/['"]([a-zA-Z0-9_\-\/+=$]{8,})['"]\.split\(['"]{2}\)\.reverse\(\)\.join\(['"]{2}\)/g, (m, s) => {
-    return "'" + s.split('').reverse().join('') + "'";
-  });
-
-  // 4. Evaluate function templates: ${(() => 'AKIA')()}
-  folded = folded.replace(/\$\{\s*\(\s*\(\s*\)\s*=>\s*['"]([^'"]+)['"]\s*\)\s*\(\s*\)\s*\}/g, '$1');
-
-  // 5. Fold array joins: ['a', 'b', 'c'].join('') -> 'abc'
-  folded = folded.replace(/\[\s*(['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*,\s*)+['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*\]\.join\(['"`]['"`]\)/g, m => {
-    return "'" + m.replace(/\[|\]|\.join\(['"`]['"`]\)/g, '').split(',').map(s => s.trim().replace(/^['"`]|['"`]$/g, '')).join('') + "'";
-  });
-
-  // 6. Fold native .concat(): 'a'.concat('b') -> 'ab'
-  folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\.concat\((['"`])([a-zA-Z0-9_\-\/+=$]+)\3\)/g, '$1$2$4$1');
-
-  // 7. Fold template literals: `${'a'}${'b'}` -> 'ab'
-  folded = folded.replace(/\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\1\s*\}\s*\$\{\s*(['"`])([a-zA-Z0-9_\-\/+=$]+)\3\s*\}/g, '$2$4');
-
-  // 8. Fold .replace() and .replaceAll() string transformations
-  folded = folded.replace(/(['"])([^'"]+)\1\.(replace|replaceAll)\s*\(\s*(['"])([^'"]+)\4\s*,\s*(['"])([^'"]*)\6\s*\)/g, (m, q1, str, method, q2, search, q3, repl) => {
-    try {
-      if (method === 'replaceAll') {
-        return q1 + str.replaceAll(search, repl) + q1;
-      } else {
-        return q1 + str.replace(search, repl) + q1;
-      }
-    } catch {
-      return m;
-    }
-  });
-
-  // 9. Fold string concatenation in loop for arbitrary multi-part additions
-  let prev;
-  let iterations = 0;
-  do {
-    prev = folded;
-    folded = folded.replace(/(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\1\s*\+\s*(['"`])([a-zA-Z0-9_\-\/+=$]{1,500})\3/g, '$1$2$4$1');
-    iterations++;
-  } while (folded !== prev && iterations < 20);
-
-  return folded;
-}
-
-export function inspectBase64Payloads(text) {
-  const normalized = text.replace(ZERO_WIDTH_REGEX, '');
-  const b64Regex = /\b[A-Za-z0-9+/=]{16,}\b/g;
-  let m;
-  while ((m = b64Regex.exec(normalized)) !== null) {
-    try {
-      const decoded = Buffer.from(m[0], 'base64').toString('utf-8');
-      if (/\bAKIA[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
-        return { matched: m[0], decodedSnippet: decoded.slice(0, 30) };
-      }
-    } catch {}
-  }
-  return null;
-}
+export { foldStringLiterals, inspectBase64Payloads };
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next']);
 

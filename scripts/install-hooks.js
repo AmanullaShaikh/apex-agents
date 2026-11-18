@@ -2,15 +2,30 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
+
+function resolveGitCommonDir(projectDir) {
+  try {
+    const common = execSync('git rev-parse --git-common-dir', {
+      cwd: projectDir,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (!common) return null;
+    return path.resolve(projectDir, common);
+  } catch {
+    return null;
+  }
+}
 
 export function installGitHooks(projectDir = process.cwd()) {
-  const gitDir = path.join(projectDir, '.git');
-  if (!fs.existsSync(gitDir)) {
-    console.error(`\x1b[31mError: No .git directory found in ${projectDir}. Initialize git first.\x1b[0m`);
+  const gitCommonDir = resolveGitCommonDir(projectDir);
+  if (!gitCommonDir) {
+    console.error(`\x1b[31mError: No git repository found in ${projectDir}. Initialize git first.\x1b[0m`);
     return false;
   }
 
-  const hooksDir = path.join(gitDir, 'hooks');
+  const hooksDir = path.join(gitCommonDir, 'hooks');
   fs.mkdirSync(hooksDir, { recursive: true });
 
   const preCommitHookPath = path.join(hooksDir, 'pre-commit');
@@ -39,11 +54,6 @@ if command -v node >/dev/null 2>&1; then
     }
   fi
 
-  if [ -f "./scripts/scope-enforcer.js" ]; then
-    node "./scripts/scope-enforcer.js" || {
-      echo "⚠️ Warning: Potential scope drift detected."
-    }
-  fi
   echo "✓ [Apex-Agents Hook] Safety checks passed."
 fi
 # --- END APEX AGENTS BLOCK ---

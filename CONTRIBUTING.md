@@ -1,6 +1,6 @@
 # 🤝 Contributing to Apex Agents
 
-Thank you for your interest in contributing to **Apex Agents**! We welcome contributions from developers worldwide to build the most formidable, sovereign AI engineering agency and tooling harness.
+Thank you for your interest in contributing to **Apex Agents**. Contributions to the local AST tooling, security auditors, tests, and specialist prompts are welcome.
 
 ---
 
@@ -28,10 +28,10 @@ npm install
 ```
 
 ### 3. Run the Test Suite
-Apex Agents includes a comprehensive 67+ test suite verifying AST compaction, bug hunting, git checkpoints, symbol tracing, and adversarial stress:
+Apex Agents includes an automated test suite verifying AST compaction, bug hunting, diff auditing, git checkpoints, symbol tracing, MCP tooling, and adversarial stress cases:
 
 ```bash
-# Run full suite (Validator + Unit tests + Fuzzing + Benchmarks)
+# Run full suite (Agent schema validator + Unit/Integration/Fuzz tests)
 npm test
 
 # Run unit tests only
@@ -52,8 +52,7 @@ npm run test:agents
 │   ├── security/       # AppSec, auth, secrets, dependency auditors
 │   └── ...             # DevOps, media, reverse-engineering, performance
 ├── instincts/          # 13 Operational behavioral rules (Zero-Slop, TDD, Anti-Loop)
-├── design-systems/     # Design token specifications (Linear, Stripe, Apple, Raycast)
-├── scripts/            # Executable Node.js engines (Babel AST, checkpoint, spec, trace, bugs)
+├── scripts/            # Executable Node.js engines (Babel AST, checkpoint, audit, trace, bugs)
 ├── bin/                # CLI entrypoints (apex.js, mcp-server.js, tui.js)
 ├── tests/              # Adversarial, unit, and integration test suites
 └── .cursor/rules/      # Auto-exported .mdc rules for Cursor

@@ -3,19 +3,16 @@ import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import http from 'http';
 import { execSync } from 'child_process';
-import { setTimeout as delay } from 'node:timers/promises';
 import {
   detectTestRunner,
   parseTestFailures,
   generateFixPrompt,
-  isTestFile,
   detectNoRunner,
-  resolveImplementationTarget
+  runTestLoop
 } from '../scripts/test-loop.js';
 
-describe('Test-Loop & Transactional Self-Healing Suite', () => {
+describe('Deterministic Test-Loop Runner & Fix Prompt Suite', () => {
   test('should detect test runner from package.json or config files', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-testloop-'));
     try {
@@ -61,7 +58,7 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
     }
   });
 
-  test('should parse test failure traces accurately', () => {
+  test('should parse test failure traces accurately including Windows file:/// paths and node --test deduplication', () => {
     const sampleOutput = `
       ▶ UserService test suite
         ✔ should fetch user by id (12ms)
@@ -81,6 +78,29 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
     assert.strictEqual(failures[0].line, 42);
     assert.match(failures[0].error, /AssertionError: expected 401 but received 500/);
     assert.strictEqual(failures[0].stack.length, 2);
+
+    // Deduplicate summary + detailed node --test output and preserve Windows drive letters
+    const nodeTestOutput = `
+✖ greet returns hello (3.1ms)
+ℹ tests 1
+ℹ fail 1
+
+✖ failing tests:
+
+test at file:///C:/Users/dev/app/greet.test.mjs:4:1
+✖ greet returns hello (3.1ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  expected: 'hello'
+  actual: 'hi'
+    at TestContext.<anonymous> (file:///C:/Users/dev/app/greet.test.mjs:4:31)
+    `;
+
+    const deduped = parseTestFailures(nodeTestOutput);
+    assert.strictEqual(deduped.length, 1);
+    assert.strictEqual(deduped[0].file, 'C:/Users/dev/app/greet.test.mjs');
+    assert.strictEqual(deduped[0].line, 4);
+    assert.strictEqual(deduped[0].expected, "'hello'");
+    assert.strictEqual(deduped[0].actual, "'hi'");
   });
 
   test('should generate structured APEX_FIX_PROMPT.md with anti-tampering constraints', () => {
@@ -114,12 +134,11 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
   test('should not generate fake fix prompt when no test runner or script is configured', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-notest-'));
     try {
-      const { runTestLoop } = await import('../scripts/test-loop.js');
       const res = await runTestLoop(tmpDir);
       assert.strictEqual(res.success, false);
       assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
 
-      // Verify custom non-existent command (: not found) does not produce fake prompt
+      // Verify custom non-existent command does not produce fake prompt
       const resMissing = await runTestLoop(tmpDir, 'non_existent_binary_tool_xyz_123');
       assert.strictEqual(resMissing.success, false);
       assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
@@ -128,8 +147,8 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
     }
   });
 
-  test('should NOT false-positive isNoRunner on real test assertions containing "not found" or "Cannot find module"', async () => {
-    assert.strictEqual(detectNoRunner(1, '', "AssertionError [ERR_ASSERTION]: user not found"), false);
+  test('should NOT false-positive detectNoRunner on real test assertions containing "not found" or "Cannot find module"', async () => {
+    assert.strictEqual(detectNoRunner(1, '', 'AssertionError [ERR_ASSERTION]: user not found'), false);
     assert.strictEqual(detectNoRunner(1, '', "Error: Cannot find module './missing-helper'"), false);
     assert.strictEqual(detectNoRunner(127, '', '/bin/sh: 1: vitest: not found'), true);
     assert.strictEqual(detectNoRunner(1, '', "'fakebin' is not recognized as an internal or external command"), true);
@@ -143,189 +162,11 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
         import assert from 'node:assert';
         test('finds user', () => { assert.ok(false, 'user not found'); });
       `);
-      const { runTestLoop } = await import('../scripts/test-loop.js');
       const res = await runTestLoop(tmpDir, 'node --test user.test.mjs');
       assert.strictEqual(res.success, false);
       assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), true);
+      assert.strictEqual(res.failures.length, 1);
     } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test('should strictly refuse to modify test files during --heal (zero test tampering)', async () => {
-    const { attemptAutoHeal } = await import('../scripts/test-loop.js');
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-no-tamper-'));
-    try {
-      const testFile = path.join(tmpDir, 'greet.test.mjs');
-      const originalTest = `import { test } from 'node:test';\nimport assert from 'node:assert';\ntest('greets', () => { assert.strictEqual('hi', 'hello'); });\n`;
-      fs.writeFileSync(testFile, originalTest);
-
-      assert.strictEqual(isTestFile(testFile), true);
-      assert.strictEqual(isTestFile('tests/foo.js'), true);
-      assert.strictEqual(isTestFile('src/greet.js'), false);
-
-      const mockFailures = [{
-        file: testFile,
-        error: "AssertionError: Expected 'hi' to equal 'hello'",
-        stack: [`at ${testFile}:3:25`]
-      }];
-
-      const res = await attemptAutoHeal(tmpDir, mockFailures, 'AssertionError');
-      assert.strictEqual(res.healed, false);
-      assert.strictEqual(res.reason, 'TEST_FILE_PROTECTED_DELEGATED_TO_IDE');
-      // Test file must remain 100% untouched byte-for-byte
-      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test('should support slow Ollama generation (>1.5s), verify re-test, and auto-rollback broken patches', async () => {
-    const { attemptAutoHeal } = await import('../scripts/test-loop.js');
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-ollama-tx-'));
-    let mode = 'broken';
-
-    const server = http.createServer(async (req, res) => {
-      if (req.url === '/api/tags') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ models: [{ name: 'qwen2.5-coder:latest' }] }));
-      } else if (req.url === '/api/generate') {
-        // Delay 1800ms (> old 1500ms bug) to prove two-stage timeout handles real LLM latency
-        await delay(1800);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        if (mode === 'broken') {
-          res.end(JSON.stringify({ response: '```js\nexport function add(a, b) { return a * b; }\n```' }));
-        } else {
-          res.end(JSON.stringify({ response: '```js\nexport function add(a, b) { return a + b; }\n```' }));
-        }
-      } else {
-        res.writeHead(404);
-        res.end();
-      }
-    });
-
-    await new Promise(r => server.listen(0, '127.0.0.1', r));
-    const port = server.address().port;
-    const ollamaHost = `http://127.0.0.1:${port}`;
-
-    try {
-      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
-      const srcFile = path.join(tmpDir, 'src', 'add.mjs');
-      const testFile = path.join(tmpDir, 'add.test.mjs');
-      const originalSrc = 'export function add(a, b) { return a - b; }\n';
-      const originalTest = `import { test } from 'node:test';\nimport assert from 'node:assert';\nimport { add } from './src/add.mjs';\ntest('adds', () => { assert.strictEqual(add(2, 3), 5); });\n`;
-      fs.writeFileSync(srcFile, originalSrc);
-      fs.writeFileSync(testFile, originalTest);
-
-      const resolved = resolveImplementationTarget(tmpDir, [{ file: testFile, stack: [] }]);
-      assert.ok(resolved);
-      assert.strictEqual(resolved.relPath, 'src/add.mjs');
-
-      const failures = [{ file: testFile, error: 'AssertionError: -1 !== 5', stack: [] }];
-
-      // 1. Broken patch -> must rollback src/add.mjs to originalSrc
-      mode = 'broken';
-      const brokenRes = await attemptAutoHeal(tmpDir, failures, 'fail', {
-        ollamaHost,
-        ollamaTimeoutMs: 10000,
-        testCmd: 'node --test add.test.mjs'
-      });
-      assert.strictEqual(brokenRes.healed, false);
-      assert.strictEqual(brokenRes.reason, 'ROLLBACK_TEST_VERIFICATION_FAILED');
-      assert.strictEqual(fs.readFileSync(srcFile, 'utf-8'), originalSrc);
-      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
-
-      // 2. Valid patch (with 1.8s delay) -> must succeed and verify exit 0
-      mode = 'valid';
-      const goodRes = await attemptAutoHeal(tmpDir, failures, 'fail', {
-        ollamaHost,
-        ollamaTimeoutMs: 10000,
-        testCmd: 'node --test add.test.mjs'
-      });
-      assert.strictEqual(goodRes.healed, true);
-      assert.strictEqual(goodRes.verified, true);
-      assert.match(fs.readFileSync(srcFile, 'utf-8'), /return a \+ b/);
-      // Test file NEVER modified
-      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
-    } finally {
-      server.close();
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test('should end-to-end heal real node --test failures via runTestLoop, block process.exit sabotage, and clean rollback checkpoints', async () => {
-    const { runTestLoop } = await import('../scripts/test-loop.js');
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-e2e-heal-'));
-    let mode = 'direct_exit';
-    let ollamaHits = 0;
-
-    const exitWord = 'proc' + 'ess.' + 'exit(0);';
-    const obfExit = 'const k = "ex" + "it"; globalThis["proc" + "ess"][k](0);';
-
-    const server = http.createServer(async (req, res) => {
-      if (req.url === '/api/tags') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ models: [{ name: 'qwen2.5-coder:latest' }] }));
-      } else if (req.url === '/api/generate') {
-        ollamaHits += 1;
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        if (mode === 'direct_exit') {
-          res.end(JSON.stringify({ response: '```js\nexport function greet() { ' + exitWord + ' }\n```' }));
-        } else if (mode === 'obf_exit') {
-          res.end(JSON.stringify({ response: '```js\nexport function greet() { ' + obfExit + ' }\n```' }));
-        } else {
-          res.end(JSON.stringify({ response: '```js\nexport function greet() { return "hello"; }\n```' }));
-        }
-      } else {
-        res.writeHead(404);
-        res.end();
-      }
-    });
-
-    await new Promise(r => server.listen(0, '127.0.0.1', r));
-    const ollamaHost = `http://127.0.0.1:${server.address().port}`;
-
-    try {
-      // Initialize real git repo to verify rollback checkpoint cleanup
-      execSync('git init', { cwd: tmpDir, stdio: 'pipe' });
-      execSync('git config user.email "test@apex.local"', { cwd: tmpDir, stdio: 'pipe' });
-      execSync('git config user.name "Apex Test"', { cwd: tmpDir, stdio: 'pipe' });
-
-      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
-      const srcFile = path.join(tmpDir, 'src', 'greet.mjs');
-      const testFile = path.join(tmpDir, 'greet.test.mjs');
-      const originalSrc = 'export function greet() { return "hi"; }\n';
-      const originalTest = `import { test } from 'node:test';\nimport assert from 'node:assert';\nimport { greet } from './src/greet.mjs';\ntest('greet returns hello', () => { assert.strictEqual(greet(), 'hello'); });\n`;
-      fs.writeFileSync(srcFile, originalSrc);
-      fs.writeFileSync(testFile, originalTest);
-      execSync('git add -A && git commit -m "init"', { cwd: tmpDir, stdio: 'pipe' });
-
-      // 1. Direct exit sabotage -> rejected by Gate 0 before writing
-      mode = 'direct_exit';
-      const r1 = await runTestLoop(tmpDir, 'node --test greet.test.mjs', { heal: true, ollamaHost });
-      assert.strictEqual(r1.success, false);
-      assert.strictEqual(r1.autoHeal.reason, 'REJECTED_PROCESS_EXIT_SABOTAGE');
-      assert.strictEqual(fs.readFileSync(srcFile, 'utf-8'), originalSrc);
-      assert.ok(ollamaHits >= 1, 'End-to-end runTestLoop must reach Ollama on real node --test output');
-
-      // 2. Obfuscated exit sabotage -> rolled back by Gate 1B (no pass signal) + temp checkpoint cleaned
-      mode = 'obf_exit';
-      const r2 = await runTestLoop(tmpDir, 'node --test greet.test.mjs', { heal: true, ollamaHost });
-      assert.strictEqual(r2.success, false);
-      assert.strictEqual(r2.autoHeal.reason, 'ROLLBACK_NO_TEST_PASS_SIGNAL');
-      assert.strictEqual(fs.readFileSync(srcFile, 'utf-8'), originalSrc);
-      assert.strictEqual(fs.existsSync(path.join(tmpDir, '.agents', 'checkpoints')), false, 'Rollback must clean up temp pre-heal checkpoint');
-
-      // 3. Real valid patch -> end-to-end healed and verified exit 0
-      mode = 'valid';
-      const r3 = await runTestLoop(tmpDir, 'node --test greet.test.mjs', { heal: true, ollamaHost });
-      assert.strictEqual(r3.success, true);
-      assert.strictEqual(r3.autoHeal.healed, true);
-      assert.strictEqual(r3.autoHeal.verified, true);
-      assert.match(fs.readFileSync(srcFile, 'utf-8'), /return "hello"/);
-      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
-    } finally {
-      server.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -338,7 +179,7 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
       const scriptPath = path.resolve(process.cwd(), 'scripts', 'test-loop.js');
       const cleanEnv = { ...process.env };
       delete cleanEnv.NODE_TEST_CONTEXT;
-      const out = execSync(`node "${scriptPath}" --heal node --test ok.test.mjs`, {
+      const out = execSync(`node "${scriptPath}" node --test ok.test.mjs`, {
         cwd: tmpDir,
         encoding: 'utf-8',
         timeout: 8000,
@@ -350,26 +191,18 @@ describe('Test-Loop & Transactional Self-Healing Suite', () => {
     }
   });
 
-  test('should handle attemptAutoHeal gracefully with zero API keys and delegate to IDE agent', async () => {
-    const { attemptAutoHeal } = await import('../scripts/test-loop.js');
-    const prevKey = process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.OPENAI_API_KEY;
+  test('should clean stale APEX_FIX_PROMPT.md once tests pass', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-clean-prompt-'));
     try {
-      const emptyRes = await attemptAutoHeal(process.cwd(), [], 'sample crash');
-      assert.strictEqual(emptyRes.healed, false);
-      assert.strictEqual(emptyRes.reason, 'NO_FAILURES');
+      const promptPath = path.join(tmpDir, 'APEX_FIX_PROMPT.md');
+      fs.writeFileSync(promptPath, '# stale prompt');
+      fs.writeFileSync(path.join(tmpDir, 'pass.test.mjs'), `import { test } from 'node:test';\nimport assert from 'node:assert';\ntest('passes', () => { assert.strictEqual(2 + 2, 4); });\n`);
 
-      const mockFailures = [{
-        file: 'non_existent_file_xyz.ts',
-        error: 'General complex unresolvable logic error'
-      }];
-      const delegRes = await attemptAutoHeal(process.cwd(), mockFailures, 'sample crash');
-      assert.strictEqual(delegRes.healed, false);
-      assert.strictEqual(delegRes.reason, 'TARGET_FILE_NOT_FOUND');
+      const res = await runTestLoop(tmpDir, 'node --test pass.test.mjs');
+      assert.strictEqual(res.success, true);
+      assert.strictEqual(fs.existsSync(promptPath), false);
     } finally {
-      if (prevKey) process.env.GEMINI_API_KEY = prevKey;
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 });

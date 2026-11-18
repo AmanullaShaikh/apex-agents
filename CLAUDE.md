@@ -1,6 +1,7 @@
-# Apex Agents Autonomous Engineering Directives
-This repository operates under Apex Agents Zero-Slop Operational Instincts.
+# Apex Agents Engineering Directives
+This repository uses Apex Agents Zero-Slop Operational Instincts.
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Anti-Cheat & Test Integrity Protocol
 
 ## The Core Rule: Fix The Code, Never Weaken The Test
@@ -35,6 +36,7 @@ When an AI coding agent encounters a failing test, its default sycophantic short
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Anti-Drift Scope Boundary
 
 ## Background & Problem
@@ -54,6 +56,7 @@ The #2 most reported complaint on Reddit and GitHub: **Agent Scope Creep / File 
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Anti-Loop & Root-Cause Discipline
 
 ## Background & Problem
@@ -73,9 +76,10 @@ Community data (Reddit r/ClaudeCode, r/cursor) identifies the #1 failure mode: a
 
 ---
 
-# Caveman Token Discipline & Extreme Brevity
+<!-- Apex Agents v2.1.0 Operational Instinct -->
+# Token Discipline & Concise Technical Prose
 
-Derived from Julius Brussee's *Caveman* ("why use many token when few token do trick"). Viral protocol that reduces conversational token consumption by up to 65% during large-scale autonomous agent loops.
+Protocol for keeping conversational explanations terse and factual during multi-turn coding sessions.
 
 ## Operational Rules:
 
@@ -93,11 +97,12 @@ Derived from Julius Brussee's *Caveman* ("why use many token when few token do t
    - All compression occurs strictly in prose and conversational metadata; code remains 100% complete and compilable.
 
 4. **Activation**:
-   - Active automatically during high-volume autonomous loops (`--caveman` mode) to maximize context window longevity and reduce API billing.
+   - Applied as a standing communication instinct in IDE coding sessions to reduce prose noise and preserve context window space for code and tool outputs.
 
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Context Retention & State Compaction
 
 ## Principle
@@ -119,6 +124,7 @@ Maintain absolute clarity across multi-turn sessions without polluting context w
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Editorial Architecture Diagram Discipline
 
 Derived from Cathryn Lavery's *Diagram Design*: Professional, clean, editorial SVG and HTML architecture representations for coding agents.
@@ -145,9 +151,10 @@ Derived from Cathryn Lavery's *Diagram Design*: Professional, clean, editorial S
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # LLM Hallucination & Coding Pitfalls Antidotes
 
-Foundational engineering rules defending against common Large Language Model failure modes when writing code in autonomous harnesses.
+Foundational engineering rules defending against common Large Language Model failure modes when writing code in AI coding harnesses.
 
 ## The 5 Fatal LLM Failure Modes:
 
@@ -174,6 +181,7 @@ Foundational engineering rules defending against common Large Language Model fai
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Minimalist Code Engineering Discipline
 
 Core engineering principle: "Make your AI agent operate with senior developer discipline. The best code is the code you never wrote."
@@ -199,6 +207,7 @@ Core engineering principle: "Make your AI agent operate with senior developer di
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Rationalization Breaker & Red Flags
 
 ## The Core Mandate
@@ -223,6 +232,7 @@ You cannot negotiate or rationalize your way out of verification. Evidence befor
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Systematic Investigation & Root Cause Iron Law
 
 ## The Iron Law of Debugging
@@ -267,6 +277,7 @@ If you have not completed Phase 1 (Root Cause Investigation), you are **strictly
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Test-Driven Discipline
 
 ## Principle
@@ -284,6 +295,7 @@ Code without tests is legacy code at inception. Critical business logic, API val
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Verification Before Completion
 
 ## Principle
@@ -303,6 +315,7 @@ Evidence before assertion. An AI agent is not allowed to conclude a task based o
 
 ---
 
+<!-- Apex Agents v2.1.0 Operational Instinct -->
 # Instinct: Zero-Slop Execution Contract
 
 ## Principle

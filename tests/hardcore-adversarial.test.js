@@ -6,7 +6,6 @@ import os from 'os';
 
 import { compactSourceCode, compactPythonCode, compactGoCode, compactRustCode } from '../scripts/compact-context.js';
 import { createCheckpoint, listCheckpoints, rollbackToCheckpoint } from '../scripts/checkpoint.js';
-import { compileSpec, validateSpec } from '../scripts/spec-compiler.js';
 import { traceSymbol } from '../scripts/symbol-tracer.js';
 import { auditCodeBugs, auditWorkspaceBugs } from '../scripts/audit-bugs.js';
 import { computeTokenCost, estimateTokens } from '../scripts/token-cost.js';
@@ -215,35 +214,7 @@ impl<'a, T: Send + Sync> MemoryCache<'a, T> {
     });
   });
 
-  describe('5. Spec Compiler Prompt Injection & Boundary Resilience', () => {
-    test('should sanitize and compile specs from hostile prompt injections and XML tags', () => {
-      const hostileIntent = '"; rm -rf /; echo "<script>alert(\'xss\')</script>"';
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-spec-fuzz-'));
-      try {
-        const res = compileSpec(hostileIntent, tmpDir);
-        assert.ok(fs.existsSync(res.path));
-        const val = validateSpec(res.content);
-        assert.strictEqual(val.valid, true);
-        assert.strictEqual(val.score, 100);
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-
-    test('should handle extreme 5,000-character intent strings', () => {
-      const hugeIntent = 'Building an ultra resilient microservice with '.repeat(100);
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-spec-huge-'));
-      try {
-        const res = compileSpec(hugeIntent, tmpDir);
-        assert.ok(fs.existsSync(res.path));
-        assert.ok(res.content.length > 2000);
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-  });
-
-  describe('6. Self-Healing Test Failure Parser Hostility', () => {
+  describe('5. Test Failure Parser Hostility', () => {
     test('should parse heavily nested ANSI-colored and multiline stack traces', () => {
       const coloredFailure = `
         \u001b[31m✖ \u001b[39mPaymentGateway::processOrder \u001b[90m(124ms)\u001b[39m

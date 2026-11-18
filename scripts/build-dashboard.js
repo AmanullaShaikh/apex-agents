@@ -79,7 +79,7 @@ const html = `<!DOCTYPE html>
             Apex Agents Explorer
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">v${pkgVersion}</span>
           </h1>
-          <p class="text-xs text-slate-400">${allAgents.length} Autonomous Specialists across ${divisions.length} Divisions • MIT Open Source</p>
+          <p class="text-xs text-slate-400">${allAgents.length} Domain Specialist Prompt Packs across ${divisions.length} Divisions • MIT Open Source</p>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ const html = `<!DOCTYPE html>
   </main>
 
   <footer class="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
-    Built by <strong>Amanulla Shaikh</strong> for the global autonomous AI engineering community.
+    Built by <strong>Amanulla Shaikh</strong> for the AI developer tooling community.
   </footer>
 
   <script>

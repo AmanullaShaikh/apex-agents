@@ -16,8 +16,8 @@ function exportAllHarnesses(targetDir = process.cwd()) {
     return fs.readFileSync(path.join(instinctsDir, f), 'utf-8');
   }).join('\n\n---\n\n');
 
-  const unifiedDirectives = `# Apex Agents Autonomous Engineering Directives
-This repository operates under Apex Agents Zero-Slop Operational Instincts.
+  const unifiedDirectives = `# Apex Agents Engineering Directives
+This repository uses Apex Agents Zero-Slop Operational Instincts.
 
 ${instincts}
 `;
