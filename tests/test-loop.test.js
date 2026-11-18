@@ -3,9 +3,18 @@ import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { detectTestRunner, parseTestFailures, generateFixPrompt } from '../scripts/test-loop.js';
+import http from 'http';
+import { setTimeout as delay } from 'node:timers/promises';
+import {
+  detectTestRunner,
+  parseTestFailures,
+  generateFixPrompt,
+  isTestFile,
+  detectNoRunner,
+  resolveImplementationTarget
+} from '../scripts/test-loop.js';
 
-describe('Autonomous Test-Loop & Self-Healing Suite', () => {
+describe('Test-Loop & Transactional Self-Healing Suite', () => {
   test('should detect test runner from package.json or config files', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-testloop-'));
     try {
@@ -90,7 +99,7 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
       assert.strictEqual(fs.existsSync(promptFile), true);
 
       const content = fs.readFileSync(promptFile, 'utf-8');
-      assert.match(content, /# APEX AGENTS: AUTONOMOUS TEST FAILURE FIX PROMPT/);
+      assert.match(content, /# APEX AGENTS: TEST FAILURE FIX PROMPT/);
       assert.match(content, /computeHash should be deterministic/);
       assert.match(content, /tests\/crypto\.test\.ts/);
       assert.match(content, /STRICT NEGATIVE CONSTRAINTS/);
@@ -118,26 +127,127 @@ describe('Autonomous Test-Loop & Self-Healing Suite', () => {
     }
   });
 
-  test('should execute deterministic AST repair offline with zero API keys', async () => {
-    const { deterministicAstRepair, attemptAutoHeal } = await import('../scripts/test-loop.js');
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-ast-heal-'));
+  test('should NOT false-positive isNoRunner on real test assertions containing "not found" or "Cannot find module"', async () => {
+    assert.strictEqual(detectNoRunner(1, '', "AssertionError [ERR_ASSERTION]: user not found"), false);
+    assert.strictEqual(detectNoRunner(1, '', "Error: Cannot find module './missing-helper'"), false);
+    assert.strictEqual(detectNoRunner(127, '', '/bin/sh: 1: vitest: not found'), true);
+    assert.strictEqual(detectNoRunner(1, '', "'fakebin' is not recognized as an internal or external command"), true);
+    assert.strictEqual(detectNoRunner(1, '', 'npm error Missing script: "test"'), true);
+
+    // End-to-end real node:test failure with "user not found" MUST generate APEX_FIX_PROMPT.md
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-notfound-err-'));
     try {
-      const srcFile = path.join(tmpDir, 'auth.ts');
-      fs.writeFileSync(srcFile, 'export function handleLogin() { return 500; }');
+      fs.writeFileSync(path.join(tmpDir, 'user.test.mjs'), `
+        import { test } from 'node:test';
+        import assert from 'node:assert';
+        test('finds user', () => { assert.ok(false, 'user not found'); });
+      `);
+      const { runTestLoop } = await import('../scripts/test-loop.js');
+      const res = await runTestLoop(tmpDir, 'node --test user.test.mjs');
+      assert.strictEqual(res.success, false);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should strictly refuse to modify test files during --heal (zero test tampering)', async () => {
+    const { attemptAutoHeal } = await import('../scripts/test-loop.js');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-no-tamper-'));
+    try {
+      const testFile = path.join(tmpDir, 'greet.test.mjs');
+      const originalTest = `import { test } from 'node:test';\nimport assert from 'node:assert';\ntest('greets', () => { assert.strictEqual('hi', 'hello'); });\n`;
+      fs.writeFileSync(testFile, originalTest);
+
+      assert.strictEqual(isTestFile(testFile), true);
+      assert.strictEqual(isTestFile('tests/foo.js'), true);
+      assert.strictEqual(isTestFile('src/greet.js'), false);
 
       const mockFailures = [{
-        file: srcFile,
-        error: 'AssertionError: expected 401 but received 500'
+        file: testFile,
+        error: "AssertionError: Expected 'hi' to equal 'hello'",
+        stack: [`at ${testFile}:3:25`]
       }];
 
-      const res = deterministicAstRepair(tmpDir, mockFailures);
-      assert.ok(res);
-      assert.strictEqual(res.repaired, true);
-      assert.strictEqual(res.method, 'AST_LITERAL_SWAP');
-
-      const updated = fs.readFileSync(srcFile, 'utf-8');
-      assert.match(updated, /401/);
+      const res = await attemptAutoHeal(tmpDir, mockFailures, 'AssertionError');
+      assert.strictEqual(res.healed, false);
+      assert.strictEqual(res.reason, 'TEST_FILE_PROTECTED_DELEGATED_TO_IDE');
+      // Test file must remain 100% untouched byte-for-byte
+      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
     } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should support slow Ollama generation (>1.5s), verify re-test, and auto-rollback broken patches', async () => {
+    const { attemptAutoHeal } = await import('../scripts/test-loop.js');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-ollama-tx-'));
+    let mode = 'broken';
+
+    const server = http.createServer(async (req, res) => {
+      if (req.url === '/api/tags') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ models: [{ name: 'qwen2.5-coder:latest' }] }));
+      } else if (req.url === '/api/generate') {
+        // Delay 1800ms (> old 1500ms bug) to prove two-stage timeout handles real LLM latency
+        await delay(1800);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (mode === 'broken') {
+          res.end(JSON.stringify({ response: '```js\nexport function add(a, b) { return a * b; }\n```' }));
+        } else {
+          res.end(JSON.stringify({ response: '```js\nexport function add(a, b) { return a + b; }\n```' }));
+        }
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const ollamaHost = `http://127.0.0.1:${port}`;
+
+    try {
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      const srcFile = path.join(tmpDir, 'src', 'add.mjs');
+      const testFile = path.join(tmpDir, 'add.test.mjs');
+      const originalSrc = 'export function add(a, b) { return a - b; }\n';
+      const originalTest = `import { test } from 'node:test';\nimport assert from 'node:assert';\nimport { add } from './src/add.mjs';\ntest('adds', () => { assert.strictEqual(add(2, 3), 5); });\n`;
+      fs.writeFileSync(srcFile, originalSrc);
+      fs.writeFileSync(testFile, originalTest);
+
+      const resolved = resolveImplementationTarget(tmpDir, [{ file: testFile, stack: [] }]);
+      assert.ok(resolved);
+      assert.strictEqual(resolved.relPath, 'src/add.mjs');
+
+      const failures = [{ file: testFile, error: 'AssertionError: -1 !== 5', stack: [] }];
+
+      // 1. Broken patch -> must rollback src/add.mjs to originalSrc
+      mode = 'broken';
+      const brokenRes = await attemptAutoHeal(tmpDir, failures, 'fail', {
+        ollamaHost,
+        ollamaTimeoutMs: 10000,
+        testCmd: 'node --test add.test.mjs'
+      });
+      assert.strictEqual(brokenRes.healed, false);
+      assert.strictEqual(brokenRes.reason, 'ROLLBACK_TEST_VERIFICATION_FAILED');
+      assert.strictEqual(fs.readFileSync(srcFile, 'utf-8'), originalSrc);
+      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
+
+      // 2. Valid patch (with 1.8s delay) -> must succeed and verify exit 0
+      mode = 'valid';
+      const goodRes = await attemptAutoHeal(tmpDir, failures, 'fail', {
+        ollamaHost,
+        ollamaTimeoutMs: 10000,
+        testCmd: 'node --test add.test.mjs'
+      });
+      assert.strictEqual(goodRes.healed, true);
+      assert.strictEqual(goodRes.verified, true);
+      assert.match(fs.readFileSync(srcFile, 'utf-8'), /return a \+ b/);
+      // Test file NEVER modified
+      assert.strictEqual(fs.readFileSync(testFile, 'utf-8'), originalTest);
+    } finally {
+      server.close();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });

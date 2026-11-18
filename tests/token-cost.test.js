@@ -25,14 +25,27 @@ describe('Multi-Model Token Cost & Window Predictor Suite', () => {
 
       const report = computeTokenCost(tmpDir);
       assert.strictEqual(report.scannedFiles, 1);
+      assert.strictEqual(report.pricingUpdated, '2026-11');
       assert.ok(report.totalTokens > 0);
       assert.ok(report.compactedTokensEst < report.totalTokens);
       assert.strictEqual(report.modelProjections.length, 10);
 
-      const sonnet = report.modelProjections.find(m => m.model === 'Claude Sonnet 5.5');
+      const astra = report.modelProjections.find(m => m.model === 'GPT-6 Astra');
+      assert.ok(astra);
+      assert.strictEqual(astra.contextLimit, 1050000);
+      assert.ok(astra.costPerTurn >= 0);
+
+      const argon = report.modelProjections.find(m => m.model === 'Gemini 4 Argon');
+      assert.ok(argon);
+      assert.strictEqual(argon.contextLimit, 1000000);
+
+      const spark = report.modelProjections.find(m => m.model === 'Meta Muse Spark');
+      assert.ok(spark);
+      assert.strictEqual(spark.contextLimit, 1000000);
+
+      const sonnet = report.modelProjections.find(m => m.model === 'Claude Sonnet 5.5 (est.)');
       assert.ok(sonnet);
       assert.strictEqual(sonnet.contextLimit, 1000000);
-      assert.ok(sonnet.costPerTurn >= 0);
 
       const deepseek = report.modelProjections.find(m => m.model.includes('DeepSeek'));
       assert.ok(deepseek);

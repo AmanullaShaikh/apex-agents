@@ -120,17 +120,17 @@ export async function runSweMiniBenchmark() {
     const failures = parseTestFailures(sampleCrash);
     const passed = failures.length > 0 && failures[0].file && failures[0].line === 33 && failures[0].name === 'UserService test';
     results.push({
-      vector: 'SWE-5: Autonomous Self-Healing Trace Diagnosis',
+      vector: 'SWE-5: Test Failure Trace Diagnosis',
       passed,
       details: passed ? `Extracted failing trace for ${failures[0].name} at ${failures[0].file}:${failures[0].line}` : 'Parse failed'
     });
   } catch (err) {
-    results.push({ vector: 'SWE-5: Autonomous Self-Healing Trace Diagnosis', passed: false, details: err.message });
+    results.push({ vector: 'SWE-5: Test Failure Trace Diagnosis', passed: false, details: err.message });
   }
 
   const passedCount = results.filter(r => r.passed).length;
   const score = Math.round((passedCount / results.length) * 100);
-  const grade = score === 100 ? 'A+ (Sovereign Tier)' : (score >= 80 ? 'A' : 'B');
+  const grade = score === 100 ? 'PASS (5/5 Internal Vectors)' : 'FAIL';
 
   return {
     score,
@@ -142,8 +142,8 @@ export async function runSweMiniBenchmark() {
 
 // CLI handler
 if (process.argv[1] && process.argv[1].endsWith('swe-eval.js')) {
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: ARCHITECTURAL & AST ENGINE BENCHMARK (Grade A+ Verified) ═════${c.reset}`);
-  console.log(`Benchmarking 5 autonomous software engineering vectors against local engines...\n`);
+  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: INTERNAL AST & ENGINE SELF-CHECK (5 VECTORS) ═════${c.reset}`);
+  console.log(`Verifying 5 internal engineering vectors against local AST and diff engines...\n`);
 
   runSweMiniBenchmark().then(res => {
     res.results.forEach((r, idx) => {
@@ -152,11 +152,10 @@ if (process.argv[1] && process.argv[1].endsWith('swe-eval.js')) {
       console.log(`         ${c.gray}${r.details}${c.reset}`);
     });
 
-    console.log(`\n${c.bold}═════ BENCHMARK FINAL EVALUATION ═════${c.reset}`);
-    console.log(`  Total Vectors Passed: ${c.green}${res.results.filter(r => r.passed).length}/${res.results.length}${c.reset}`);
-    console.log(`  Composite Score     : ${c.yellow}${res.score}/100${c.reset}`);
-    console.log(`  Composite Grade     : ${c.green}${c.bold}${res.grade}${c.reset}`);
-    console.log(`  Benchmark Latency   : ${res.durationMs}ms\n`);
+    console.log(`\n${c.bold}═════ SELF-CHECK SUMMARY ═════${c.reset}`);
+    console.log(`  Vectors Passed : ${c.green}${res.results.filter(r => r.passed).length}/${res.results.length}${c.reset}`);
+    console.log(`  Status         : ${c.green}${c.bold}${res.grade}${c.reset}`);
+    console.log(`  Latency        : ${res.durationMs}ms\n`);
 
     process.exit(res.score === 100 ? 0 : 1);
   });

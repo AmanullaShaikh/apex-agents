@@ -28,7 +28,7 @@ export function generateSwarmDag(objective) {
   const tasks = [];
 
   // Phase 1: Security & Identity
-  if (/auth|login|jwt|user|oauth|session|security/i.test(lower)) {
+  if (/\b(auth|authentication|login|jwt|user|users|oauth|session|security)\b/i.test(lower)) {
     tasks.push({
       id: 'task-sec-auth',
       wave: 0,
@@ -38,7 +38,7 @@ export function generateSwarmDag(objective) {
       dependsOn: [],
       concurrency: 'parallel',
       tokenBudget: 6000,
-      sandboxBranch: 'sandbox/task-sec-auth'
+      sandboxBranch: 'apex/task-sec-auth'
     });
     tasks.push({
       id: 'task-sec-audit',
@@ -49,13 +49,13 @@ export function generateSwarmDag(objective) {
       dependsOn: [],
       concurrency: 'parallel',
       tokenBudget: 5000,
-      sandboxBranch: 'sandbox/task-sec-audit'
+      sandboxBranch: 'apex/task-sec-audit'
     });
   }
 
   // Phase 2: Persistence & Data Modeling
   const secDeps = tasks.filter(t => t.wave === 0).map(t => t.id);
-  if (/database|db|postgres|sql|prisma|query|schema|index/i.test(lower)) {
+  if (/\b(database|db|postgres|postgresql|sql|prisma|query|schema|index|sqlite|mysql|mongo|mongodb)\b/i.test(lower)) {
     tasks.push({
       id: 'task-db-model',
       wave: 1,
@@ -65,13 +65,13 @@ export function generateSwarmDag(objective) {
       dependsOn: secDeps,
       concurrency: 'sequential',
       tokenBudget: 8000,
-      sandboxBranch: 'sandbox/task-db-model'
+      sandboxBranch: 'apex/task-db-model'
     });
   }
 
   // Phase 3: Distributed Systems & API Protocol
   const dbDeps = tasks.filter(t => t.wave <= 1).map(t => t.id);
-  if (/api|backend|websocket|webrtc|realtime|stream|microservice/i.test(lower)) {
+  if (/\b(api|apis|backend|websocket|websockets|webrtc|realtime|real-time|stream|streaming|microservice|microservices|rest|graphql|endpoint|endpoints)\b/i.test(lower)) {
     tasks.push({
       id: 'task-backend-api',
       wave: 2,
@@ -81,7 +81,7 @@ export function generateSwarmDag(objective) {
       dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
       concurrency: 'parallel',
       tokenBudget: 10000,
-      sandboxBranch: 'sandbox/task-backend-api'
+      sandboxBranch: 'apex/task-backend-api'
     });
     tasks.push({
       id: 'task-net-audit',
@@ -92,23 +92,24 @@ export function generateSwarmDag(objective) {
       dependsOn: dbDeps.length > 0 ? dbDeps : secDeps,
       concurrency: 'parallel',
       tokenBudget: 6000,
-      sandboxBranch: 'sandbox/task-net-audit'
+      sandboxBranch: 'apex/task-net-audit'
     });
   }
 
   // Phase 4: UI & Video / Media Systems
   const apiDeps = tasks.filter(t => t.wave <= 2).map(t => t.id);
-  if (/ui|frontend|react|next|component|design|css|animation|canvas/i.test(lower)) {
+  const hasFrontend = /\b(ui|frontend|react|next|nextjs|vue|svelte|component|components|design|css|animation|canvas|form|dashboard)\b/i.test(lower);
+  if (hasFrontend) {
     tasks.push({
       id: 'task-frontend-ui',
       wave: 3,
       phase: 'Phase 4: Frontend & User Interface Engineering',
       agent: '@frontend-architect',
-      role: 'Build accessible, responsive UI adhering to Frame.io dark-graphite standards and 60fps GPU compositing.',
+      role: 'Build accessible, responsive UI adhering to dark-graphite standards and 60fps GPU compositing.',
       dependsOn: apiDeps,
       concurrency: 'parallel',
       tokenBudget: 9000,
-      sandboxBranch: 'sandbox/task-frontend-ui'
+      sandboxBranch: 'apex/task-frontend-ui'
     });
     tasks.push({
       id: 'task-state-machine',
@@ -119,11 +120,11 @@ export function generateSwarmDag(objective) {
       dependsOn: apiDeps,
       concurrency: 'parallel',
       tokenBudget: 7000,
-      sandboxBranch: 'sandbox/task-state-machine'
+      sandboxBranch: 'apex/task-state-machine'
     });
   }
 
-  if (/video|media|render|remotion|ffmpeg|audio/i.test(lower)) {
+  if (/\b(video|media|render|rendering|remotion|ffmpeg|audio|transcode)\b/i.test(lower)) {
     tasks.push({
       id: 'task-media-remotion',
       wave: 3,
@@ -133,7 +134,7 @@ export function generateSwarmDag(objective) {
       dependsOn: apiDeps,
       concurrency: 'parallel',
       tokenBudget: 8000,
-      sandboxBranch: 'sandbox/task-media-remotion'
+      sandboxBranch: 'apex/task-media-remotion'
     });
     tasks.push({
       id: 'task-media-ffmpeg',
@@ -144,11 +145,11 @@ export function generateSwarmDag(objective) {
       dependsOn: apiDeps,
       concurrency: 'parallel',
       tokenBudget: 7000,
-      sandboxBranch: 'sandbox/task-media-ffmpeg'
+      sandboxBranch: 'apex/task-media-ffmpeg'
     });
   }
 
-  if (/rag|llm|ai|vector|embedding|prompt|eval/i.test(lower)) {
+  if (/\b(rag|llm|llms|ai|vector|vectors|embedding|embeddings|prompt|prompts|eval|evals)\b/i.test(lower)) {
     tasks.push({
       id: 'task-ai-rag',
       wave: 3,
@@ -158,7 +159,7 @@ export function generateSwarmDag(objective) {
       dependsOn: apiDeps,
       concurrency: 'parallel',
       tokenBudget: 9000,
-      sandboxBranch: 'sandbox/task-ai-rag'
+      sandboxBranch: 'apex/task-ai-rag'
     });
     tasks.push({
       id: 'task-ai-shield',
@@ -169,12 +170,13 @@ export function generateSwarmDag(objective) {
       dependsOn: apiDeps,
       concurrency: 'parallel',
       tokenBudget: 5000,
-      sandboxBranch: 'sandbox/task-ai-shield'
+      sandboxBranch: 'apex/task-ai-shield'
     });
   }
 
   // Phase 5: Verification & Zero-Slop Gate
   const prevDeps = tasks.map(t => t.id);
+  const gateDeps = ['task-gate-tdd'];
   tasks.push({
     id: 'task-gate-tdd',
     wave: 4,
@@ -184,19 +186,23 @@ export function generateSwarmDag(objective) {
     dependsOn: prevDeps,
     concurrency: 'sequential',
     tokenBudget: 8000,
-    sandboxBranch: 'sandbox/task-gate-tdd'
+    sandboxBranch: 'apex/task-gate-tdd'
   });
-  tasks.push({
-    id: 'task-gate-cwv',
-    wave: 4,
-    phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
-    agent: '@cwv-lcp-doctor',
-    role: 'Audit Core Web Vitals (LCP < 2.5s, INP < 200ms, zero CLS) before deployment.',
-    dependsOn: prevDeps,
-    concurrency: 'parallel',
-    tokenBudget: 4000,
-    sandboxBranch: 'sandbox/task-gate-cwv'
-  });
+
+  if (hasFrontend) {
+    gateDeps.push('task-gate-cwv');
+    tasks.push({
+      id: 'task-gate-cwv',
+      wave: 4,
+      phase: 'Phase 5: Verification, Testing & Zero-Slop Gate',
+      agent: '@cwv-lcp-doctor',
+      role: 'Audit Core Web Vitals (LCP < 2.5s, INP < 200ms, zero CLS) before deployment.',
+      dependsOn: prevDeps,
+      concurrency: 'parallel',
+      tokenBudget: 4000,
+      sandboxBranch: 'apex/task-gate-cwv'
+    });
+  }
 
   // Phase 6: Release & PR Synthesis
   tasks.push({
@@ -205,10 +211,10 @@ export function generateSwarmDag(objective) {
     phase: 'Phase 6: Release & Documentation',
     agent: '@pr-artisan',
     role: 'Inspect git diff and synthesize Conventional Commits with evidence-backed PR documentation.',
-    dependsOn: ['task-gate-tdd', 'task-gate-cwv'],
+    dependsOn: gateDeps,
     concurrency: 'sequential',
     tokenBudget: 5000,
-    sandboxBranch: 'sandbox/task-release-pr'
+    sandboxBranch: 'apex/task-release-pr'
   });
 
   return tasks;
@@ -255,9 +261,8 @@ export async function planSwarm(objective, options = {}) {
   console.log(`└────────────────────────────────────────────────────────────────────────────────────────┘\n`);
 
   console.log(`${c.cyan}${c.bold}ISOLATED GIT WORKTREE SANDBOX COMMANDS:${c.reset}`);
-  const uniqueBranches = Array.from(new Set(tasks.map(t => t.sandboxBranch)));
-  for (const b of uniqueBranches.slice(0, 4)) {
-    console.log(`  ${c.gray}git worktree add ../${b.replace('/', '-')} -b ${b}${c.reset}`);
+  for (const t of tasks.slice(0, 4)) {
+    console.log(`  ${c.gray}git worktree add .worktrees/${t.id} -b ${t.sandboxBranch}${c.reset}`);
   }
   console.log();
 

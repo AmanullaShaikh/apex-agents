@@ -43,7 +43,7 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /Total Specialists:\s*38/);
   });
 
-  test('should execute multi-agent swarm planning', () => {
+  test('should execute multi-agent swarm planning with strict word boundaries and apex/ branches', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" plan "Build real-time video streaming pipeline with postgres and auth"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /SWARM DAG PLANNER/);
     assert.match(out, /@auth-identity-guard/);
@@ -51,6 +51,21 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     assert.match(out, /@tdd-champion/);
     assert.match(out, /DAG EXECUTION TOPOLOGY/);
     assert.match(out, /ISOLATED GIT WORKTREE SANDBOX/);
+    assert.match(out, /-b apex\/task-sec-auth/);
+    // "Build" must NOT false-trigger @frontend-architect or @cwv-lcp-doctor
+    assert.doesNotMatch(out, /@frontend-architect/);
+    assert.doesNotMatch(out, /@cwv-lcp-doctor/);
+
+    // "Write quiet email digest" must NOT false-trigger ui/ai/cwv
+    const quietOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Write quiet email digest"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.doesNotMatch(quietOut, /@frontend-architect/);
+    assert.doesNotMatch(quietOut, /@rag-pipeline-architect/);
+    assert.doesNotMatch(quietOut, /@prompt-injection-shield/);
+    assert.doesNotMatch(quietOut, /@cwv-lcp-doctor/);
+
+    // "Fix a typo in the README" must NOT include @cwv-lcp-doctor
+    const readmeOut = stripAnsi(execSync(`node "${APEX_BIN}" plan "Fix a typo in the README"`, { encoding: 'utf-8', cwd: ROOT_DIR }));
+    assert.doesNotMatch(readmeOut, /@cwv-lcp-doctor/);
   });
 
   test('should inspect context budget with zero errors', () => {

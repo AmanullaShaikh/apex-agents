@@ -118,42 +118,121 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
   }
 
   const lower = cleanIntent.toLowerCase();
-  const isUi = /\b(ui|frontend|react|vue|component|theme|dark\s*mode|toggle|button|modal|card|animation|css|style|layout)\b/i.test(lower);
-  const isPayment = /\b(payment|checkout|webhook|order|stripe|billing|transfer|transaction)\b/i.test(lower);
-  const isAuth = /\b(auth|login|signup|password|jwt|session|token|user|credential|oauth)\b/i.test(lower);
+  const isUi = /\b(ui|frontend|react|vue|svelte|component|theme|dark\s*mode|toggle|button|modal|dialog|card|form|input|page|nav|sidebar|animation|css|style|layout|widget)\b/i.test(lower);
+  const isCli = !isUi && /\b(cli|command[\s-]?line|parser|terminal|stdin|stdout|argv|log\s+file|script)\b/i.test(lower);
+  const isCache = !isUi && !isCli && /\b(cache|caching|redis|memcached|lru|ttl|queue|worker|broker)\b/i.test(lower);
+  const isPayment = !isUi && !isCli && !isCache && /\b(payment|checkout|webhook|order|stripe|billing|transfer|transaction)\b/i.test(lower);
+  const isAuth = !isUi && !isCli && !isCache && !isPayment && /\b(auth|authentication|login|signup|password|jwt|session|token|credential|oauth)\b/i.test(lower);
+  const isRestApi = !isUi && !isCli && !isCache && !isPayment && !isAuth && /\b(api|rest|crud|endpoint|route|http|server|graphql|microservice)\b/i.test(lower);
 
   md += `\`\`\`typescript\n`;
   md += `import { z } from 'zod';\n\n`;
 
   if (isUi) {
+    const isForm = /\b(form|login|signup|input)\b/i.test(lower);
     md += `// 1. Zod Runtime UI Component Props Schema\n`;
     md += `export const ${pascalCase(slug)}PropsSchema = z.object({\n`;
-    md += `  theme: z.enum(['light', 'dark', 'system']).default('system'),\n`;
-    md += `  enabled: z.boolean().default(true),\n`;
-    md += `  variant: z.enum(['default', 'compact', 'minimal']).optional(),\n`;
-    md += `  className: z.string().optional()\n`;
+    if (isForm) {
+      md += `  initialValues: z.record(z.string(), z.string()).optional(),\n`;
+      md += `  disabled: z.boolean().default(false),\n`;
+      md += `  submitLabel: z.string().min(1).default('Submit'),\n`;
+      md += `  className: z.string().optional()\n`;
+    } else {
+      md += `  theme: z.enum(['light', 'dark', 'system']).default('system'),\n`;
+      md += `  enabled: z.boolean().default(true),\n`;
+      md += `  variant: z.enum(['default', 'compact', 'minimal']).optional(),\n`;
+      md += `  className: z.string().optional()\n`;
+    }
     md += `});\n\n`;
     md += `export type ${pascalCase(slug)}Props = z.infer<typeof ${pascalCase(slug)}PropsSchema>;\n\n`;
     md += `// 2. Component State & Event Handlers\n`;
     md += `export interface ${pascalCase(slug)}State {\n`;
     md += `  active: boolean;\n`;
-    md += `  loading?: boolean;\n`;
+    md += `  loading: boolean;\n`;
+    md += `  validationError: string | null;\n`;
     md += `}\n\n`;
     md += `// 3. Discriminated Union Result & Typed Error Codes\n`;
     md += `export type ${pascalCase(slug)}Result =\n`;
-    md += `  | { success: true; status: 'rendered'; theme: 'light' | 'dark' | 'system' }\n`;
+    md += `  | { success: true; status: 'rendered'; state: ${pascalCase(slug)}State }\n`;
     md += `  | { success: false; status: 'render_error'; error: string; code: ${pascalCase(slug)}ErrorCode };\n\n`;
     md += `export type ${pascalCase(slug)}ErrorCode =\n`;
-    md += `  | 'THEME_UNAVAILABLE'\n`;
     md += `  | 'INVALID_PROPS'\n`;
+    md += `  | 'VALIDATION_ERROR'\n`;
     md += `  | 'MOUNT_FAILED';\n`;
     md += `\`\`\`\n\n`;
     md += `### 🎨 UI Component & State Contract\n`;
     md += `| Property | Type | Default | Description |\n`;
     md += `| :--- | :--- | :--- | :--- |\n`;
-    md += `| \`theme\` | \`'light' \\| 'dark' \\| 'system'\` | \`'system'\` | Active visual mode |\n`;
-    md += `| \`enabled\` | \`boolean\` | \`true\` | Interactive toggle state |\n`;
-    md += `| \`variant\` | \`'default' \\| 'compact' \\| 'minimal'\` | \`'default'\` | Visual design variant |\n\n`;
+    if (isForm) {
+      md += `| \`disabled\` | \`boolean\` | \`false\` | Disables form inputs during submission |\n`;
+      md += `| \`submitLabel\` | \`string\` | \`'Submit'\` | Accessible primary button text |\n`;
+      md += `| \`className\` | \`string\` | \`undefined\` | Optional styling override |\n\n`;
+    } else {
+      md += `| \`theme\` | \`'light' \\| 'dark' \\| 'system'\` | \`'system'\` | Active visual mode |\n`;
+      md += `| \`enabled\` | \`boolean\` | \`true\` | Interactive toggle state |\n`;
+      md += `| \`variant\` | \`'default' \\| 'compact' \\| 'minimal'\` | \`'default'\` | Visual design variant |\n\n`;
+    }
+  } else if (isCli) {
+    md += `// 1. Zod Runtime CLI Arguments & Options Schema\n`;
+    md += `export const ${pascalCase(slug)}ArgsSchema = z.object({\n`;
+    md += `  inputPath: z.string().min(1),\n`;
+    md += `  outputPath: z.string().optional(),\n`;
+    md += `  format: z.enum(['json', 'text', 'csv']).default('json'),\n`;
+    md += `  verbose: z.boolean().default(false)\n`;
+    md += `});\n\n`;
+    md += `export type ${pascalCase(slug)}Args = z.infer<typeof ${pascalCase(slug)}ArgsSchema>;\n\n`;
+    md += `// 2. Parsed Record & Summary Interface for ${title}\n`;
+    md += `export interface ${pascalCase(slug)}Summary {\n`;
+    md += `  recordsProcessed: number;\n`;
+    md += `  errorsSkipped: number;\n`;
+    md += `  durationMs: number;\n`;
+    md += `}\n\n`;
+    md += `// 3. Discriminated Union Exit Result\n`;
+    md += `export type ${pascalCase(slug)}Result =\n`;
+    md += `  | { success: true; exitCode: 0; summary: ${pascalCase(slug)}Summary }\n`;
+    md += `  | { success: false; exitCode: 1 | 2; error: string; code: ${pascalCase(slug)}ErrorCode };\n\n`;
+    md += `export type ${pascalCase(slug)}ErrorCode =\n`;
+    md += `  | 'INVALID_ARGS'\n`;
+    md += `  | 'FILE_NOT_FOUND'\n`;
+    md += `  | 'PARSE_ERROR';\n`;
+    md += `\`\`\`\n\n`;
+    md += `### ⌨️ CLI Invocation & Exit Code Contract\n`;
+    md += `| Flag / Arg | Type | Required | Exit Code on Error |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`<inputPath>\` | \`string\` (file path or \`-\` for stdin) | Yes | \`2\` (Usage Error) |\n`;
+    md += `| \`--format\` | \`json \\| text \\| csv\` | No (\`json\`) | \`2\` (Usage Error) |\n`;
+    md += `| \`--output\` | \`string\` | No (stdout) | \`1\` (I/O Error) |\n\n`;
+  } else if (isCache) {
+    md += `// 1. Zod Runtime Cache Layer Config & Entry Schema\n`;
+    md += `export const ${pascalCase(slug)}ConfigSchema = z.object({\n`;
+    md += `  namespace: z.string().min(1).max(64),\n`;
+    md += `  defaultTtlSeconds: z.number().int().positive().default(300),\n`;
+    md += `  maxEntries: z.number().int().positive().optional(),\n`;
+    md += `  fallbackToOrigin: z.boolean().default(true)\n`;
+    md += `});\n\n`;
+    md += `export type ${pascalCase(slug)}Config = z.infer<typeof ${pascalCase(slug)}ConfigSchema>;\n\n`;
+    md += `// 2. Cache Store Interface for ${title}\n`;
+    md += `export interface ${pascalCase(slug)}Store<T> {\n`;
+    md += `  get(key: string): Promise<T | null>;\n`;
+    md += `  set(key: string, value: T, ttlSeconds?: number): Promise<void>;\n`;
+    md += `  invalidate(key: string): Promise<boolean>;\n`;
+    md += `}\n\n`;
+    md += `// 3. Discriminated Union Lookup Result\n`;
+    md += `export type ${pascalCase(slug)}Result<T> =\n`;
+    md += `  | { success: true; hit: true; value: T }\n`;
+    md += `  | { success: true; hit: false; value: T; populated: boolean }\n`;
+    md += `  | { success: false; error: string; code: ${pascalCase(slug)}ErrorCode };\n\n`;
+    md += `export type ${pascalCase(slug)}ErrorCode =\n`;
+    md += `  | 'CACHE_CONNECTION_ERROR'\n`;
+    md += `  | 'SERIALIZATION_ERROR'\n`;
+    md += `  | 'INVALID_KEY';\n`;
+    md += `\`\`\`\n\n`;
+    md += `### ⚡ Cache Operation & Consistency Contract\n`;
+    md += `| Operation | Key Scope | TTL Policy | Failure Behavior |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`get(key)\` | \`\${namespace}:\${key}\` | Checks expiry | Degrade gracefully to origin |\n`;
+    md += `| \`set(key, val)\` | \`\${namespace}:\${key}\` | \`defaultTtlSeconds\` | Log warning, non-blocking |\n`;
+    md += `| \`invalidate(key)\` | \`\${namespace}:\${key}\` | Immediate delete | Retry once on transient error |\n\n`;
   } else if (isPayment) {
     md += `// 1. Zod Runtime Idempotent Transaction Schema\n`;
     md += `export const ${pascalCase(slug)}Schema = z.object({\n`;
@@ -216,11 +295,37 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
     md += `  | 'INTERNAL_ERROR';\n`;
     md += `\`\`\`\n\n`;
     md += `### 🌐 Ingress Wire Protocol Contract\n`;
-    md += `| Method | Route Path | Required Headers | Success Status | Idempotency Keyed |\n`;
-    md += `| :--- | :--- | :--- | :--- | :--- |\n`;
-    md += `| \`POST\` | \`/api/v1/auth/${slug}\` | \`Content-Type: application/json\` | \`200 OK\` | No |\n\n`;
+    md += `| Method | Route Path | Required Headers | Success Status |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`POST\` | \`/api/v1/auth/${slug}\` | \`Content-Type: application/json\` | \`200 OK\` |\n\n`;
+  } else if (isRestApi) {
+    md += `// 1. Zod Runtime REST Resource Schema\n`;
+    md += `export const ${pascalCase(slug)}Schema = z.object({\n`;
+    md += `  id: z.string().uuid(),\n`;
+    md += `  title: z.string().min(1).max(256),\n`;
+    md += `  status: z.enum(['draft', 'published', 'archived']).default('draft'),\n`;
+    md += `  createdAt: z.string().datetime().optional()\n`;
+    md += `});\n\n`;
+    md += `export type ${pascalCase(slug)}Resource = z.infer<typeof ${pascalCase(slug)}Schema>;\n\n`;
+    md += `// 2. Discriminated Union Result & Typed Error Codes\n`;
+    md += `export type ${pascalCase(slug)}Result =\n`;
+    md += `  | { success: true; status: 'ok'; data: ${pascalCase(slug)}Resource }\n`;
+    md += `  | { success: false; status: 'error'; error: string; code: ${pascalCase(slug)}ErrorCode };\n\n`;
+    md += `export type ${pascalCase(slug)}ErrorCode =\n`;
+    md += `  | 'VALIDATION_FAILED'\n`;
+    md += `  | 'NOT_FOUND'\n`;
+    md += `  | 'CONFLICT'\n`;
+    md += `  | 'INTERNAL_ERROR';\n`;
+    md += `\`\`\`\n\n`;
+    md += `### 🌐 REST API Route Contract\n`;
+    md += `| Method | Route Path | Content-Type | Success Status |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`GET\` | \`/api/v1/${slug}\` | \`application/json\` | \`200 OK\` |\n`;
+    md += `| \`POST\` | \`/api/v1/${slug}\` | \`application/json\` | \`201 Created\` |\n`;
+    md += `| \`PATCH\` | \`/api/v1/${slug}/:id\` | \`application/json\` | \`200 OK\` |\n`;
+    md += `| \`DELETE\` | \`/api/v1/${slug}/:id\` | \`application/json\` | \`204 No Content\` |\n\n`;
   } else {
-    md += `// 1. Zod Runtime Domain Entity Schema\n`;
+    md += `// 1. Zod Runtime Domain Module Schema\n`;
     md += `export const ${pascalCase(slug)}Schema = z.object({\n`;
     md += `  id: z.string().uuid(),\n`;
     md += `  name: z.string().min(1).max(256),\n`;
@@ -228,7 +333,7 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
     md += `  metadata: z.record(z.string(), z.unknown()).default({})\n`;
     md += `});\n\n`;
     md += `export type ${pascalCase(slug)}Input = z.infer<typeof ${pascalCase(slug)}Schema>;\n\n`;
-    md += `// 2. Target Domain Entity Interface for ${title}\n`;
+    md += `// 2. Target Domain Module Interface for ${title}\n`;
     md += `export interface ${pascalCase(slug)}Config {\n`;
     md += `  enabled: boolean;\n`;
     md += `  timeoutMs?: number;\n`;
@@ -247,26 +352,71 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
     md += `  | 'NOT_FOUND'\n`;
     md += `  | 'INTERNAL_ERROR';\n`;
     md += `\`\`\`\n\n`;
-    md += `### 🌐 Ingress Wire Protocol Contract\n`;
-    md += `| Method | Route Path | Required Headers | Success Status | Idempotency Keyed |\n`;
-    md += `| :--- | :--- | :--- | :--- | :--- |\n`;
-    md += `| \`POST\` | \`/api/v1/${slug}\` | \`Content-Type: application/json\` | \`200 OK\` | Optional |\n\n`;
+    md += `### 📦 Module Interface Contract\n`;
+    md += `| Export | Input Type | Return Type | Error Handling |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    md += `| \`execute${pascalCase(slug)}\` | \`${pascalCase(slug)}Input\` | \`Promise<${pascalCase(slug)}Result>\` | Typed discriminated union |\n\n`;
   }
 
   md += `## 3. 🔄 STATE MACHINE & EVENT TRANSITIONS\n\n`;
   md += `\`\`\`text\n`;
-  md += `[IDLE] ──(Receive Request)──► [VALIDATING]\n`;
-  md += `                                   │\n`;
-  md += `               ┌───────────────────┴───────────────────┐\n`;
-  md += `               ▼                                       ▼\n`;
-  md += `        [INVALID PAYLOAD]                       [PROCESSING]\n`;
-  md += `               │                                       │\n`;
-  md += `               ▼                               ┌───────┴───────┐\n`;
-  md += `        [EMIT 400 ERROR]                       ▼               ▼\n`;
-  md += `                                        [EXECUTION FAILS] [SUCCESS]\n`;
-  md += `                                               │               │\n`;
-  md += `                                               ▼               ▼\n`;
-  md += `                                        [CIRCUIT RECOVERY] [EMIT 200/RESULT]\n`;
+  if (isUi) {
+    md += `[UNMOUNTED] ──(Mount Component)──► [IDLE]\n`;
+    md += `                                      │\n`;
+    md += `                        (User Event / Prop Change)\n`;
+    md += `                                      ▼\n`;
+    md += `                                [VALIDATING]\n`;
+    md += `                                      │\n`;
+    md += `               ┌──────────────────────┴──────────────────────┐\n`;
+    md += `               ▼                                             ▼\n`;
+    md += `       [VALIDATION_ERROR]                               [UPDATING]\n`;
+    md += `               │                                             │\n`;
+    md += `               ▼                                     ┌───────┴───────┐\n`;
+    md += `      [INLINE FEEDBACK]                              ▼               ▼\n`;
+    md += `                                              [ERROR_BOUNDARY]  [RENDERED]\n`;
+  } else if (isCli) {
+    md += `[INIT] ──(Parse argv/flags)──► [VALIDATING_ARGS]\n`;
+    md += `                                      │\n`;
+    md += `               ┌──────────────────────┴──────────────────────┐\n`;
+    md += `               ▼                                             ▼\n`;
+    md += `        [INVALID_ARGS]                               [STREAMING_INPUT]\n`;
+    md += `               │                                             │\n`;
+    md += `               ▼                                     ┌───────┴───────┐\n`;
+    md += `        [STDERR + EXIT 2]                            ▼               ▼\n`;
+    md += `                                              [IO/PARSE FAIL]    [COMPLETE]\n`;
+    md += `                                                     │               │\n`;
+    md += `                                                     ▼               ▼\n`;
+    md += `                                              [STDERR + EXIT 1] [STDOUT + EXIT 0]\n`;
+  } else if (isCache) {
+    md += `[LOOKUP(key)] ──(Check Store)──► [CACHE_EVAL]\n`;
+    md += `                                      │\n`;
+    md += `               ┌──────────────────────┴──────────────────────┐\n`;
+    md += `               ▼                                             ▼\n`;
+    md += `          [CACHE_HIT]                                  [CACHE_MISS]\n`;
+    md += `               │                                             │\n`;
+    md += `               ▼                                             ▼\n`;
+    md += `        [RETURN VALUE]                                [FETCH_ORIGIN]\n`;
+    md += `                                                             │\n`;
+    md += `                                                     ┌───────┴───────┐\n`;
+    md += `                                                     ▼               ▼\n`;
+    md += `                                              [STORE_ERROR]    [SET_TTL]\n`;
+    md += `                                                     │               │\n`;
+    md += `                                                     ▼               ▼\n`;
+    md += `                                            [FALLBACK_RETURN]  [RETURN VALUE]\n`;
+  } else {
+    md += `[IDLE] ──(Receive Input)──► [VALIDATING]\n`;
+    md += `                                 │\n`;
+    md += `               ┌─────────────────┴─────────────────┐\n`;
+    md += `               ▼                                   ▼\n`;
+    md += `        [INVALID INPUT]                      [PROCESSING]\n`;
+    md += `               │                                   │\n`;
+    md += `               ▼                           ┌───────┴───────┐\n`;
+    md += `      [VALIDATION_FAILED]                  ▼               ▼\n`;
+    md += `                                    [EXECUTION FAILS] [SUCCESS]\n`;
+    md += `                                           │               │\n`;
+    md += `                                           ▼               ▼\n`;
+    md += `                                    [ERROR RECOVERY]  [EMIT RESULT]\n`;
+  }
   md += `\`\`\`\n\n`;
 
   md += `## 4. ⛔ STRICT NEGATIVE CONSTRAINTS (ZERO-SLOP CONTRACT)\n\n`;
@@ -278,10 +428,27 @@ export function compileSpec(featureIntent, projectDir = process.cwd(), options =
   md += `## 5. 🧪 TDD ACCEPTANCE CRITERIA & TEST MATRIX\n\n`;
   md += `| Test ID | Scenario | Expected Behavior | Verification Command |\n`;
   md += `| :--- | :--- | :--- | :--- |\n`;
-  md += `| **TC-01** | Valid Payload Processing | Returns \`{ success: true }\` with expected result | \`npx apex-agents test-loop\` |\n`;
-  md += `| **TC-02** | Malformed / Empty Input | Rejects with explicit 400 validation error | \`npx apex-agents test-loop\` |\n`;
-  md += `| **TC-03** | Upstream Service Timeout | Recovers gracefully without crashing node process | \`npx apex-agents test-loop\` |\n`;
-  md += `| **TC-04** | Concurrency / Double Request | Idempotent execution (no duplicate mutations) | \`npx apex-agents test-loop\` |\n\n`;
+  if (isUi) {
+    md += `| **TC-01** | Default Prop Render | Mounts cleanly with accessible semantic markup | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-02** | Interactive State Update | State transitions cleanly on user events | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-03** | Keyboard & ARIA Support | Operable via keyboard with valid ARIA attributes | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-04** | Invalid Props / Error State | Renders clear feedback without crashing component tree | \`npx apex-agents test-loop\` |\n\n`;
+  } else if (isCli) {
+    md += `| **TC-01** | Valid File / Stdin Input | Parses records accurately and exits with code 0 | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-02** | Missing / Invalid Flags | Prints clear usage to stderr and exits with code 2 | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-03** | Non-Existent Input Path | Emits explicit FILE_NOT_FOUND error and exits 1 | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-04** | Malformed Record Line | Handles gracefully without unhandled exception | \`npx apex-agents test-loop\` |\n\n`;
+  } else if (isCache) {
+    md += `| **TC-01** | Cache Hit | Returns cached value without calling origin | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-02** | Cache Miss & Populate | Fetches origin and writes entry with configured TTL | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-03** | Key Invalidation | Subsequent lookup misses and refreshes from origin | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-04** | Store Outage Fallback | Degrades gracefully to origin without crashing process | \`npx apex-agents test-loop\` |\n\n`;
+  } else {
+    md += `| **TC-01** | Valid Input Processing | Returns \`{ success: true }\` with expected result | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-02** | Malformed / Empty Input | Rejects with explicit validation error | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-03** | Upstream Service Timeout | Recovers gracefully without crashing process | \`npx apex-agents test-loop\` |\n`;
+    md += `| **TC-04** | Boundary / Edge Inputs | Handles extreme inputs cleanly without uncaught errors | \`npx apex-agents test-loop\` |\n\n`;
+  }
 
   md += `## 6. 🛠️ SEQUENTIAL EXECUTION PROTOCOL\n\n`;
   md += `1. [ ] Review this spec and verify contracts match existing codebase conventions.\n`;

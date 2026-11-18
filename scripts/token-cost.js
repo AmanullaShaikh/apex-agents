@@ -15,76 +15,88 @@ const c = {
   gray: '\x1b[90m'
 };
 
+export const PRICING_UPDATED = '2026-11';
+
 export const MODEL_PRICING = [
-  {
-    name: 'Claude Sonnet 5.5',
-    provider: 'Anthropic',
-    contextWindow: 1000000,
-    inputPricePerMillion: 3.00,
-    outputPricePerMillion: 15.00
-  },
-  {
-    name: 'Claude Opus 5.5',
-    provider: 'Anthropic',
-    contextWindow: 1000000,
-    inputPricePerMillion: 15.00,
-    outputPricePerMillion: 75.00
-  },
   {
     name: 'GPT-6 Astra',
     provider: 'OpenAI',
-    contextWindow: 1000000,
-    inputPricePerMillion: 2.00,
-    outputPricePerMillion: 8.00
+    contextWindow: 1050000,
+    inputPricePerMillion: 10.00,
+    outputPricePerMillion: 50.00,
+    verified: true
   },
   {
     name: 'GPT-6.1 Sol',
     provider: 'OpenAI',
-    contextWindow: 500000,
-    inputPricePerMillion: 1.10,
-    outputPricePerMillion: 4.40
+    contextWindow: 1050000,
+    inputPricePerMillion: 2.00,
+    outputPricePerMillion: 10.00,
+    verified: true
   },
   {
     name: 'Gemini 4 Argon',
     provider: 'Google',
-    contextWindow: 5000000,
-    inputPricePerMillion: 1.25,
-    outputPricePerMillion: 5.00
+    contextWindow: 1000000,
+    inputPricePerMillion: 2.00,
+    outputPricePerMillion: 10.00,
+    verified: true
   },
   {
     name: 'Gemini 4 Hydrogen',
     provider: 'Google',
-    contextWindow: 2000000,
-    inputPricePerMillion: 0.15,
-    outputPricePerMillion: 0.60
-  },
-  {
-    name: 'Grok 4.7',
-    provider: 'xAI',
-    contextWindow: 2000000,
-    inputPricePerMillion: 2.00,
-    outputPricePerMillion: 10.00
-  },
-  {
-    name: 'DeepSeek V4-Pro',
-    provider: 'DeepSeek',
-    contextWindow: 500000,
-    inputPricePerMillion: 0.55,
-    outputPricePerMillion: 2.19
-  },
-  {
-    name: 'DeepSeek V4.1-Flash',
-    provider: 'DeepSeek',
-    contextWindow: 256000,
-    inputPricePerMillion: 0.14,
-    outputPricePerMillion: 0.28
+    contextWindow: 1000000,
+    inputPricePerMillion: 1.50,
+    outputPricePerMillion: 7.50,
+    verified: true
   },
   {
     name: 'Meta Muse Spark',
     provider: 'Meta',
-    contextWindow: 512000,
-    inputPricePerMillion: 0.20,
-    outputPricePerMillion: 0.80
+    contextWindow: 1000000,
+    inputPricePerMillion: 1.25,
+    outputPricePerMillion: 4.25,
+    verified: true
+  },
+  {
+    name: 'Claude Sonnet 5.5 (est.)',
+    provider: 'Anthropic',
+    contextWindow: 1000000,
+    inputPricePerMillion: 3.00,
+    outputPricePerMillion: 15.00,
+    verified: false
+  },
+  {
+    name: 'Claude Opus 5.5 (est.)',
+    provider: 'Anthropic',
+    contextWindow: 1000000,
+    inputPricePerMillion: 15.00,
+    outputPricePerMillion: 75.00,
+    verified: false
+  },
+  {
+    name: 'Grok 4.7 (est.)',
+    provider: 'xAI',
+    contextWindow: 2000000,
+    inputPricePerMillion: 2.00,
+    outputPricePerMillion: 10.00,
+    verified: false
+  },
+  {
+    name: 'DeepSeek V4-Pro (est.)',
+    provider: 'DeepSeek',
+    contextWindow: 500000,
+    inputPricePerMillion: 0.55,
+    outputPricePerMillion: 2.19,
+    verified: false
+  },
+  {
+    name: 'DeepSeek V4.1-Flash (est.)',
+    provider: 'DeepSeek',
+    contextWindow: 256000,
+    inputPricePerMillion: 0.14,
+    outputPricePerMillion: 0.28,
+    verified: false
   }
 ];
 
@@ -195,16 +207,19 @@ export function computeTokenCost(projectDir = process.cwd()) {
 
   // Calculate potential savings with Apex AST Compactor (~80% reduction average)
   const compactedTokensEst = Math.ceil(totalTokens * 0.18);
-  const rawCostSonnet = (totalTokens / 1000000) * 3.00;
-  const compactedCostSonnet = (compactedTokensEst / 1000000) * 3.00;
+  const baselineModel = MODEL_PRICING[0];
+  const rawCostBaseline = (totalTokens / 1000000) * baselineModel.inputPricePerMillion;
+  const compactedCostBaseline = (compactedTokensEst / 1000000) * baselineModel.inputPricePerMillion;
 
   return {
+    pricingUpdated: PRICING_UPDATED,
     scannedFiles: files.length,
     totalBytes,
     totalTokens,
     compactedTokensEst,
     savingsPercent: 82.0,
-    dollarSavingsTenTurnsSonnet: ((rawCostSonnet - compactedCostSonnet) * 10).toFixed(3),
+    baselineModel: baselineModel.name,
+    dollarSavingsTenTurnsBaseline: ((rawCostBaseline - compactedCostBaseline) * 10).toFixed(3),
     modelProjections,
     topFiles: fileBreakdown.sort((a, b) => b.tokens - a.tokens).slice(0, 5)
   };
@@ -219,21 +234,22 @@ if (process.argv[1] && process.argv[1].endsWith('token-cost.js')) {
   const report = computeTokenCost(projectDir);
 
   console.log(`  Scanned Files    : ${c.bold}${report.scannedFiles}${c.reset}`);
-  console.log(`  Raw Token Volume : ${c.yellow}${c.bold}${report.totalTokens.toLocaleString()} tokens${c.reset} (~${(report.totalBytes / 1024).toFixed(1)} KB)`);
-  console.log(`  With AST Compact : ${c.green}${c.bold}${report.compactedTokensEst.toLocaleString()} tokens${c.reset} (${report.savingsPercent}% reduction)\n`);
+  console.log(`  Raw Token Volume : ${c.yellow}${c.bold}${report.totalTokens.toLocaleString()} tokens${c.reset} (~${(report.totalBytes / 1024).toFixed(1)} KB, subword regex estimate)`);
+  console.log(`  With AST Compact : ${c.green}${c.bold}${report.compactedTokensEst.toLocaleString()} tokens${c.reset} (${report.savingsPercent}% est. reduction)\n`);
 
-  console.log(`${c.bold}MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):${c.reset}`);
-  console.log(`┌─────────────────────┬──────────────────┬──────────────┬──────────────┐`);
-  console.log(`│ Model               │ Context Window   │ Window Used  │ Single Cost  │`);
-  console.log(`├─────────────────────┼──────────────────┼──────────────┼──────────────┤`);
+  console.log(`${c.bold}MODEL CONTEXT & COST PROJECTIONS (Pricing ref: ${report.pricingUpdated}, approximate):${c.reset}`);
+  console.log(`┌────────────────────────────┬──────────────────┬──────────────┬──────────────┐`);
+  console.log(`│ Model                      │ Context Window   │ Window Used  │ Single Cost  │`);
+  console.log(`├────────────────────────────┼──────────────────┼──────────────┼──────────────┤`);
   report.modelProjections.forEach(m => {
-    const modelPad = m.model.padEnd(19);
+    const modelPad = m.model.padEnd(26);
     const winPad = `${(m.contextLimit / 1000)}k`.padEnd(16);
     const usagePad = `${m.windowUsagePercent}%`.padEnd(12);
     const costPad = `$${m.costPerTurn}`.padEnd(12);
     console.log(`│ ${modelPad} │ ${winPad} │ ${usagePad} │ ${costPad} │`);
   });
-  console.log(`└─────────────────────┴──────────────────┴──────────────┴──────────────┘\n`);
+  console.log(`└────────────────────────────┴──────────────────┴──────────────┴──────────────┘`);
+  console.log(`${c.gray}Note: Entries marked (est.) use approximate unverified pricing; vendor rates may change.${c.reset}\n`);
 
-  console.log(`💡 ${c.green}${c.bold}Apex Savings Insight:${c.reset} Running ${c.cyan}npx apex-agents compact${c.reset} saves ~${c.green}$${report.dollarSavingsTenTurnsSonnet}${c.reset} every 10 turns on Claude Sonnet 5.5!\n`);
+  console.log(`💡 ${c.green}${c.bold}Apex Savings Estimate:${c.reset} Running ${c.cyan}npx apex-agents compact${c.reset} saves ~${c.green}$${report.dollarSavingsTenTurnsBaseline}${c.reset} every 10 turns on ${report.baselineModel}.\n`);
 }

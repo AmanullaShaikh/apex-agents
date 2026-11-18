@@ -10,7 +10,7 @@
 [![CI & Integrity Suite](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml)
 [![Babel AST Engine](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
 [![Context Reduction](https://img.shields.io/badge/Context%20Reduction-85%25--88.5%25-6366f1.svg?style=flat-square)](#1-ast-context-compactor-apex-agents-compact)
-[![Engine Benchmark](https://img.shields.io/badge/Engine%20Benchmark-Grade%20A%2B%20Verified-10b981.svg?style=flat-square)](#7-architectural--ast-engine-benchmark-apex-agents-swe-eval)
+[![Engine Self-Check](https://img.shields.io/badge/Engine%20Self--Check-5%2F5%20Vectors%20Passing-10b981.svg?style=flat-square)](#7-internal-ast--engine-self-check-apex-agents-swe-eval)
 [![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#10-native-model-context-protocol-mcp-server)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/apex-agents/pulls)
 
@@ -18,9 +18,9 @@
 
 ---
 
-## 💡 The Core Problem: Why Autonomous Coding Agents Fail
+## 💡 The Core Problem: Why AI Coding Agents Fail
 
-Leading AI coding models (Claude 3.7 Sonnet, GPT-4o, Gemini 2.0 Flash, DeepSeek-R1) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
+Leading AI coding models (GPT-6 Astra, Gemini 4 Argon, Claude Sonnet, Meta Muse Spark) possess formidable raw intelligence, but suffer from three fatal runtime failure modes when dropped into large codebases:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -115,9 +115,9 @@ npx apex-agents init
 | `npx apex-agents spec <feat>` | Architecture | Compiles 5-phase zero-slop architectural `SPEC.md` and contracts before coding |
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file callers into a compact ~100 token LLM dossier |
 | `npx apex-agents audit-bugs` | Security | Scans AST for production runtime bugs (SQL injection, hook memory leaks, floating promises) |
-| `npx apex-agents cost` | Economics | Analyzes repository tokens and predicts costs across Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, & DeepSeek V4 |
+| `npx apex-agents cost` | Economics | Estimates repository tokens (subword regex) and costs across GPT-6 Astra, Gemini 4, Meta Muse Spark & more |
 | `npx apex-agents plan <goal>` | Planning | Calculates dependency waves and scaffolds isolated git worktrees with contract specifications |
-| `npx apex-agents swe-eval` | Benchmark | Runs 5-vector AST & architectural engine benchmark suite (Grade A+ Verified) |
+| `npx apex-agents swe-eval` | Self-Check | Runs 5-vector internal AST, PageRank, and diff-audit verification suite |
 | `npx apex-agents graph` | Architecture | Traces AST imports/exports, computes PageRank centrality, and detects circular dependency cycles |
 | `npx apex-agents review` | Security | Scans git diff for leaked credentials (AWS, Stripe, OpenAI), `TODO` stubs, and test tampering |
 | `npx apex-agents handoff` | Context | Serializes active git state and blockers into a clean ~85 token `<session_handoff>` XML block |
@@ -129,7 +129,7 @@ npx apex-agents init
 | `npx apex-agents sandbox <cmd>` | Isolation | Creates and manages isolated Git Worktrees (`.worktrees/`) for safe AI experimentation |
 | `npx apex-agents mcp` | Protocol | Starts the native Model Context Protocol (MCP) server for Claude Desktop & Cursor |
 | `npx apex-agents doctor` | Diagnostics | Verifies your local environment, Node.js runtime, and hook integrity |
-| `npx apex-agents eval` | Integrity | Executes the 5-vector verification test suite across all agents and engines (Grade A+) |
+| `npx apex-agents eval` | Integrity | Executes the 5-vector internal verification suite across local engines |
 
 ---
 
@@ -264,33 +264,34 @@ npx apex-agents cost
 ```
 ═════ APEX AGENTS: MULTI-MODEL TOKEN COST AUDITOR ═════
 Scanned Files    : 45
-Raw Token Volume : ~101,691 tokens (382.8 KB)
-With AST Compact : ~18,305 tokens (82% reduction)
+Raw Token Volume : ~101,691 tokens (382.8 KB, subword regex estimate)
+With AST Compact : ~18,305 tokens (82% est. reduction)
 
-MODEL CONTEXT & COST PROJECTIONS (Per Single Context Load):
-┌───────────────────────┬──────────────────┬──────────────┬──────────────┐
-│ Model                 │ Context Window   │ Window Used  │ Single Cost  │
-├───────────────────────┼──────────────────┼──────────────┼──────────────┤
-│ Claude Sonnet 5.5     │ 1000k            │ 3.05%        │ $0.0915      │
-│ Claude Opus 5.5       │ 1000k            │ 3.05%        │ $0.4576      │
-│ GPT-6 Astra           │ 1000k            │ 3.05%        │ $0.0610      │
-│ GPT-6.1 Sol           │ 500k             │ 6.10%        │ $0.0336      │
-│ Gemini 4 Argon        │ 5000k            │ 0.61%        │ $0.0381      │
-│ Gemini 4 Hydrogen     │ 2000k            │ 1.53%        │ $0.0046      │
-│ Grok 4.7              │ 2000k            │ 1.53%        │ $0.0610      │
-│ DeepSeek V4-Pro       │ 500k             │ 6.10%        │ $0.0168      │
-│ DeepSeek V4.1-Flash   │ 256k             │ 11.92%       │ $0.0043      │
-│ Meta Muse Spark       │ 512k             │ 5.96%        │ $0.0061      │
-└───────────────────────┴──────────────────┴──────────────┴──────────────┘
+MODEL CONTEXT & COST PROJECTIONS (Pricing ref: 2026-11, approximate):
+┌────────────────────────────┬──────────────────┬──────────────┬──────────────┐
+│ Model                      │ Context Window   │ Window Used  │ Single Cost  │
+├────────────────────────────┼──────────────────┼──────────────┼──────────────┤
+│ GPT-6 Astra                │ 1050k            │ 9.68%        │ $1.0169      │
+│ GPT-6.1 Sol                │ 1050k            │ 9.68%        │ $0.2034      │
+│ Gemini 4 Argon             │ 1000k            │ 10.17%       │ $0.2034      │
+│ Gemini 4 Hydrogen          │ 1000k            │ 10.17%       │ $0.1525      │
+│ Meta Muse Spark            │ 1000k            │ 10.17%       │ $0.1271      │
+│ Claude Sonnet 5.5 (est.)   │ 1000k            │ 10.17%       │ $0.3051      │
+│ Claude Opus 5.5 (est.)     │ 1000k            │ 10.17%       │ $1.5254      │
+│ Grok 4.7 (est.)            │ 2000k            │ 5.08%        │ $0.2034      │
+│ DeepSeek V4-Pro (est.)     │ 500k             │ 20.34%       │ $0.0559      │
+│ DeepSeek V4.1-Flash (est.) │ 256k             │ 39.72%       │ $0.0142      │
+└────────────────────────────┴──────────────────┴──────────────┴──────────────┘
+Note: Entries marked (est.) use approximate unverified pricing; vendor rates may change.
 
-💡 Apex Savings: Running npx apex-agents compact saves ~$2.50 every 10 turns on Claude Sonnet 5.5!
+💡 Apex Savings Estimate: Running npx apex-agents compact saves ~$8.339 every 10 turns on GPT-6 Astra.
 ```
 
 ---
 
-## 🏆 7. Architectural & AST Engine Benchmark (`apex-agents swe-eval`)
+## 🏆 7. Internal AST & Engine Self-Check (`apex-agents swe-eval`)
 
-Benchmark your local AI engineering harness across 5 standardized software engineering vectors verifying AST skeleton fidelity, cross-file caller resolution, graph PageRank convergence, anti-cheat test tampering defense, and autonomous trace diagnosis:
+Verify your local AST compactor, cross-file caller resolver, PageRank graph convergence, anti-cheat diff auditor, and test failure trace parser across 5 internal self-check vectors:
 
 ```bash
 npx apex-agents swe-eval
@@ -301,21 +302,20 @@ npx apex-agents swe-eval
   ✓ PASS [SWE-2: Cross-File Reverse Caller Resolution] - Resolved cross-file call site(s) for auth()
   ✓ PASS [SWE-3: Graph PageRank Centrality Convergence] - Hub ranked #1 with score 13.3%
   ✓ PASS [SWE-4: Anti-Cheat Test Tampering Defense] - Detected 2 test weakening issue(s) via AST diff engine
-  ✓ PASS [SWE-5: Autonomous Self-Healing Trace Diagnosis] - Extracted failing trace for UserService test at tests/user.test.ts:33
+  ✓ PASS [SWE-5: Test Failure Trace Diagnosis] - Extracted failing trace for UserService test at tests/user.test.ts:33
 
-═════ BENCHMARK FINAL EVALUATION ═════
-  Total Vectors Passed: 5/5
-  Composite Score     : 100/100
-  Composite Grade     : A+ (Sovereign Tier)
+═════ SELF-CHECK SUMMARY ═════
+  Vectors Passed : 5/5
+  Status         : PASS (5/5 Internal Vectors)
 ```
 
 ---
 
-## 🔁 8. Autonomous Self-Healing Test Loop (`apex-agents test-loop`)
+## 🔁 8. Transactional Test-Loop Runner (`apex-agents test-loop`)
 
 When AI coding agents write code that breaks unit tests, manual copy-pasting of error traces wastes developer time and causes hallucination loops.
 
-`apex-agents test-loop` executes your project's test suite, detects failures, and automatically synthesizes failure traces into a zero-slop `APEX_FIX_PROMPT.md`:
+`apex-agents test-loop` executes your project's test suite, parses failure traces into a zero-slop `APEX_FIX_PROMPT.md`, and optionally runs transactional repair (`--heal`) with strict test-file immutability:
 
 ```bash
 # Auto-detects test runner (Node, pnpm, bun, yarn, cargo, pytest, go test)
@@ -332,16 +332,16 @@ npx apex-agents test-loop "npm run test:e2e"
          │ Fail (Exit > 0)                    └────────────────────────┘
          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Parse failures: extracts failing test names, file paths, lines,     │
-│  and AssertionError stack traces                                     │
+│  Parse failures & emit APEX_FIX_PROMPT.md (anti-tampering rules)     │
 └────────┬─────────────────────────────────────────────────────────────┘
          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  4-Tier Sovereign Self-Healing Engine (--heal):                      │
-│  1. Deterministic AST Patcher: local literal/export swap (0 API key) │
-│  2. Local Ollama: offline qwen2.5-coder patch (0 API key)            │
-│  3. IDE Agent Handoff: structured APEX_FIX_PROMPT.md for Cursor      │
-│  4. Optional Cloud API: Gemini/Claude/OpenAI if explicitly configured│
+│  Safe Transactional --heal Gate (Zero Paid API Required):            │
+│  • Test-File Guard: strictly refuses to edit *.test.* / *.spec.*     │
+│  • Tier 1: Local Ollama (fast /api/tags probe + 120s generation)     │
+│  • Tier 2: Optional Cloud API (only if env key explicitly set)       │
+│  • Pre-patch checkpoint → auditDiff() → re-test → auto-rollback      │
+│  • Tier 3: Zero-paid-API handoff via APEX_FIX_PROMPT.md to IDE agent │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -31,7 +31,7 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  / /_\\ \\| |_| | |__  | ' /    / /_\\ \\ |  __| |__ | . ' | | | \\___ \\ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
-  ${c.gray}Autonomous AI Engineering Agency • 10 Divisions, 38+ Specialists • 13 Instincts${c.reset}
+  ${c.gray}Developer Tooling & AST Compactor Harness • 10 Divisions, 38 Specialists • 13 Instincts${c.reset}
   ${c.dim}AST Compactor • Dependency Graph • Handoff Engine • Studio TUI • Native MCP${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
@@ -54,14 +54,14 @@ function printHelp() {
   console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
   console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
   console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens by 85%+ with AST PageRank & callers [--xml|--json|--top|--budget]`);
-  console.log(`  ${c.green}test-loop${c.reset}       Run self-healing test loop & synthesize APEX_FIX_PROMPT.md on failure`);
+  console.log(`  ${c.green}test-loop${c.reset}       Run test suite, synthesize APEX_FIX_PROMPT.md on failure, optional --heal`);
   console.log(`  ${c.green}checkpoint${c.reset}      Save atomic git-native working tree snapshot [save <label>|list|rollback]`);
   console.log(`  ${c.green}rollback${c.reset}        Instant restore to previous checkpoint if AI corrupted codebase`);
   console.log(`  ${c.green}spec <feature>${c.reset}  Compile 5-phase zero-slop architectural SPEC.md before coding`);
   console.log(`  ${c.green}trace <symbol>${c.reset}  Trace declaration & cross-file call sites with AST call-graph`);
   console.log(`  ${c.green}audit-bugs${c.reset}      Deep AST scan for production bugs (SQL injection, hook leaks, floating promises)`);
-  console.log(`  ${c.green}cost${c.reset}            Multi-model context window usage & cost predictor (Claude Sonnet 5.5, GPT-6 Astra, Gemini 4 Argon, DeepSeek V4)`);
-  console.log(`  ${c.green}swe-eval${c.reset}        Run SWE-bench mini 5-vector autonomous engineering benchmark`);
+  console.log(`  ${c.green}cost${c.reset}            Multi-model context window & cost estimator (GPT-6 Astra, Gemini 4, Meta Muse Spark, etc.)`);
+  console.log(`  ${c.green}swe-eval${c.reset}        Run 5-vector internal AST & tooling self-check suite`);
   console.log(`  ${c.green}handoff${c.reset}         Generate clean session handoff block to kill attention drift`);
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}plan <goal>${c.reset}     Decompose an objective into a parallel DAG swarm plan & scaffold worktrees`);
@@ -212,9 +212,9 @@ function handleInject(args = []) {
   const cursorRulesPath = path.join(cwd, '.cursorrules');
   const isFull = args.includes('--full');
 
-  let injectionContent = `\n\n<!-- APEX-AGENTS AUTONOMOUS AGENCY INJECTION -->\n`;
+  let injectionContent = `\n\n<!-- APEX-AGENTS OPERATIONAL DIRECTIVES -->\n`;
   injectionContent += `# Apex Agents Operational Directives\n`;
-  injectionContent += `This repository is governed by the Apex Agents Autonomous Engineering Agency protocols.\n\n`;
+  injectionContent += `This repository uses Apex Agents developer tooling and zero-slop execution rules.\n\n`;
 
   if (isFull) {
     const instincts = getInstincts();

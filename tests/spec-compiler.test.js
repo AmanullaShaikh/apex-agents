@@ -50,11 +50,38 @@ describe('Spec-First Architectural Compiler Suite', () => {
       assert.match(res.content, /DarkModeToggleButtonComponentPropsSchema/);
       assert.match(res.content, /theme: z\.enum\(\['light', 'dark', 'system'\]\)/);
       assert.match(res.content, /UI Component & State Contract/);
+      assert.match(res.content, /\[UNMOUNTED\]/);
       assert.doesNotMatch(res.content, /Idempotency-Key/);
+      assert.doesNotMatch(res.content, /EMIT 400 ERROR/);
 
       const val = validateSpec(res.content);
       assert.strictEqual(val.valid, true);
       assert.strictEqual(val.score, 100);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should classify Login form as UI and CLI/Cache without HTTP POST or Idempotency-Key', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-spec-domains-'));
+    try {
+      const formSpec = compileSpec('Login form', tmpDir);
+      assert.match(formSpec.content, /UI Component & State Contract/);
+      assert.match(formSpec.content, /\[UNMOUNTED\]/);
+      assert.doesNotMatch(formSpec.content, /\/api\/v1\//);
+      assert.doesNotMatch(formSpec.content, /Idempotency-Key/);
+
+      const cliSpec = compileSpec('CLI log file parser', tmpDir);
+      assert.match(cliSpec.content, /CLI Invocation & Exit Code Contract/);
+      assert.match(cliSpec.content, /VALIDATING_ARGS/);
+      assert.doesNotMatch(cliSpec.content, /\/api\/v1\//);
+      assert.doesNotMatch(cliSpec.content, /Idempotency-Key/);
+
+      const cacheSpec = compileSpec('Redis caching layer', tmpDir);
+      assert.match(cacheSpec.content, /Cache Operation & Consistency Contract/);
+      assert.match(cacheSpec.content, /CACHE_HIT/);
+      assert.doesNotMatch(cacheSpec.content, /\/api\/v1\//);
+      assert.doesNotMatch(cacheSpec.content, /Idempotency-Key/);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
