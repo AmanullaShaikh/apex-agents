@@ -656,4 +656,37 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     assert.strictEqual(result.stats.secrets, 1);
     assert.match(result.issues[0].description, /AWS Access Key ID/);
   });
+
+  test('should detect Google AIza, GitHub fine-grained PAT, JWT, spaced array join secrets, and allow console.log in test helpers', () => {
+    const gKey = ['AIza', 'SyD1234567890abcdef1234567890abcdef'].join('');
+    const ghPat = ['github_pat_', '11AAAAAAA0123456789012345678901234567890123456789012345678901234567890123456789012'].join('');
+    const jwt = ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxMjM0NTY3ODkwIn0', 'signature123456'].join('.');
+    const tokensDiff = [
+      'diff --git a/src/tokens.ts b/src/tokens.ts',
+      '--- a/src/tokens.ts',
+      '+++ b/src/tokens.ts',
+      '@@ -1,1 +1,5 @@',
+      `+const a = "${gKey}";`,
+      `+const b = "${ghPat}";`,
+      `+const c = "${jwt}";`,
+      `+const d = ['AKIA', 'IOSF', 'ODNN7EXAMPLE'] . join('');`
+    ].join('\n');
+    const tokRes = auditDiff(tokensDiff);
+    assert.strictEqual(tokRes.clean, false);
+    assert.strictEqual(tokRes.stats.secrets, 4);
+
+    const testLogDiff = [
+      'diff --git a/tests/helper.test.js b/tests/helper.test.js',
+      '--- a/tests/helper.test.js',
+      '+++ b/tests/helper.test.js',
+      '@@ -1,1 +1,4 @@',
+      '+function myHelper(x) {',
+      '+  if (!x) return;',
+      '+  console.log(x);',
+      '+}'
+    ].join('\n');
+    const logRes = auditDiff(testLogDiff);
+    assert.strictEqual(logRes.stats.debug, 0);
+    assert.strictEqual(logRes.stats.tampering, 0);
+  });
 });

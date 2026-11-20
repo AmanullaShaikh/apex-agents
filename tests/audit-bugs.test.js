@@ -253,4 +253,15 @@ describe('Production AST Bug & Flaw Hunter Suite', () => {
     const joinIssues = auditCodeBugs(arrayJoinSqli, 'src/db.ts');
     assert.strictEqual(joinIssues.filter(i => i.category === 'SQL_INJECTION').length, 1);
   });
+
+  test('should detect SQL injection inside ternary ConditionalExpression and Array.join() calls', () => {
+    const evasionSql = `
+      export function run(db, cond, id) {
+        db.query(cond ? "SELECT * FROM a WHERE id=" + id : "SELECT 1");
+        db.query(["SELECT * FROM a WHERE id=", id].join(''));
+      }
+    `;
+    const issues = auditCodeBugs(evasionSql, 'src/evasion.ts');
+    assert.strictEqual(issues.filter(i => i.category === 'SQL_INJECTION').length, 2);
+  });
 });

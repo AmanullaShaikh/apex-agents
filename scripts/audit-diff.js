@@ -25,9 +25,12 @@ export const SECRET_PATTERNS = [
   { name: 'AWS Access Key ID', regex: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/ },
   { name: 'Base64 Encoded AWS Key', regex: /\bQUtJ[0-9a-zA-Z+/=_-]{16,}\b/ },
   { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
+  { name: 'GitHub Fine-Grained Personal Access Token', regex: /\bgithub_pat_[0-9a-zA-Z_]{82}\b/ },
+  { name: 'Google Cloud / Maps API Key', regex: /\bAIza[0-9A-Za-z\-_]{35}\b/ },
+  { name: 'JSON Web Token (JWT)', regex: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
   { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
   { name: 'Private Key Header', regex: /-----BEGIN (?:(?:RSA|OPENSSH|EC|DSA|ENCRYPTED|PGP)\s+)?PRIVATE KEY(?:\s+BLOCK)?-----/ },
-  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ASIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
+  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ASIA|ghp_|github_pat_|AIza)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
 
@@ -144,8 +147,9 @@ export function foldStringLiterals(text) {
   folded = folded.replace(/\$\{\s*\(\s*\(\s*\)\s*=>\s*['"]([^'"]+)['"]\s*\)\s*\(\s*\)\s*\}/g, '$1');
 
   // 5. Fold array joins: ['a', 'b', 'c'].join('') -> 'abc'
-  folded = folded.replace(/\[\s*(['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*,\s*)+['"`][a-zA-Z0-9_\-\/+=$]+['"`]\s*\]\.join\(['"`]['"`]\)/g, m => {
-    return "'" + m.replace(/\[|\]|\.join\(['"`]['"`]\)/g, '').split(',').map(s => s.trim().replace(/^['"`]|['"`]$/g, '')).join('') + "'";
+  folded = folded.replace(/\[\s*((?:['"`][^'"`\r\n]*['"`]\s*,\s*)+['"`][^'"`\r\n]*['"`])\s*\]\s*\.\s*join\s*\(\s*['"`]{2}\s*\)/g, (m, items) => {
+    const joined = items.split(',').map(part => part.trim().slice(1, -1)).join('');
+    return joined.includes("'") ? JSON.stringify(joined) : `'${joined}'`;
   });
 
   // 6. Fold native .concat(): 'a'.concat('b') -> 'ab'
@@ -309,8 +313,6 @@ export function auditDiff(rawDiff) {
   const deletedAssertions = [];
   const commentedAssertions = new Set();
   const fileStringVars = new Map();
-  const fileAddedAssertions = new Map();
-  let totalAddedAssertions = 0;
   let inTestOptionsBlock = false;
   let testOptionsDepth = 0;
   let helperFnDepth = 0;
@@ -355,13 +357,6 @@ export function auditDiff(rawDiff) {
     // Audit added lines
     if (line.startsWith('+') && !line.startsWith('+++')) {
       const addedText = line.substring(1);
-      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
-      const trimmedAdded = addedText.trim();
-
-      if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(trimmedAdded) && !trimmedAdded.startsWith('//')) {
-        totalAddedAssertions++;
-        fileAddedAssertions.set(currentFile, (fileAddedAssertions.get(currentFile) || 0) + 1);
-      }
 
       const isSelfAuditTest = currentFile.includes('diff-audit.test.');
       const lineEval = !isSelfAuditTest ? resolveLineWithVars(addedText, fileStringVars) : null;
@@ -428,6 +423,7 @@ export function auditDiff(rawDiff) {
       }
 
       // Check test tampering if modifying tests
+      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
         const foldedText = lineEval.folded;
         const resolvedText = lineEval.resolved;
@@ -508,7 +504,8 @@ export function auditDiff(rawDiff) {
       }
 
       // Check debug remnants (exclude CLI entrypoints and scripts)
-      const isCliOrScript = currentFile.startsWith('bin/') || currentFile.startsWith('scripts/') || currentFile.includes('cli.') || isSelfAuditTest;
+      const isTestOrHelperFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
+      const isCliOrScript = currentFile.startsWith('bin/') || currentFile.startsWith('scripts/') || currentFile.includes('cli.') || isTestOrHelperFile || isSelfAuditTest;
       if (!isCliOrScript) {
         for (const dbg of DEBUG_PATTERNS) {
           if (dbg.regex.test(addedText)) {
@@ -525,29 +522,17 @@ export function auditDiff(rawDiff) {
     }
   }
 
-  // Only count deleted assertions if they were not replaced or migrated by added assertions
+  // Only count deleted assertions if the file was not already flagged for commenting them out
   for (const del of deletedAssertions) {
-    if (commentedAssertions.has(del.file)) continue;
-
-    const inSameFile = fileAddedAssertions.get(del.file) || 0;
-    if (inSameFile > 0) {
-      fileAddedAssertions.set(del.file, inSameFile - 1);
-      totalAddedAssertions--;
-      continue;
+    if (!commentedAssertions.has(del.file)) {
+      issues.push({
+        severity: 'HIGH',
+        category: 'TEST_TAMPERING',
+        file: del.file,
+        description: 'AI Agent Deleted Assertion Line from Test Suite',
+        snippet: del.snippet
+      });
     }
-
-    if (totalAddedAssertions > 0) {
-      totalAddedAssertions--;
-      continue;
-    }
-
-    issues.push({
-      severity: 'HIGH',
-      category: 'TEST_TAMPERING',
-      file: del.file,
-      description: 'AI Agent Deleted Assertion Line from Test Suite',
-      snippet: del.snippet
-    });
   }
 
   const stats = {

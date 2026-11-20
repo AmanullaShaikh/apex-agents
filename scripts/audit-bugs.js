@@ -369,6 +369,14 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               return true;
             }
 
+            // 2b. Conditional (ternary) & logical expressions
+            if (node.type === 'ConditionalExpression') {
+              return isVulnerableSqlExpression(node.consequent, scope, visited) || isVulnerableSqlExpression(node.alternate, scope, visited);
+            }
+            if (node.type === 'LogicalExpression') {
+              return isVulnerableSqlExpression(node.left, scope, visited) || isVulnerableSqlExpression(node.right, scope, visited);
+            }
+
             // 3. Identifier: recursively resolve aliases, assignments, bindings, and Promise parameters
             if (node.type === 'Identifier') {
               if (visited.has(node.name)) return false;
@@ -464,8 +472,29 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               }
             }
 
-            // 5. Call expression: e.g. db.query(getQuery(userId))
+            // 5. Call expression: e.g. db.query(getQuery(userId)) or db.query(["SELECT ... ", id].join(''))
             if (node.type === 'CallExpression') {
+              if (
+                node.callee?.type === 'MemberExpression' &&
+                node.callee.property?.name === 'join'
+              ) {
+                let arrayNode = node.callee.object;
+                if (arrayNode?.type === 'Identifier') {
+                  const binding = scope?.getBinding(arrayNode.name);
+                  if (binding?.path?.node?.init?.type === 'ArrayExpression') {
+                    arrayNode = binding.path.node.init;
+                  }
+                }
+                if (arrayNode?.type === 'ArrayExpression') {
+                  const elements = arrayNode.elements || [];
+                  const hasSql = elements.some(el => (el?.type === 'StringLiteral' && /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)\b/i.test(el.value)) || isVulnerableSqlExpression(el, scope, visited));
+                  const hasDynamic = elements.some(el => el && el.type !== 'StringLiteral');
+                  if (hasSql && hasDynamic) return true;
+                  for (const el of elements) {
+                    if (el && isVulnerableSqlExpression(el, scope, visited)) return true;
+                  }
+                }
+              }
               // Check arguments of the call
               for (const arg of node.arguments) {
                 if (isVulnerableSqlExpression(arg, scope, visited)) return true;
