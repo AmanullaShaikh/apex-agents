@@ -35,6 +35,9 @@
     "install-global": "node ./bin/apex.js install",
     "list": "node ./bin/apex.js list",
     "doctor": "node ./bin/apex.js doctor",
+    "install-hooks": "node ./bin/apex.js install-hooks",
+    "cursor-rules": "node ./bin/apex.js cursor-rules",
+    "inject": "node ./bin/apex.js inject",
     "mcp": "node ./bin/mcp-server.js"
   },
   "keywords": [

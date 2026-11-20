@@ -35,20 +35,42 @@ export function installGitHooks(projectDir = process.cwd()) {
 echo "⚡ [Apex-Agents Hook] Running pre-commit safety checks..."
 
 if command -v node >/dev/null 2>&1; then
+  # 1. Run Secret Leak Sentinel
   if [ -f "./scripts/scan-secrets.js" ]; then
     node "./scripts/scan-secrets.js" || {
       echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
       exit 1
     }
+  elif command -v apex-agents >/dev/null 2>&1; then
+    apex-agents scan-secrets || {
+      echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
+      exit 1
+    }
+  elif command -v apex >/dev/null 2>&1; then
+    apex scan-secrets || {
+      echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
+      exit 1
+    }
   elif command -v npx >/dev/null 2>&1; then
-    npx --no-install apex-agents scan-secrets || {
+    npx apex-agents scan-secrets || {
       echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
       exit 1
     }
   fi
 
+  # 2. Run Staged Diff Auditor (Secrets, Slop, Anti-Tamper)
   if [ -f "./scripts/audit-diff.js" ]; then
     node "./scripts/audit-diff.js" --staged --strict || {
+      echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
+      exit 1
+    }
+  elif command -v apex-agents >/dev/null 2>&1; then
+    apex-agents review --staged --strict || {
+      echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
+      exit 1
+    }
+  elif command -v apex >/dev/null 2>&1; then
+    apex review --staged --strict || {
       echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
       exit 1
     }

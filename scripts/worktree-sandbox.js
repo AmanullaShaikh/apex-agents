@@ -115,12 +115,19 @@ export function handleClean(name, cwd = process.cwd()) {
   const worktreeDir = path.join(cwd, '.worktrees', safeName);
   console.log(`\n${c.cyan}[Apex-Agents] Removing worktree: ${safeName}...${c.reset}`);
   try {
-    execSync(`git worktree remove "${worktreeDir}" --force`, { stdio: 'inherit', cwd });
+    if (fs.existsSync(worktreeDir)) {
+      execSync(`git worktree remove "${worktreeDir}" --force`, { stdio: 'inherit', cwd });
+    }
     execSync(`git worktree prune`, { stdio: 'ignore', cwd });
     console.log(`  ${c.green}✓ Worktree removed cleanly.${c.reset}\n`);
   } catch (err) {
-    console.error(`  ${c.red}Failed to clean worktree: ${err.message}${c.reset}\n`);
-    process.exit(1);
+    try {
+      execSync(`git worktree prune`, { stdio: 'ignore', cwd });
+      console.log(`  ${c.green}✓ Worktree pruned cleanly.${c.reset}\n`);
+    } catch {
+      console.error(`  ${c.red}Failed to clean worktree: ${err.message}${c.reset}\n`);
+      process.exit(1);
+    }
   }
 }
 

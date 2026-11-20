@@ -183,4 +183,44 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
       execSync(`node "${APEX_BIN}" compact --bogusflag`, { stdio: 'pipe', cwd: ROOT_DIR });
     }, /Command failed/);
   });
+
+  test('pre-commit hook executes cleanly in external git repo without --no-install failure and blocks secret leaks', () => {
+    const extRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-ext-hook-'));
+    const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-bin-shim-'));
+    try {
+      execSync('git init -b main', { cwd: extRepo, stdio: 'ignore' });
+      execSync('git config user.name "Test Runner"', { cwd: extRepo, stdio: 'ignore' });
+      execSync('git config user.email "test@example.com"', { cwd: extRepo, stdio: 'ignore' });
+      execSync(`node "${APEX_BIN}" install-hooks`, { cwd: extRepo, stdio: 'ignore' });
+
+      const hookPath = path.join(extRepo, '.git', 'hooks', 'pre-commit');
+      assert.strictEqual(fs.existsSync(hookPath), true);
+      const hookContent = fs.readFileSync(hookPath, 'utf-8');
+      assert.doesNotMatch(hookContent, /--no-install/);
+
+      // Provide local PATH shim for apex-agents so git commit tests real hook execution offline without hitting npm registry
+      if (process.platform === 'win32') {
+        fs.writeFileSync(path.join(shimDir, 'apex-agents.cmd'), `@echo off\r\n"${process.execPath}" "${APEX_BIN}" %*\r\n`);
+      } else {
+        const shPath = path.join(shimDir, 'apex-agents');
+        fs.writeFileSync(shPath, `#!/bin/sh\nexec "${process.execPath}" "${APEX_BIN}" "$@"\n`, { mode: 0o755 });
+      }
+      const envWithShim = { ...process.env, PATH: `${shimDir}${path.delimiter}${process.env.PATH || ''}` };
+
+      fs.writeFileSync(path.join(extRepo, 'hello.txt'), 'clean commit content\n');
+      execSync('git add hello.txt', { cwd: extRepo, stdio: 'ignore' });
+      execSync('git commit -m "initial clean commit"', { cwd: extRepo, stdio: 'pipe', env: envWithShim });
+
+      // Secret leak commit must be blocked by the hook
+      const fakeAws = [65, 75, 73, 65].map((c) => String.fromCharCode(c)).join('') + '1234567890ABCDEF';
+      fs.writeFileSync(path.join(extRepo, 'leak.js'), `export const k = "${fakeAws}";\n`);
+      execSync('git add leak.js', { cwd: extRepo, stdio: 'ignore' });
+      assert.throws(() => {
+        execSync('git commit -m "leak commit"', { cwd: extRepo, stdio: 'pipe', env: envWithShim });
+      }, /Command failed/);
+    } finally {
+      fs.rmSync(extRepo, { recursive: true, force: true });
+      fs.rmSync(shimDir, { recursive: true, force: true });
+    }
+  });
 });

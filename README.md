@@ -76,6 +76,9 @@ npx apex-agents init
 | `npx apex-agents mcp` | Protocol | Starts the native stdio Model Context Protocol (MCP) server for Claude Desktop & Cursor |
 | `npx apex-agents scan-secrets` | Security | Scans workspace files for leaked credentials and split/obfuscated keys |
 | `npx apex-agents export-all` | Export | Writes rule configs for Claude Code, Cursor, Windsurf, Copilot, and Aider |
+| `npx apex-agents cursor-rules` | Export | Exports `.cursor/rules/*.mdc` specialist rule files into the current project |
+| `npx apex-agents inject` | Setup | Idempotently injects Apex directives into `CLAUDE.md` and `.cursorrules` |
+| `npx apex-agents install-hooks` | Security | Installs pre-commit secret-scan & anti-tamper git hooks (worktree-aware) |
 | `npx apex-agents studio` | Interface | Interactive keyboard-driven terminal explorer for browsing specialist prompt packs |
 | `npx apex-agents dashboard` | Interface | Opens local HTML explorer (`dashboard.html`) in your browser |
 | `npx apex-agents doctor` | Diagnostics | Checks Node.js runtime, git common dir (worktree-aware), hooks, and `.cursor/rules` |

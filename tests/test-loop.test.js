@@ -205,4 +205,11 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should reject removed --heal flag with non-zero exit code', () => {
+    const scriptPath = path.resolve(process.cwd(), 'scripts', 'test-loop.js');
+    assert.throws(() => {
+      execSync(`node "${scriptPath}" --heal`, { stdio: 'pipe' });
+    }, /Command failed/);
+  });
 });
