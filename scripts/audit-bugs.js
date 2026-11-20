@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parse } from '@babel/parser';
+import { buildSarifReport } from './audit-diff.js';
 import _traverse from '@babel/traverse';
 
 const traverse = _traverse.default || _traverse;
@@ -231,6 +232,22 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         }
         if (p.node.callee.type === 'MemberExpression' && ['execSync', 'execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name)) {
           return;
+        }
+
+        // Skip RegExp.prototype.exec calls: /.../.exec(...) or regex.exec(...)
+        if (p.node.callee.type === 'MemberExpression') {
+          const prop = p.node.callee.property?.name || p.node.callee.property?.value;
+          if (prop === 'exec') {
+            const calleeObj = p.node.callee.object;
+            if (calleeObj?.type === 'RegExpLiteral') return;
+            if (calleeObj?.type === 'NewExpression' && calleeObj.callee?.name === 'RegExp') return;
+            if (calleeObj?.type === 'Identifier') {
+              const init = p.scope?.getBinding(calleeObj.name)?.path?.node?.init;
+              if (init?.type === 'RegExpLiteral' || (init?.type === 'NewExpression' && init.callee?.name === 'RegExp')) {
+                return;
+              }
+            }
+          }
         }
 
         let isSqlCall = false;
@@ -686,11 +703,42 @@ export function auditWorkspaceBugs(projectDir = process.cwd()) {
 
 // CLI handler
 if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
-  const targetDir = process.argv[2] || process.cwd();
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: PRODUCTION AST BUG AUDITOR ═════${c.reset}`);
-  console.log(`Scanning repository: ${c.yellow}${targetDir}${c.reset}...\n`);
+  const args = process.argv.slice(2);
+  const formatArg = args.find(a => a.startsWith('--format='));
+  const format = formatArg ? formatArg.split('=')[1] : (args.includes('--json') ? 'json' : 'text');
+  const unknownFlag = args.find(a => a.startsWith('-') && !a.startsWith('--format=') && a !== '--json');
+  if (unknownFlag) {
+    console.error(`${c.red}Unknown flag: ${unknownFlag}${c.reset}`);
+    process.exit(1);
+  }
+  const targetDir = args.find(a => !a.startsWith('-')) || process.cwd();
+  if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
+    console.error(`${c.red}Directory not found: ${targetDir}${c.reset}`);
+    process.exit(1);
+  }
 
   const report = auditWorkspaceBugs(targetDir);
+
+  if (format === 'sarif') {
+    const sarifIssues = report.issues.map(i => ({
+      severity: i.severity,
+      category: i.category,
+      file: i.file,
+      line: i.line,
+      description: i.message,
+      snippet: ''
+    }));
+    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'apex-agents-audit-bugs', '2.2.0'), null, 2));
+    process.exit(report.passed ? 0 : 1);
+  }
+
+  if (format === 'json') {
+    console.log(JSON.stringify(report, null, 2));
+    process.exit(report.passed ? 0 : 1);
+  }
+
+  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: PRODUCTION AST BUG AUDITOR ═════${c.reset}`);
+  console.log(`Scanning repository: ${c.yellow}${targetDir}${c.reset}...\n`);
 
   if (report.passed) {
     console.log(`${c.green}${c.bold}✓ ZERO PRODUCTION BUGS DETECTED${c.reset} across ${report.scannedFiles} files.\n`);

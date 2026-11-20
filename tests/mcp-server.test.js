@@ -160,4 +160,23 @@ describe('Native MCP Tooling Integration Suite', () => {
     assert.ok(r101?.result?.isError, 'External project_dir must be rejected');
     assert.ok(r102?.result?.serverInfo, 'Server must stay alive after errors');
   });
+
+  test('should expose prompts/list, prompts/get, and apex_impact_radius tool', async () => {
+    const responses = await callMcpSession([
+      { jsonrpc: '2.0', id: 200, method: 'tools/list' },
+      { jsonrpc: '2.0', id: 201, method: 'prompts/list' },
+      { jsonrpc: '2.0', id: 202, method: 'prompts/get', params: { name: 'instinct:zero-slop-contract' } },
+      { jsonrpc: '2.0', id: 203, method: 'tools/call', params: { name: 'apex_impact_radius', arguments: { files: ['scripts/dependency-graph.js'] } } }
+    ]);
+    const r200 = responses.find(r => r.id === 200);
+    const r201 = responses.find(r => r.id === 201);
+    const r202 = responses.find(r => r.id === 202);
+    const r203 = responses.find(r => r.id === 203);
+
+    assert.ok(r200.result.tools.some(t => t.name === 'apex_impact_radius'));
+    assert.ok(r201.result.prompts.some(p => p.name === 'instinct:zero-slop-contract'));
+    assert.ok(r202.result.messages[0].content.text.includes('Zero-Slop'));
+    const impact = JSON.parse(r203.result.content[0].text);
+    assert.ok(Array.isArray(impact.directDependents) && impact.directDependents.length > 0);
+  });
 });

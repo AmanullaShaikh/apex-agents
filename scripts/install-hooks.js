@@ -18,7 +18,7 @@ function resolveGitCommonDir(projectDir) {
   }
 }
 
-export function installGitHooks(projectDir = process.cwd()) {
+export function installGitHooks(projectDir = process.cwd(), options = {}) {
   const gitCommonDir = resolveGitCommonDir(projectDir);
   if (!gitCommonDir) {
     console.error(`\x1b[31mError: No git repository found in ${projectDir}. Initialize git first.\x1b[0m`);
@@ -113,13 +113,58 @@ fi
     // Windows chmod is a no-op, safe
   }
 
+
+  if (options.prePush) {
+    const prePushPath = path.join(hooksDir, 'pre-push');
+    const prePushSnippet = `
+# --- APEX AGENTS PRE-PUSH SAFETY BLOCK ---
+echo "⚡ [Apex-Agents Hook] Running pre-push verification..."
+
+if command -v node >/dev/null 2>&1; then
+  if [ -f "./scripts/scan-secrets.js" ]; then
+    node "./scripts/scan-secrets.js" || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
+  elif command -v apex-agents >/dev/null 2>&1; then
+    apex-agents scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
+  elif command -v npx >/dev/null 2>&1; then
+    npx apex-agents scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
+  fi
+
+  if [ -f "./scripts/audit-bugs.js" ]; then
+    node "./scripts/audit-bugs.js" || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
+  elif command -v apex-agents >/dev/null 2>&1; then
+    apex-agents audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
+  fi
+
+  if [ -f "./package.json" ] && grep -q '"test"' ./package.json; then
+    npm test || { echo "❌ PUSH BLOCKED: Test suite failed!"; exit 1; }
+  fi
+
+  echo "✓ [Apex-Agents Hook] Pre-push verification passed."
+fi
+# --- END APEX AGENTS PRE-PUSH BLOCK ---
+`;
+    if (fs.existsSync(prePushPath)) {
+      const existing = fs.readFileSync(prePushPath, 'utf-8');
+      if (!existing.includes('APEX AGENTS PRE-PUSH')) {
+        const backup = `${prePushPath}.apex-backup.${Date.now()}`;
+        fs.copyFileSync(prePushPath, backup);
+        fs.writeFileSync(prePushPath, (existing.trim() + '\n' + prePushSnippet).replace(/\r\n/g, '\n'), { mode: 0o755 });
+      }
+    } else {
+      fs.writeFileSync(prePushPath, `#!/bin/sh\n# Apex Agents Pre-Push Safety Hook\n${prePushSnippet}\nexit 0\n`.replace(/\r\n/g, '\n'), { mode: 0o755 });
+    }
+    try { fs.chmodSync(prePushPath, 0o755); } catch {}
+    console.log(`\x1b[32m\x1b[1m✓ Configured Apex Agents pre-push hook in .git/hooks/pre-push\x1b[0m`);
+  }
+
   console.log(`\x1b[32m\x1b[1m✓ Successfully configured Apex Agents pre-commit hook in .git/hooks/pre-commit\x1b[0m`);
   console.log(`\x1b[90mRepository is protected against secret leaks and test tampering.\x1b[0m\n`);
   return true;
 }
 
 if (process.argv[1] && process.argv[1].endsWith('install-hooks.js')) {
-  const installed = installGitHooks();
+  const prePush = process.argv.includes('--pre-push');
+  const installed = installGitHooks(process.cwd(), { prePush });
   if (!installed) {
     process.exit(1);
   }

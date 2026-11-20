@@ -174,6 +174,24 @@ const TOOLS = [
     }
   },
   {
+    name: 'apex_impact_radius',
+    description: 'Computes transitive reverse-dependency blast radius for modified or specified files, returning direct dependents, transitive dependents, affected test suites, and risk level.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        files: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional list of relative file paths to analyze. If omitted, uses uncommitted git changes.'
+        },
+        project_dir: {
+          type: 'string',
+          description: 'Optional workspace root directory (must stay inside server cwd).'
+        }
+      }
+    }
+  },
+  {
     name: 'apex_audit_diff',
     description: 'Audits a raw Git diff for leaked credentials (API keys, Stripe/AWS/GitHub keys, hex/unicode escape evasion), test tampering (.skip, .skipIf, microtasks, deleted assertions), and AI slop.',
     inputSchema: {
@@ -249,7 +267,8 @@ async function handleMessage(msg) {
     sendResponse(id, {
       protocolVersion: '2024-11-05',
       capabilities: {
-        tools: {}
+        tools: {},
+        prompts: {}
       },
       serverInfo: {
         name: 'apex-agents-mcp',
@@ -261,6 +280,52 @@ async function handleMessage(msg) {
 
   if (method === 'notifications/initialized') {
     // Client confirmation notification, no response required
+    return;
+  }
+
+  if (method === 'prompts/list') {
+    const agents = getAllAgents().map(a => ({
+      name: `specialist:${a.id}`,
+      description: `Apex Agents specialist (${a.division}): @${a.id}`
+    }));
+    const instinctsDir = path.join(ROOT_DIR, 'instincts');
+    const instincts = fs.existsSync(instinctsDir)
+      ? fs.readdirSync(instinctsDir).filter(f => f.endsWith('.md')).map(f => {
+          const id = f.replace('.md', '');
+          return { name: `instinct:${id}`, description: `Apex Agents operational instinct: ${id}` };
+        })
+      : [];
+    sendResponse(id, { prompts: [...agents, ...instincts] });
+    return;
+  }
+
+  if (method === 'prompts/get') {
+    const promptName = params?.name;
+    if (!promptName || typeof promptName !== 'string') {
+      sendError(id, -32602, 'Invalid params: prompt name must be a string');
+      return;
+    }
+    let content = null;
+    if (promptName.startsWith('specialist:')) {
+      content = getAgentContent(promptName.slice('specialist:'.length))?.content || null;
+    } else if (promptName.startsWith('instinct:')) {
+      content = getInstinctContent(promptName.slice('instinct:'.length));
+    } else {
+      content = getAgentContent(promptName)?.content || getInstinctContent(promptName);
+    }
+    if (!content) {
+      sendError(id, -32601, `Prompt '${promptName}' not found`);
+      return;
+    }
+    sendResponse(id, {
+      description: `Apex Agents directive: ${promptName}`,
+      messages: [
+        {
+          role: 'user',
+          content: { type: 'text', text: content }
+        }
+      ]
+    });
     return;
   }
 
@@ -415,6 +480,34 @@ async function handleMessage(msg) {
         sendResponse(id, {
           isError: true,
           content: [{ type: 'text', text: `Error tracing symbol: ${err.message}` }]
+        });
+      }
+      return;
+    }
+
+    if (name === 'apex_impact_radius') {
+      try {
+        const workspaceRoot = path.resolve(process.cwd());
+        const requestedDir = args?.project_dir ? path.resolve(workspaceRoot, String(args.project_dir)) : workspaceRoot;
+        const rel = path.relative(workspaceRoot, requestedDir);
+        const allowExternal = process.env.APEX_ALLOW_EXTERNAL_DIR === '1';
+        if (!allowExternal && (rel.startsWith('..') || path.isAbsolute(rel))) {
+          sendResponse(id, {
+            isError: true,
+            content: [{ type: 'text', text: 'Error: project_dir must stay within the active workspace directory.' }]
+          });
+          return;
+        }
+        const { analyzeImpact } = await import('../scripts/impact-analyzer.js');
+        const filesArg = Array.isArray(args?.files) ? args.files : [];
+        const res = analyzeImpact(filesArg, requestedDir);
+        sendResponse(id, {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }]
+        });
+      } catch (err) {
+        sendResponse(id, {
+          isError: true,
+          content: [{ type: 'text', text: `Error analyzing impact: ${err.message}` }]
         });
       }
       return;

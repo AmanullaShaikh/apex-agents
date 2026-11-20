@@ -54,17 +54,21 @@ Run directly with `npx` — **zero global installation or API keys required**:
 npx apex-agents init
 ```
 
-### ⚡ Command Reference (v2.1.0)
+### ⚡ Command Reference (v2.2.0)
 
 | Command | Category | What It Physically Does |
 | :--- | :--- | :--- |
 | `npx apex-agents init` | Setup | Injects directives into `CLAUDE.md`/`.cursorrules`, exports `.cursor/rules/*.mdc`, installs pre-commit hook |
 | `npx apex-agents compact` | Context | Babel AST compactor stripping JS/TS/Py/Go/Rust bodies to signatures with PageRank & reverse callers |
 | `npx apex-agents graph` | Architecture | Builds AST import/export dependency graph, computes PageRank centrality, and detects import cycles |
+| `npx apex-agents impact [files]` | Architecture | Computes transitive AST blast-radius, affected test suites, and change risk level |
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file call sites into a compact LLM dossier |
 | `npx apex-agents checkpoint` | Safe State | Saves atomic git working-tree snapshot including untracked files, `.env`, and `.git/hooks` |
 | `npx apex-agents rollback` | Safe State | Restores working tree, deletes rogue untracked files, and restores `.env` & git hooks |
-| `npx apex-agents audit-bugs` | Static Scan | Babel AST scanner for raw SQL injection, React `useEffect` timer leaks, and floating promises |
+| `npx apex-agents audit-bugs
+
+# Export SARIF 2.1.0 for GitHub PR annotations
+npx apex-agents audit-bugs --format=sarif` | Static Scan | Babel AST scanner for raw SQL injection, React `useEffect` timer leaks, and floating promises |
 | `npx apex-agents review` | Security | Git diff auditor blocking credential leaks, lazy `TODO` stubs, and test tampering (`it.skip`, etc.) |
 | `npx apex-agents test-loop` | Testing | Detects test runner, runs suite, and writes structured `APEX_FIX_PROMPT.md` on failure |
 | `npx apex-agents cost` | Metrics | Measures repo token volume (subword regex), actual AST compaction savings, and optional `--price-in=<$/1M>` |
@@ -77,7 +81,7 @@ npx apex-agents init
 | `npx apex-agents export-all` | Export | Writes rule configs for Claude Code, Cursor, Windsurf, Copilot, and Aider |
 | `npx apex-agents cursor-rules` | Export | Exports `.cursor/rules/*.mdc` specialist rule files into the current project |
 | `npx apex-agents inject` | Setup | Idempotently injects Apex directives into `CLAUDE.md` and `.cursorrules` |
-| `npx apex-agents install-hooks` | Security | Installs pre-commit secret-scan & anti-tamper git hooks (worktree-aware) |
+| `npx apex-agents install-hooks` | Security | Installs pre-commit (and optional `--pre-push`) secret-scan & anti-tamper git hooks |
 | `npx apex-agents doctor` | Diagnostics | Checks Node.js runtime, git common dir (worktree-aware), hooks, and `.cursor/rules` |
 
 ---
@@ -151,6 +155,9 @@ Traverses JS/TS ASTs with Babel to flag common runtime bugs:
 
 ```bash
 npx apex-agents audit-bugs
+
+# Export SARIF 2.1.0 for GitHub PR annotations
+npx apex-agents audit-bugs --format=sarif
 ```
 
 - **SQL Injection**: String concatenation, template literals, multi-hop variable aliases, computed member calls (`db['query']`), `.call`/`.apply`/`.bind`, and `Reflect.get` sinks.
@@ -208,6 +215,9 @@ npx apex-agents review
 
 # Audit staged diff with strict exit code on violations
 npx apex-agents review --staged --strict
+
+# Export SARIF 2.1.0 for GitHub Code Scanning
+npx apex-agents review --staged --format=sarif
 ```
 
 - **Secret Leak Detection** (shared with `scripts/scan-secrets.js`): Detects AWS keys, Stripe keys, OpenAI/Anthropic keys, GitHub tokens, Slack tokens, private keys, base64 payloads, split/concatenated strings, hex/unicode escapes, zero-width characters, and bitwise `String.fromCharCode` obfuscation.
@@ -226,6 +236,8 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 - `apex_checkpoint`: Git-native working tree snapshot (including untracked files, `.env`, hooks).
 - `apex_rollback`: Atomic rollback to a saved checkpoint.
 - `apex_trace_symbol`: Cross-file symbol declaration and caller lookup.
+- `apex_impact_radius`: Transitive blast-radius and affected test-suite analyzer.
+- **Native MCP Prompts (`prompts/list`, `prompts/get`)**: Exposes all 32 specialists and 12 instincts directly as MCP prompts.
 - `apex_audit_diff`: Security and anti-test-tampering diff auditor.
 - `list_specialists` / `summon_specialist` / `get_operational_instinct`: Browse and load the 32 specialist prompt packs and 12 operational instincts.
 

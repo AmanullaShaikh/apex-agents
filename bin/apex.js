@@ -48,6 +48,7 @@ function printHelp() {
   console.log(`  ${c.green}budget${c.reset}          Analyze context window token bloat & generate .cursorignore`);
   console.log(`  ${c.green}memory [cmd]${c.reset}    Manage persistent cross-session memory [record|recall|sync|clear]`);
   console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
+  console.log(`  ${c.green}impact <file>${c.reset}   Analyze blast-radius & transitive downstream impact of file changes`);
   console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens with Babel AST PageRank & callers [--xml|--json|--top|--budget]`);
   console.log(`  ${c.green}test-loop${c.reset}       Run test suite & synthesize structured APEX_FIX_PROMPT.md on failure`);
   console.log(`  ${c.green}checkpoint${c.reset}      Save atomic git-native working tree snapshot [save <label>|list|rollback]`);
@@ -59,7 +60,7 @@ function printHelp() {
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
-  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)`);
+  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit (and optional --pre-push) git safety hooks`);
   console.log(`  ${c.green}scan-secrets${c.reset}    Scan workspace files for leaked credentials`);
   console.log(`  ${c.green}sandbox${c.reset}         Manage isolated Git Worktree sandboxes [start|clean|status]`);
   console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
@@ -343,9 +344,15 @@ function handleInit(args) {
   console.log(`  • Cross-session persistent memory ('npx apex-agents memory')\n`);
 }
 
-function handleInstallHooks() {
+function handleInstallHooks(args = []) {
   const hooksScript = path.join(ROOT_DIR, 'scripts', 'install-hooks.js');
-  const child = spawn(process.execPath, [hooksScript], { stdio: 'inherit' });
+  const child = spawn(process.execPath, [hooksScript, ...args], { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleImpact(args) {
+  const impactScript = path.join(ROOT_DIR, 'scripts', 'impact-analyzer.js');
+  const child = spawn(process.execPath, [impactScript, ...args], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
 }
 
@@ -427,6 +434,7 @@ function handleDoctor() {
     { name: 'AST Bug Hunter', status: 'Ready (npx apex-agents audit-bugs)' },
     { name: 'Token Volume Auditor', status: 'Ready (npx apex-agents cost)' },
     { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
+    { name: 'Blast-Radius Analyzer', status: 'Available (npx apex-agents impact)' },
     { name: 'Session Handoff Engine', status: 'Available (npx apex-agents handoff)' },
     { name: 'Persistent Session Memory', status: 'Available (npx apex-agents memory)' },
     { name: 'Anti-Cheat Test Guard', status: antiCheatStatus },
@@ -528,6 +536,9 @@ switch (command) {
   case 'graph':
     handleGraph(args.slice(1));
     break;
+  case 'impact':
+    handleImpact(args.slice(1));
+    break;
   case 'compact':
     handleCompact(args.slice(1));
     break;
@@ -565,7 +576,7 @@ switch (command) {
     handleCursorRules();
     break;
   case 'install-hooks':
-    handleInstallHooks();
+    handleInstallHooks(args.slice(1));
     break;
   case 'scan-secrets':
     handleScanSecrets(args.slice(1));

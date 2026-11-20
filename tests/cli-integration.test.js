@@ -223,4 +223,19 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
       fs.rmSync(shimDir, { recursive: true, force: true });
     }
   });
+
+  test('install-hooks --pre-push installs both pre-commit and pre-push hooks cleanly', () => {
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-prepush-'));
+    try {
+      execSync('git init -b main', { cwd: repoDir, stdio: 'ignore' });
+      execSync(`node "${APEX_BIN}" install-hooks --pre-push`, { cwd: repoDir, stdio: 'pipe' });
+      const preCommit = path.join(repoDir, '.git', 'hooks', 'pre-commit');
+      const prePush = path.join(repoDir, '.git', 'hooks', 'pre-push');
+      assert.strictEqual(fs.existsSync(preCommit), true);
+      assert.strictEqual(fs.existsSync(prePush), true);
+      assert.match(fs.readFileSync(prePush, 'utf-8'), /APEX AGENTS PRE-PUSH SAFETY BLOCK/);
+    } finally {
+      fs.rmSync(repoDir, { recursive: true, force: true });
+    }
+  });
 });

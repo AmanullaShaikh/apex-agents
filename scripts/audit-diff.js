@@ -2,6 +2,10 @@
 
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { parse } from '@babel/parser';
+import _traverse from '@babel/traverse';
+
+const traverse = _traverse.default || _traverse;
 
 const c = {
   reset: '\x1b[0m',
@@ -247,6 +251,166 @@ export function calculateShannonEntropy(str) {
   return entropy;
 }
 
+
+function astAuditTestSnippet(file, code) {
+  const astIssues = [];
+  if (!code || !code.trim()) return astIssues;
+
+  let ast;
+  try {
+    ast = parse(code, {
+      sourceType: 'module',
+      errorRecovery: true,
+      plugins: ['typescript', 'jsx', 'classProperties', 'decorators-legacy', 'dynamicImport', 'topLevelAwait']
+    });
+  } catch {
+    return astIssues;
+  }
+
+  const processAliases = new Set();
+  const isAssertionName = (name) => /^(expect|assert|should)$/.test(name);
+
+  try {
+    traverse(ast, {
+      VariableDeclarator(p) {
+        const idName = p.node.id?.type === 'Identifier' ? p.node.id.name : null;
+        if (!idName) return;
+        const init = p.node.init;
+        if (
+          (init?.type === 'Identifier' && init.name === 'process') ||
+          (init?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(init.object?.name) && init.property?.name === 'process')
+        ) {
+          processAliases.add(idName);
+        }
+      },
+      CallExpression(p) {
+        const callee = p.node.callee;
+        // 1. Aliased process exit/abort/kill: const p = process; p.exit(0);
+        if (callee?.type === 'MemberExpression' && callee.object?.type === 'Identifier' && processAliases.has(callee.object.name)) {
+          const prop = callee.property?.name || callee.property?.value;
+          if (['exit', 'abort', 'kill'].includes(prop)) {
+            astIssues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file,
+              line: p.node.loc?.start?.line || 1,
+              description: `AI Agent Attempted Test Weakening: Aliased Process ${prop}() Injection (AST)`,
+              snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${callee.object.name}.${prop}()`
+            });
+          }
+        }
+        // 2. Empty test body: test('x', () => {}) or it('x', function() {})
+        let testFnName = null;
+        if (callee?.type === 'Identifier' && ['test', 'it'].includes(callee.name)) {
+          testFnName = callee.name;
+        } else if (
+          callee?.type === 'MemberExpression' &&
+          callee.object?.type === 'Identifier' &&
+          ['test', 'it'].includes(callee.object.name) &&
+          callee.property?.name !== 'todo'
+        ) {
+          testFnName = `${callee.object.name}.${callee.property?.name || callee.property?.value || ''}`;
+        }
+        if (testFnName && !/skip|only/i.test(testFnName)) {
+          const hasCheatOptions = p.node.arguments.some(a =>
+            a.type === 'ObjectExpression' &&
+            a.properties?.some(prop => /^(skip|only)$/.test(prop.key?.name || prop.key?.value))
+          );
+          if (!hasCheatOptions) {
+            const cb = p.node.arguments.find(a => a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression');
+            if (cb && cb.body?.type === 'BlockStatement' && cb.body.body.length === 0) {
+              astIssues.push({
+                severity: 'CRITICAL',
+                category: 'TEST_TAMPERING',
+                file,
+                line: p.node.loc?.start?.line || 1,
+                description: `AI Agent Attempted Test Weakening: Empty ${testFnName}() Body (AST)`,
+                snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
+              });
+            }
+          }
+        }
+      },
+      TryStatement(p) {
+        const handler = p.node.handler;
+        if (!handler || !handler.body) return;
+        const catchStmts = handler.body.body || [];
+        const hasRethrow = catchStmts.some(st => st.type === 'ThrowStatement');
+        if (catchStmts.length === 0 || !hasRethrow) {
+          let hasAssertionInTry = false;
+          p.get('block').traverse({
+            CallExpression(inner) {
+              const c = inner.node.callee;
+              if (c.type === 'Identifier' && isAssertionName(c.name)) hasAssertionInTry = true;
+              if (c.type === 'MemberExpression' && c.object?.type === 'Identifier' && isAssertionName(c.object.name)) hasAssertionInTry = true;
+            }
+          });
+          if (hasAssertionInTry && catchStmts.length === 0) {
+            astIssues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file,
+              line: p.node.loc?.start?.line || 1,
+              description: 'AI Agent Attempted Test Weakening: Swallowed Assertion in Empty try/catch (AST)',
+              snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || 'try { ... } catch {}'
+            });
+          }
+        }
+      }
+    });
+  } catch {
+    // Graceful fallback on partial diff snippets
+  }
+
+  return astIssues;
+}
+
+export function buildSarifReport(issues, toolName = 'apex-agents-review', version = '2.2.0') {
+  const rulesMap = new Map();
+  const results = [];
+
+  for (const iss of issues) {
+    const ruleId = iss.category || 'APEX_FINDING';
+    if (!rulesMap.has(ruleId)) {
+      rulesMap.set(ruleId, {
+        id: ruleId,
+        shortDescription: { text: ruleId.replace(/_/g, ' ') }
+      });
+    }
+    const level = (iss.severity === 'CRITICAL' || iss.severity === 'HIGH') ? 'error' : (iss.severity === 'MEDIUM' ? 'warning' : 'note');
+    results.push({
+      ruleId,
+      level,
+      message: { text: `${iss.description}${iss.snippet ? ` (${iss.snippet})` : ''}` },
+      locations: [
+        {
+          physicalLocation: {
+            artifactLocation: { uri: iss.file || 'unknown' },
+            region: { startLine: iss.line || 1 }
+          }
+        }
+      ]
+    });
+  }
+
+  return {
+    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
+    version: '2.1.0',
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: toolName,
+            version,
+            rules: Array.from(rulesMap.values())
+          }
+        },
+        results
+      }
+    ]
+  };
+}
+
 function getGitDiff(targetBranch = null, stagedOnly = false) {
   try {
     if (targetBranch) {
@@ -313,6 +477,8 @@ export function auditDiff(rawDiff) {
   const deletedAssertions = [];
   const commentedAssertions = new Set();
   const fileStringVars = new Map();
+  const testAddedSnippets = new Map();
+  const deletedPkgTestLine = new Set();
   let inTestOptionsBlock = false;
   let testOptionsDepth = 0;
   let helperFnDepth = 0;
@@ -339,14 +505,31 @@ export function auditDiff(rawDiff) {
         });
       }
 
+      if (
+        currentFile.startsWith('.git/hooks/') ||
+        currentFile === '.claude/settings.json' ||
+        currentFile === '.claude/settings.local.json'
+      ) {
+        issues.push({
+          severity: 'CRITICAL',
+          category: 'PROTECTED_CONFIG_TAMPER',
+          file: currentFile,
+          description: `Unauthorized modification to protected agent/hook config: ${currentFile}`,
+          snippet: `[Protected Config: ${currentFile}]`
+        });
+      }
+
       if (currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/')) {
         testFiles.add(currentFile);
       }
       continue;
     }
 
-    // Collect deleted assertions
+    // Collect deleted assertions & package.json test script tampering
     if (line.startsWith('-') && !line.startsWith('---')) {
+      if (currentFile === 'package.json' && /"test"\s*:/.test(line)) {
+        deletedPkgTestLine.add(currentFile);
+      }
       const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       const deletedText = line.substring(1).trim();
       if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(deletedText) && !deletedText.startsWith('//')) {
@@ -359,6 +542,15 @@ export function auditDiff(rawDiff) {
       const addedText = line.substring(1);
 
       const isSelfAuditTest = currentFile.includes('diff-audit.test.');
+      if (currentFile === 'package.json' && deletedPkgTestLine.has('package.json') && /"test"\s*:\s*"(?:echo\b|true\b|exit\s+0)/i.test(addedText)) {
+        issues.push({
+          severity: 'CRITICAL',
+          category: 'TEST_TAMPERING',
+          file: currentFile,
+          description: 'AI Agent Weakened package.json "test" script to a no-op',
+          snippet: addedText.trim().slice(0, 80)
+        });
+      }
       const lineEval = !isSelfAuditTest ? resolveLineWithVars(addedText, fileStringVars) : null;
 
       // Check secrets
@@ -425,6 +617,8 @@ export function auditDiff(rawDiff) {
       // Check test tampering if modifying tests
       const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
+        if (!testAddedSnippets.has(currentFile)) testAddedSnippets.set(currentFile, []);
+        testAddedSnippets.get(currentFile).push(addedText);
         const foldedText = lineEval.folded;
         const resolvedText = lineEval.resolved;
 
@@ -522,6 +716,14 @@ export function auditDiff(rawDiff) {
     }
   }
 
+  // Run Babel AST anti-tamper pass on added test file snippets
+  for (const [tFile, snippetLines] of testAddedSnippets.entries()) {
+    const astFindings = astAuditTestSnippet(tFile, snippetLines.join('\n'));
+    for (const af of astFindings) {
+      issues.push(af);
+    }
+  }
+
   // Only count deleted assertions if the file was not already flagged for commenting them out
   for (const del of deletedAssertions) {
     if (!commentedAssertions.has(del.file)) {
@@ -553,6 +755,15 @@ export function auditDiff(rawDiff) {
 export function runDiffAuditCli(options = {}) {
   const diff = getGitDiff(options.branch, options.staged);
   const result = auditDiff(diff);
+
+  if (options.format === 'sarif') {
+    console.log(JSON.stringify(buildSarifReport(result.issues, 'apex-agents-review', '2.2.0'), null, 2));
+    const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
+    if (!result.clean && (options.strict || hasCritical)) {
+      process.exit(1);
+    }
+    return result;
+  }
 
   if (options.format === 'markdown') {
     if (result.clean) {

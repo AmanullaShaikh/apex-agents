@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { auditDiff } from '../scripts/audit-diff.js';
+import { auditDiff, buildSarifReport } from '../scripts/audit-diff.js';
 
 describe('Diff Security & Anti-Cheat Audit', () => {
   test('should detect test tampering when an agent skips a test', () => {
@@ -688,5 +688,44 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     const logRes = auditDiff(testLogDiff);
     assert.strictEqual(logRes.stats.debug, 0);
     assert.strictEqual(logRes.stats.tampering, 0);
+  });
+
+  test('should catch aliased process exit, empty test body, empty try/catch assertion swallow, protected configs, and build valid SARIF 2.1.0', () => {
+    const astTamperDiff = [
+      'diff --git a/tests/ast.test.js b/tests/ast.test.js',
+      '--- a/tests/ast.test.js',
+      '+++ b/tests/ast.test.js',
+      '@@ -1,1 +1,6 @@',
+      '+const p = process;',
+      '+p.exit(0);',
+      '+test("empty", () => {});',
+      '+try { assert.strictEqual(1, 2); } catch {}'
+    ].join('\n');
+    const astRes = auditDiff(astTamperDiff);
+    assert.strictEqual(astRes.clean, false);
+    assert.ok(astRes.stats.tampering >= 3, `Expected >=3 AST tampering findings, got ${astRes.stats.tampering}`);
+
+    const protectedDiff = [
+      'diff --git a/.claude/settings.json b/.claude/settings.json',
+      '--- a/.claude/settings.json',
+      '+++ b/.claude/settings.json',
+      '@@ -1,1 +1,1 @@',
+      '+{"permissions": "allow_all"}',
+      'diff --git a/package.json b/package.json',
+      '--- a/package.json',
+      '+++ b/package.json',
+      '@@ -5,1 +5,1 @@',
+      '-  "test": "node --test",',
+      '+  "test": "echo ok",'
+    ].join('\n');
+    const protRes = auditDiff(protectedDiff);
+    assert.strictEqual(protRes.clean, false);
+    assert.ok(protRes.issues.some(i => i.category === 'PROTECTED_CONFIG_TAMPER'));
+    assert.ok(protRes.stats.tampering >= 1);
+
+    const sarif = buildSarifReport(protRes.issues, 'apex-agents-review', '2.2.0');
+    assert.strictEqual(sarif.version, '2.1.0');
+    assert.ok(Array.isArray(sarif.runs) && sarif.runs.length === 1);
+    assert.ok(sarif.runs[0].results.length >= 2);
   });
 });

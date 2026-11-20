@@ -1,6 +1,6 @@
 {
   "name": "apex-agents",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Developer Tooling & Babel AST Context Compactor Harness: PageRank & Caller Graph Compactor, Git-Native Checkpoint & Rollback, Semantic Symbol Tracer, Static AST Bug Hunter, Token Volume & AST Compaction Auditor, Deterministic Test-Loop Runner, Codebase Dependency Graph, Anti-Test-Tampering Diff Auditor, Persistent Memory & Handoff, Git Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Windsurf, Copilot, and Antigravity",
   "main": "bin/apex.js",
   "bin": {
@@ -24,6 +24,7 @@
     "review": "node ./bin/apex.js review",
     "budget": "node ./bin/apex.js budget",
     "graph": "node ./bin/apex.js graph",
+    "impact": "node ./bin/apex.js impact",
     "memory": "node ./bin/apex.js memory",
     "handoff": "node ./bin/apex.js handoff",
     "compact": "node ./bin/apex.js compact",
