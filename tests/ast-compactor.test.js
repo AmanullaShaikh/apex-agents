@@ -213,4 +213,18 @@ func (s *Server) Start() error {
     const singleLineGoResult = compactSourceCode(singleLineGo, { ext: 'go' });
     assert.strictEqual(singleLineGoResult, 'func (s *S) Get(k string) int { /* stripped */ }');
   });
+
+  test('should compact Python one-liners, Go interface{} signatures, and Rust nested block comments cleanly', () => {
+    const pyOne = compactSourceCode('def oneliner(x): return x + 42', { ext: 'py' });
+    assert.strictEqual(pyOne, 'def oneliner(x): pass');
+
+    const goIface = compactSourceCode('func handle(x int) interface{} { secret := 1; return secret }', { ext: 'go' });
+    assert.strictEqual(goIface, 'func handle(x int) interface{} { /* stripped */ }');
+
+    const rsNested = compactSourceCode('impl P { pub fn f(&self) { /* outer /* } */ inner } */ let secret = 2; } }', { ext: 'rs' });
+    assert.strictEqual(rsNested, 'impl P { pub fn f(&self) { /* stripped */ } }');
+
+    const rsRaw = compactSourceCode('impl P { pub fn f(&self) { let s = r#"a"}"b"#; let secret = 2; } }', { ext: 'rs' });
+    assert.strictEqual(rsRaw, 'impl P { pub fn f(&self) { /* stripped */ } }');
+  });
 });

@@ -3,7 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { spawn, execSync } from 'child_process';
+import { spawn, spawnSync, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,7 +61,8 @@ function printHelp() {
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
-  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)`);
+  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)
+  ${c.green}scan-secrets${c.reset}    Scan workspace files for leaked credentials`);
   console.log(`  ${c.green}sandbox${c.reset}         Manage isolated Git Worktree sandboxes [start|clean|status]`);
   console.log(`  ${c.green}dashboard${c.reset}       Open the interactive visual Agent Explorer in browser`);
   console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
@@ -228,21 +229,26 @@ function handleInject(args = []) {
 - Generate lean codebase context with 'npx apex-agents compact'.\n\n`;
   }
 
-  if (fs.existsSync(claudeMdPath)) {
-    fs.appendFileSync(claudeMdPath, injectionContent);
-    console.log(`  ${c.green}✓${c.reset} Injected into existing ${c.cyan}CLAUDE.md${c.reset}`);
-  } else {
-    fs.writeFileSync(claudeMdPath, injectionContent.trim());
-    console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}CLAUDE.md${c.reset}`);
-  }
+  const upsertDirectives = (filePath, label) => {
+    const marker = '<!-- APEX-AGENTS OPERATIONAL DIRECTIVES -->';
+    const trimmedBlock = injectionContent.trim();
+    if (fs.existsSync(filePath)) {
+      const existing = fs.readFileSync(filePath, 'utf-8');
+      if (existing.includes(marker)) {
+        const updated = existing.replace(/<!-- APEX-AGENTS OPERATIONAL DIRECTIVES -->[\s\S]*?(?=(<!--|$))/, trimmedBlock + '\n\n').trim() + '\n';
+        fs.writeFileSync(filePath, updated);
+      } else {
+        fs.writeFileSync(filePath, existing.trimEnd() + '\n\n' + trimmedBlock + '\n');
+      }
+      console.log(`  ${c.green}✓${c.reset} Updated ${c.cyan}${label}${c.reset}`);
+    } else {
+      fs.writeFileSync(filePath, trimmedBlock + '\n');
+      console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}${label}${c.reset}`);
+    }
+  };
 
-  if (fs.existsSync(cursorRulesPath)) {
-    fs.appendFileSync(cursorRulesPath, injectionContent);
-    console.log(`  ${c.green}✓${c.reset} Injected into existing ${c.cyan}.cursorrules${c.reset}`);
-  } else {
-    fs.writeFileSync(cursorRulesPath, injectionContent.trim());
-    console.log(`  ${c.green}✓${c.reset} Created ${c.cyan}.cursorrules${c.reset}`);
-  }
+  upsertDirectives(claudeMdPath, 'CLAUDE.md');
+  upsertDirectives(cursorRulesPath, '.cursorrules');
 
   console.log(`\n${c.green}${c.bold}✓ Injected Apex Agents rules into local IDE config files.${c.reset}\n`);
 }
@@ -330,7 +336,10 @@ function handleInit(args) {
   const gitCommonDir = resolveGitCommonDir(process.cwd());
   if (gitCommonDir) {
     const hooksScript = path.join(ROOT_DIR, 'scripts', 'install-hooks.js');
-    spawn(process.execPath, [hooksScript], { stdio: 'inherit' });
+    const hookRes = spawnSync(process.execPath, [hooksScript], { stdio: 'inherit' });
+    if (hookRes.status !== 0) {
+      process.exit(hookRes.status || 1);
+    }
   } else {
     console.log(`  ${c.yellow}! Skipped git hook installation (no git repository in current workspace)${c.reset}`);
   }
@@ -349,9 +358,17 @@ function handleInstallHooks() {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
-function handleSandbox(subAction, name) {
+function handleSandbox(subAction = 'status', name = null) {
   const sandboxScript = path.join(ROOT_DIR, 'scripts', 'worktree-sandbox.js');
-  const child = spawn(process.execPath, [sandboxScript, subAction, name || ''], { stdio: 'inherit' });
+  const sandboxArgs = [sandboxScript, subAction || 'status'];
+  if (name) sandboxArgs.push(name);
+  const child = spawn(process.execPath, sandboxArgs, { stdio: 'inherit' });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+function handleScanSecrets(args) {
+  const scanScript = path.join(ROOT_DIR, 'scripts', 'scan-secrets.js');
+  const child = spawn(process.execPath, [scanScript, ...args], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
 }
 
@@ -589,6 +606,9 @@ switch (command) {
   case 'install-hooks':
     handleInstallHooks();
     break;
+  case 'scan-secrets':
+    handleScanSecrets(args.slice(1));
+    break;
   case 'sandbox':
     handleSandbox(args[1], args[2]);
     break;
@@ -604,7 +624,6 @@ switch (command) {
   case 'doctor':
     handleDoctor();
     break;
-  case 'help':
   default:
     if (!command) {
       printHelp();

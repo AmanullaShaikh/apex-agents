@@ -21,20 +21,21 @@ export function generateHandoff(cwd = process.cwd()) {
   // 1. Get modified files from git
   let modifiedFiles = [];
   try {
-    const status = execSync('git status --short', { encoding: 'utf-8', cwd });
+    const status = execSync('git status --short', { encoding: 'utf-8', cwd, stdio: ['pipe', 'pipe', 'ignore'] });
     modifiedFiles = status.trim().split('\n').filter(Boolean).map((l) => l.trim());
   } catch {}
 
   // 2. Read recent git commit
   let lastCommit = 'None';
   try {
-    lastCommit = execSync('git log -1 --oneline', { encoding: 'utf-8', cwd }).trim();
+    lastCommit = execSync('git log -1 --oneline', { encoding: 'utf-8', cwd, stdio: ['pipe', 'pipe', 'ignore'] }).trim() || 'None';
   } catch {}
 
   // 3. Read active branch
-  let currentBranch = 'main';
+  let currentBranch = 'none';
   try {
-    currentBranch = execSync('git branch --show-current', { encoding: 'utf-8', cwd }).trim();
+    const branchOut = execSync('git branch --show-current', { encoding: 'utf-8', cwd, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    currentBranch = branchOut || 'HEAD';
   } catch {}
 
   // 4. Read memory if available
@@ -42,7 +43,14 @@ export function generateHandoff(cwd = process.cwd()) {
   let memoryData = { architecturalRules: [], decisions: [], knownBugs: [] };
   if (fs.existsSync(memPath)) {
     try {
-      memoryData = JSON.parse(fs.readFileSync(memPath, 'utf-8'));
+      const parsed = JSON.parse(fs.readFileSync(memPath, 'utf-8'));
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        memoryData = {
+          architecturalRules: Array.isArray(parsed.architecturalRules) ? parsed.architecturalRules : [],
+          decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+          knownBugs: Array.isArray(parsed.knownBugs) ? parsed.knownBugs : []
+        };
+      }
     } catch {}
   }
 

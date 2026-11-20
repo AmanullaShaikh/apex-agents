@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-function exportAllHarnesses(targetDir = process.cwd()) {
+export function exportAllHarnesses(targetDir = process.cwd()) {
   console.log(`\x1b[36m\x1b[1m[Apex-Agents Universal Exporter] Generating configs for all AI harnesses in ${targetDir}...\x1b[0m\n`);
 
   const instinctsDir = path.join(ROOT_DIR, 'instincts');
@@ -47,4 +47,6 @@ ${instincts}
   console.log(`\n\x1b[32m\x1b[1m🎉 Successfully deployed to all 5 AI developer ecosystems!\x1b[0m\n`);
 }
 
-exportAllHarnesses(process.argv[2] || process.cwd());
+if (process.argv[1] && process.argv[1].endsWith('export-all.js')) {
+  exportAllHarnesses(process.argv[2] || process.cwd());
+}

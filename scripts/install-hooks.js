@@ -40,6 +40,11 @@ if command -v node >/dev/null 2>&1; then
       echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
       exit 1
     }
+  elif command -v npx >/dev/null 2>&1; then
+    npx --no-install apex-agents scan-secrets || {
+      echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
+      exit 1
+    }
   fi
 
   if [ -f "./scripts/audit-diff.js" ]; then

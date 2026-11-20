@@ -132,4 +132,32 @@ describe('Native MCP Tooling Integration Suite', () => {
     assert.strictEqual(parsed.clean, false);
     assert.strictEqual(parsed.stats.tampering, 1);
   });
+
+  test('should return isError on non-string agent_id without crashing server and reject external project_dir', async () => {
+    const responses = await callMcpSession([
+      {
+        jsonrpc: '2.0',
+        id: 100,
+        method: 'tools/call',
+        params: { name: 'summon_specialist', arguments: { agent_id: 123 } }
+      },
+      {
+        jsonrpc: '2.0',
+        id: 101,
+        method: 'tools/call',
+        params: { name: 'apex_trace_symbol', arguments: { symbol_name: 'traceSymbol', project_dir: '/tmp' } }
+      },
+      {
+        jsonrpc: '2.0',
+        id: 102,
+        method: 'initialize'
+      }
+    ]);
+    const r100 = responses.find(r => r.id === 100);
+    const r101 = responses.find(r => r.id === 101);
+    const r102 = responses.find(r => r.id === 102);
+    assert.ok(r100?.result?.isError, 'Non-string agent_id must return isError');
+    assert.ok(r101?.result?.isError, 'External project_dir must be rejected');
+    assert.ok(r102?.result?.serverInfo, 'Server must stay alive after errors');
+  });
 });

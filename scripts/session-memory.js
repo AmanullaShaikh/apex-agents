@@ -2,6 +2,15 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __memFilename = fileURLToPath(import.meta.url);
+const __memDirname = path.dirname(__memFilename);
+let PKG_VERSION = '2.1.0';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(__memDirname, '..', 'package.json'), 'utf-8'));
+  if (pkg.version) PKG_VERSION = pkg.version;
+} catch {}
 
 const c = {
   reset: '\x1b[0m',
@@ -21,7 +30,7 @@ function getMemoryFile(targetDir = process.cwd()) {
 
 function loadMemory(filePath) {
   const fallback = {
-    version: '2.1.0',
+    version: PKG_VERSION,
     lastUpdated: new Date().toISOString(),
     decisions: [],
     architecturalRules: [],
@@ -36,7 +45,7 @@ function loadMemory(filePath) {
       return fallback;
     }
     return {
-      version: parsed.version || '2.1.0',
+      version: parsed.version || PKG_VERSION,
       lastUpdated: parsed.lastUpdated || new Date().toISOString(),
       decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
       architecturalRules: Array.isArray(parsed.architecturalRules) ? parsed.architecturalRules : [],
@@ -173,7 +182,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
 
     case 'clear': {
       saveMemory(memoryFile, {
-        version: '1.0.0',
+        version: PKG_VERSION,
         lastUpdated: new Date().toISOString(),
         decisions: [],
         architecturalRules: [],
@@ -184,6 +193,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
     }
 
     default:
+      console.error(`\n${c.red}Error: Unknown memory subcommand "${subCommand}".${c.reset}`);
       console.log(`\n${c.bold}Apex Agents Session Memory Commands:${c.reset}`);
       console.log(`  ${c.green}npx apex-agents memory record decision "<text>"${c.reset}`);
       console.log(`  ${c.green}npx apex-agents memory record rule "<text>"${c.reset}`);
@@ -191,7 +201,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
       console.log(`  ${c.green}npx apex-agents memory recall${c.reset}`);
       console.log(`  ${c.green}npx apex-agents memory sync${c.reset}`);
       console.log(`  ${c.green}npx apex-agents memory clear${c.reset}\n`);
-      break;
+      process.exit(1);
   }
 }
 

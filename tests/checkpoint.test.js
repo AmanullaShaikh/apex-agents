@@ -156,4 +156,31 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('should preserve branch (no detached HEAD) on rollback and ignore null meta.json', async () => {
+    const { execSync } = await import('child_process');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-branch-'));
+    try {
+      execSync('git init -b main', { cwd: tmpDir, stdio: 'pipe' });
+      execSync('git config user.email "test@apex.local"', { cwd: tmpDir, stdio: 'pipe' });
+      execSync('git config user.name "Apex Test"', { cwd: tmpDir, stdio: 'pipe' });
+      fs.writeFileSync(path.join(tmpDir, 'index.js'), 'export const v = 1;\n');
+      execSync('git add -A && git commit -m "init"', { cwd: tmpDir, stdio: 'pipe' });
+
+      const chk = createCheckpoint('snap1', tmpDir);
+      fs.writeFileSync(path.join(tmpDir, 'index.js'), 'export const v = 2;\n');
+      rollbackToCheckpoint(chk.id, tmpDir);
+
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+      assert.strictEqual(branch, 'main');
+
+      const nullDir = path.join(tmpDir, '.agents', 'checkpoints', 'chk_999999999');
+      fs.mkdirSync(nullDir, { recursive: true });
+      fs.writeFileSync(path.join(nullDir, 'meta.json'), 'null');
+      const list = listCheckpoints(tmpDir);
+      assert.strictEqual(list.length, 1);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

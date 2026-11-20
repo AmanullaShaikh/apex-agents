@@ -15,10 +15,24 @@ const c = {
 };
 
 const action = process.argv[2] || 'status';
-const taskName = process.argv[3] || `task-${Date.now().toString().slice(-4)}`;
+const taskName = process.argv[3] || '';
+
+function assertGitRepo(cwd) {
+  try {
+    execSync('git rev-parse --git-dir', { stdio: 'ignore', cwd });
+    return true;
+  } catch {
+    console.error(`\n${c.red}Error: Not a git repository (${cwd}). Initialize git before using sandbox.${c.reset}\n`);
+    return false;
+  }
+}
 
 export function handleStart(name, cwd = process.cwd()) {
-  const safeName = path.basename(name || 'task').replace(/[^a-zA-Z0-9_-]/g, '_');
+  if (!assertGitRepo(cwd)) {
+    process.exit(1);
+  }
+  const effectiveName = name || `task-${Date.now().toString().slice(-4)}`;
+  const safeName = path.basename(effectiveName).replace(/[^a-zA-Z0-9_-]/g, '_');
   const branchName = `apex/${safeName}`;
   const worktreesBase = path.join(cwd, '.worktrees');
   const worktreeDir = path.join(worktreesBase, safeName);
@@ -66,6 +80,7 @@ export function handleStart(name, cwd = process.cwd()) {
     console.log(`  ${c.gray}Main branch is protected. The agent can build, refactor, and experiment safely here.${c.reset}\n`);
   } catch (err) {
     console.error(`\n${c.red}Failed to create git worktree: ${err.message}${c.reset}\n`);
+    process.exit(1);
   } finally {
     try {
       fs.unlinkSync(lockFile);
@@ -84,12 +99,19 @@ export function handleStatus(cwd = process.cwd()) {
     console.log();
   } catch (err) {
     console.error(`${c.red}Failed to list worktrees: ${err.message}${c.reset}\n`);
+    process.exit(1);
   }
 }
 
 export function handleClean(name, cwd = process.cwd()) {
+  if (!assertGitRepo(cwd)) {
+    process.exit(1);
+  }
   const safeName = path.basename(name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-  if (!safeName) return;
+  if (!safeName) {
+    console.error(`\n${c.red}Error: Worktree name is required for "clean". Usage: npx apex-agents sandbox clean <name>${c.reset}\n`);
+    process.exit(1);
+  }
   const worktreeDir = path.join(cwd, '.worktrees', safeName);
   console.log(`\n${c.cyan}[Apex-Agents] Removing worktree: ${safeName}...${c.reset}`);
   try {
@@ -98,6 +120,7 @@ export function handleClean(name, cwd = process.cwd()) {
     console.log(`  ${c.green}✓ Worktree removed cleanly.${c.reset}\n`);
   } catch (err) {
     console.error(`  ${c.red}Failed to clean worktree: ${err.message}${c.reset}\n`);
+    process.exit(1);
   }
 }
 

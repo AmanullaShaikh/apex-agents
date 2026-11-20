@@ -204,10 +204,42 @@ export function compactPythonCode(code) {
 
     // Function definition start
     if (/^(async\s+)?def\s+[a-zA-Z0-9_]+\s*\(/.test(trimmed)) {
-      compacted.push(line);
       const indentMatch = line.match(/^(\s*)/);
       funcIndent = indentMatch ? indentMatch[1].length : 0;
 
+      // Check for single-line Python def: e.g. `def oneliner(x): return x + 42`
+      let topColonIdx = -1;
+      let pyDepth = 0;
+      let pyQuote = null;
+      let pyEsc = false;
+      for (let k = 0; k < trimmed.length; k++) {
+        const ch = trimmed[k];
+        if (pyEsc) { pyEsc = false; continue; }
+        if (pyQuote) {
+          if (ch === '\\') pyEsc = true;
+          else if (ch === pyQuote) pyQuote = null;
+          continue;
+        }
+        if (ch === '"' || ch === "'") { pyQuote = ch; continue; }
+        if (ch === '(' || ch === '[' || ch === '{') pyDepth++;
+        else if (ch === ')' || ch === ']' || ch === '}') pyDepth = Math.max(0, pyDepth - 1);
+        else if (ch === ':' && pyDepth === 0) {
+          topColonIdx = k;
+        }
+      }
+
+      if (topColonIdx !== -1) {
+        const afterColon = trimmed.slice(topColonIdx + 1).trim();
+        if (afterColon && !afterColon.startsWith('#')) {
+          const leadSpaces = line.slice(0, line.indexOf(trimmed));
+          compacted.push(leadSpaces + trimmed.slice(0, topColonIdx + 1) + ' pass');
+          inFunc = false;
+          inSignature = false;
+          continue;
+        }
+      }
+
+      compacted.push(line);
       if (trimmed.endsWith(':')) {
         // Single-line def signature
         inFunc = true;
@@ -233,12 +265,95 @@ export function compactPythonCode(code) {
  * Replaces balanced `{ ... }` function bodies following a signature regex on a single line,
  * properly respecting nested braces and quoted string literals so outer blocks (e.g. `impl Cache { ... }`) stay intact.
  */
+function findBodyOpenBrace(line, startIdx = 0, lang = 'go') {
+  const isRust = lang === 'rust';
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let inDoubleQuote = false;
+  let inGoRaw = false;
+  let rustRawHashes = -1;
+  let blockDepth = 0;
+  let escaped = false;
+
+  for (let j = startIdx; j < line.length; j++) {
+    const ch = line[j];
+    if (blockDepth > 0) {
+      if (isRust && ch === '/' && line[j + 1] === '*') { blockDepth++; j++; }
+      else if (ch === '*' && line[j + 1] === '/') { blockDepth--; j++; }
+      continue;
+    }
+    if (inGoRaw) {
+      if (ch === '`') inGoRaw = false;
+      continue;
+    }
+    if (rustRawHashes >= 0) {
+      if (ch === '"') {
+        let hashes = 0;
+        while (hashes < rustRawHashes && line[j + 1 + hashes] === '#') hashes++;
+        if (hashes === rustRawHashes) { rustRawHashes = -1; j += hashes; }
+      }
+      continue;
+    }
+    if (inDoubleQuote) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inDoubleQuote = false;
+      continue;
+    }
+    if (ch === '/' && line[j + 1] === '/') break;
+    if (ch === '/' && line[j + 1] === '*') { blockDepth = 1; j++; continue; }
+    if (isRust && (ch === 'r' || (ch === 'b' && line[j + 1] === 'r'))) {
+      const off = ch === 'b' ? 2 : 1;
+      const prev = j > 0 ? line[j - 1] : '';
+      if (!/[a-zA-Z0-9_]/.test(prev)) {
+        const rm = /^(#*)(")/.exec(line.slice(j + off));
+        if (rm) { rustRawHashes = rm[1].length; j += off + rm[1].length; continue; }
+      }
+    }
+    if (!isRust && ch === '`') { inGoRaw = true; continue; }
+    if (ch === '"') { inDoubleQuote = true; escaped = false; continue; }
+    if (ch === "'") {
+      if (isRust) {
+        const cm = /^'(?:[^'\\]|\\(?:[nrt0\\'"]|x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]{1,6}\}))'/.exec(line.slice(j));
+        if (cm) j += cm[0].length - 1;
+      } else {
+        const rm = /^'(?:[^'\\]|\\(?:[abfnrtv\\'"]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[0-7]{3}))'/.exec(line.slice(j));
+        if (rm) j += rm[0].length - 1;
+      }
+      continue;
+    }
+    if (ch === '(') parenDepth++;
+    else if (ch === ')') parenDepth = Math.max(0, parenDepth - 1);
+    else if (ch === '[') bracketDepth++;
+    else if (ch === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+    else if (ch === '{' && parenDepth === 0 && bracketDepth === 0) {
+      // In Go, skip inline `interface{}` or `struct{...}` when used in parameter/return types before the real body `{`
+      if (!isRust && /\b(?:interface|struct)\s*$/.test(line.slice(startIdx, j))) {
+        let d = 1;
+        let k = j + 1;
+        while (k < line.length && d > 0) {
+          if (line[k] === '{') d++;
+          else if (line[k] === '}') d--;
+          k++;
+        }
+        if (d === 0 && line.slice(k).includes('{')) {
+          j = k - 1;
+          continue;
+        }
+      }
+      return j;
+    }
+  }
+  return -1;
+}
+
 function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
   let result = '';
   let cursor = 0;
   const flags = sigRegex.flags.includes('g') ? sigRegex.flags : sigRegex.flags + 'g';
   const re = new RegExp(sigRegex.source, flags);
-  const isRust = options.lang === 'rust';
+  const lang = options.lang === 'rust' ? 'rust' : 'go';
+  const isRust = lang === 'rust';
 
   while (cursor < line.length) {
     re.lastIndex = cursor;
@@ -248,54 +363,67 @@ function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
       break;
     }
 
-    const openBraceIdx = match.index + match[0].length - 1;
+    const openBraceIdx = findBodyOpenBrace(line, match.index, lang);
+    if (openBraceIdx === -1) {
+      result += line.slice(cursor);
+      break;
+    }
+
     let depth = 0;
     let closeBraceIdx = -1;
-    let inQuote = null;
-    let inBlockComment = false;
+    let inDoubleQuote = false;
+    let inGoRaw = false;
+    let rustRawHashes = -1;
+    let blockDepth = 0;
     let escaped = false;
 
     for (let j = openBraceIdx; j < line.length; j++) {
       const ch = line[j];
-      if (inBlockComment) {
-        if (ch === '*' && line[j + 1] === '/') {
-          inBlockComment = false;
-          j++;
+      if (blockDepth > 0) {
+        if (isRust && ch === '/' && line[j + 1] === '*') { blockDepth++; j++; }
+        else if (ch === '*' && line[j + 1] === '/') { blockDepth--; j++; }
+        continue;
+      }
+      if (inGoRaw) {
+        if (ch === '`') inGoRaw = false;
+        continue;
+      }
+      if (rustRawHashes >= 0) {
+        if (ch === '"') {
+          let hashes = 0;
+          while (hashes < rustRawHashes && line[j + 1 + hashes] === '#') hashes++;
+          if (hashes === rustRawHashes) { rustRawHashes = -1; j += hashes; }
         }
         continue;
       }
-      if (escaped) {
-        escaped = false;
+      if (inDoubleQuote) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inDoubleQuote = false;
         continue;
       }
-      if (inQuote) {
-        if (ch === '\\' && inQuote !== '`') {
-          escaped = true;
-        } else if (ch === inQuote) {
-          inQuote = null;
+      if (ch === '/' && line[j + 1] === '/') break;
+      if (ch === '/' && line[j + 1] === '*') { blockDepth = 1; j++; continue; }
+      if (isRust && (ch === 'r' || (ch === 'b' && line[j + 1] === 'r'))) {
+        const off = ch === 'b' ? 2 : 1;
+        const prev = j > 0 ? line[j - 1] : '';
+        if (!/[a-zA-Z0-9_]/.test(prev)) {
+          const rm = /^(#*)(")/.exec(line.slice(j + off));
+          if (rm) { rustRawHashes = rm[1].length; j += off + rm[1].length; continue; }
         }
-        continue;
       }
-      if (ch === '/' && line[j + 1] === '*') {
-        inBlockComment = true;
-        j++;
-        continue;
-      }
+      if (!isRust && ch === '`') { inGoRaw = true; continue; }
+      if (ch === '"') { inDoubleQuote = true; escaped = false; continue; }
       if (ch === "'") {
         if (isRust) {
-          // Only treat single quote as char literal in Rust ('x', '\n', '\x7f', '\u{...}'); ignore lifetimes like 'a / 'static
           const charMatch = /^'(?:[^'\\]|\\(?:[nrt0\\'"]|x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]{1,6}\}))'/.exec(line.slice(j));
-          if (charMatch) {
-            j += charMatch[0].length - 1;
-          }
+          if (charMatch) j += charMatch[0].length - 1;
+          continue;
+        } else {
+          const runeMatch = /^'(?:[^'\\]|\\(?:[abfnrtv\\'"]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[0-7]{3}))'/.exec(line.slice(j));
+          if (runeMatch) j += runeMatch[0].length - 1;
           continue;
         }
-        inQuote = ch;
-        continue;
-      }
-      if (ch === '"' || ch === '`') {
-        inQuote = ch;
-        continue;
       }
       if (ch === '{') {
         depth++;
@@ -309,7 +437,6 @@ function stripSingleLineBalancedBodies(line, sigRegex, options = {}) {
     }
 
     if (closeBraceIdx === -1) {
-      // Unclosed body on this line — leave untouched for multi-line handler
       result += line.slice(cursor);
       break;
     }
@@ -497,18 +624,19 @@ export function compactGoCode(code) {
       const lineBraces = countCodeBraces(line, createBraceScannerState(), 'go');
 
       // Single-line inline function (balanced braces on one line, including nested braces and comments)
-      if (lineBraces.open > 0 && lineBraces.open === lineBraces.close) {
+      const bodyOpenIdx = findBodyOpenBrace(line, 0, 'go');
+      if (bodyOpenIdx !== -1 && lineBraces.open > 0 && lineBraces.open === lineBraces.close) {
         const strippedLine = stripSingleLineBalancedBodies(
           line,
-          /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\([^)]*\)[^{]*\{/g,
+          /\bfunc\s+(?:\([^)]+\)\s+)?[a-zA-Z0-9_]+\s*\(/g,
           { lang: 'go' }
         );
         compacted.push(strippedLine);
         continue;
       }
 
-      if (lineBraces.open > 0) {
-        const sig = line.slice(0, line.indexOf('{') + 1);
+      if (lineBraces.open > 0 && bodyOpenIdx !== -1) {
+        const sig = line.slice(0, bodyOpenIdx + 1);
         compacted.push(sig + ' /* stripped */ }');
         scanState = createBraceScannerState();
         const { open, close } = countCodeBraces(line, scanState, 'go');
@@ -527,7 +655,7 @@ export function compactGoCode(code) {
           if (nextBraces.open > 0) {
             foundOpenBrace = true;
             const fullSig = sigLines.join('\n');
-            const idx = fullSig.indexOf('{');
+            const idx = findBodyOpenBrace(fullSig, 0, 'go');
             compacted.push(fullSig.slice(0, idx + 1) + ' /* stripped */ }');
             scanState = createBraceScannerState();
             let openTotal = 0;
@@ -592,7 +720,7 @@ export function compactRustCode(code) {
       if (lineBraces.open > 0 && lineBraces.open === lineBraces.close) {
         const strippedLine = stripSingleLineBalancedBodies(
           line,
-          /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+[^{]*\{/g,
+          /\b(?:(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?(?:const\s+)?(?:unsafe\s+)?(?:extern\s+(?:"[^"]*"\s+)?)?)?fn\s+[a-zA-Z0-9_]+/g,
           { lang: 'rust' }
         );
         compacted.push(strippedLine);
@@ -603,8 +731,9 @@ export function compactRustCode(code) {
     // Function/method signatures: fn, pub fn, pub(crate) fn, pub(super) fn, async fn, const fn, unsafe fn
     if (/^(pub(\s*\([^)]*\))?\s+)?(async\s+)?(const\s+)?(unsafe\s+)?(extern\s+("[^"]*"\s+)?)?fn\s+[a-zA-Z0-9_]+/i.test(trimmed)) {
       const lineBraces = countCodeBraces(line, createBraceScannerState(), 'rust');
-      if (lineBraces.open > 0) {
-        const sig = line.slice(0, line.indexOf('{') + 1);
+      const bodyOpenIdx = findBodyOpenBrace(line, 0, 'rust');
+      if (lineBraces.open > 0 && bodyOpenIdx !== -1) {
+        const sig = line.slice(0, bodyOpenIdx + 1);
         compacted.push(sig + ' /* stripped */ }');
         scanState = createBraceScannerState();
         const { open, close } = countCodeBraces(line, scanState, 'rust');
@@ -624,7 +753,7 @@ export function compactRustCode(code) {
           if (nextBraces.open > 0) {
             foundOpenBrace = true;
             const fullSig = sigLines.join('\n');
-            const idx = fullSig.indexOf('{');
+            const idx = findBodyOpenBrace(fullSig, 0, 'rust');
             compacted.push(fullSig.slice(0, idx + 1) + ' /* stripped */ }');
             scanState = createBraceScannerState();
             let openTotal = 0;
@@ -826,9 +955,16 @@ export function runContextCompactor(projectDir = process.cwd(), options = {}) {
     outputFileName = 'APEX_CONTEXT.xml';
     outputContent = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     outputContent += `<apex_context files="${processedFiles.length}" original_tokens="${originalTokensEst}" compacted_tokens="${compactedTokensEst}" reduction="${savingsPct}%">\n`;
+    const escapeXmlAttr = (val) => String(val ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
     for (const f of processedFiles) {
-      outputContent += `  <file path="${f.path}" tokens="${f.tokens}" pagerank="${f.pageRank.toFixed(2)}%">\n`;
-      outputContent += `<![CDATA[\n${f.content}\n]]>\n`;
+      const safeContent = f.content.replace(/\]\]>/g, ']]]]><![CDATA[>');
+      outputContent += `  <file path="${escapeXmlAttr(f.path)}" tokens="${f.tokens}" pagerank="${f.pageRank.toFixed(2)}%">\n`;
+      outputContent += `<![CDATA[\n${safeContent}\n]]>\n`;
       outputContent += `  </file>\n`;
     }
     outputContent += `</apex_context>\n`;
@@ -930,28 +1066,55 @@ export function getAllSourceFiles(dir, acc = [], visited = new Set()) {
 if (process.argv[1] && process.argv[1].endsWith('compact-context.js')) {
   const args = process.argv.slice(2);
 
-  // Validate flags
   const knownFlags = ['--format', '--xml', '--json', '--md', '--top', '--budget', '--no-callers'];
-  for (const arg of args) {
-    if (arg.startsWith('--')) {
-      const flagName = arg.split('=')[0];
-      if (!knownFlags.includes(flagName)) {
-        console.error(`${c.red}Error: Unknown flag "${arg}".${c.reset}`);
-        console.error(`Allowed flags: ${knownFlags.join(', ')}`);
+  let format = 'md';
+  let top = null;
+  let budget = null;
+  let noCallers = false;
+  let rawTarget = null;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--xml') {
+      format = 'xml';
+    } else if (arg === '--json') {
+      format = 'json';
+    } else if (arg === '--md') {
+      format = 'md';
+    } else if (arg === '--no-callers') {
+      noCallers = true;
+    } else if (arg.startsWith('--format=')) {
+      format = arg.split('=')[1];
+    } else if (arg === '--format') {
+      if (i + 1 >= args.length) {
+        console.error(`${c.red}Error: Missing value for --format.${c.reset}`);
         process.exit(1);
       }
+      format = args[++i];
+    } else if (arg.startsWith('--top=')) {
+      top = arg.split('=')[1];
+    } else if (arg === '--top') {
+      if (i + 1 >= args.length) {
+        console.error(`${c.red}Error: Missing value for --top.${c.reset}`);
+        process.exit(1);
+      }
+      top = args[++i];
+    } else if (arg.startsWith('--budget=')) {
+      budget = arg.split('=')[1];
+    } else if (arg === '--budget') {
+      if (i + 1 >= args.length) {
+        console.error(`${c.red}Error: Missing value for --budget.${c.reset}`);
+        process.exit(1);
+      }
+      budget = args[++i];
+    } else if (arg.startsWith('-')) {
+      console.error(`${c.red}Error: Unknown flag "${arg}".${c.reset}`);
+      console.error(`Allowed flags: ${knownFlags.join(', ')}`);
+      process.exit(1);
+    } else if (!rawTarget) {
+      rawTarget = arg;
     }
   }
-
-  const formatArg = args.find(a => a.startsWith('--format='));
-  const format = formatArg ? formatArg.split('=')[1] : args.includes('--xml') ? 'xml' : args.includes('--json') ? 'json' : 'md';
-  const topArg = args.find(a => a.startsWith('--top='));
-  const top = topArg ? topArg.split('=')[1] : null;
-  const budgetArg = args.find(a => a.startsWith('--budget='));
-  const budget = budgetArg ? budgetArg.split('=')[1] : null;
-  const noCallers = args.includes('--no-callers');
-
-  const rawTarget = args.find(a => !a.startsWith('--'));
   if (rawTarget && !fs.existsSync(rawTarget)) {
     console.error(`${c.red}Error: File or directory not found: "${rawTarget}".${c.reset}`);
     process.exit(1);

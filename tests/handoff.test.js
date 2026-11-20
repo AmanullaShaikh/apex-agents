@@ -17,4 +17,19 @@ describe('Session Handoff & Context Degradation Defense', () => {
     assert.match(handoff, /<\/session_handoff>/);
     assert.ok(handoff.length < 2000, 'Handoff block should be compact and lightweight');
   });
+
+  test('should survive null memory.json without crashing and report branch="none" outside git', async () => {
+    const fs = await import('fs');
+    const os = await import('os');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-handoff-null-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.agents'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, '.agents', 'memory.json'), 'null');
+      const xml = generateHandoff(tmpDir);
+      assert.match(xml, /branch="none"/);
+      assert.match(xml, /<session_handoff/);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

@@ -55,7 +55,7 @@ function render() {
     divisions.forEach((div, idx) => {
       const isSelected = idx === selectedDivisionIndex;
       const count = fs.readdirSync(path.join(agentsDir, div)).filter(f => f.endsWith('.md')).length;
-      const title = div.toUpperCase().replace('-', ' ');
+      const title = div.toUpperCase().replaceAll('-', ' ');
 
       if (isSelected) {
         console.log(`  ${c.green}${c.bold}▶ ${title.padEnd(35)} (${count} Specialists)${c.reset}`);
@@ -64,7 +64,7 @@ function render() {
       }
     });
   } else {
-    const divName = divisions[selectedDivisionIndex].toUpperCase().replace('-', ' ');
+    const divName = divisions[selectedDivisionIndex].toUpperCase().replaceAll('-', ' ');
     console.log(`${c.magenta}${c.bold}DIVISION: ${divName} (Select a Specialist):${c.reset}\n`);
     currentAgents.forEach((ag, idx) => {
       const isSelected = idx === selectedAgentIndex;
@@ -91,6 +91,18 @@ if (process.stdin.isTTY) {
 }
 
 process.stdin.on('keypress', (str, key) => {
+  if (!key) return;
+  if (viewMode === 'detail') {
+    if (key.name === 'q' || (key.ctrl && key.name === 'c')) {
+      console.clear();
+      process.exit(0);
+    }
+    if (key.name === 'return' || key.name === 'escape' || key.name === 'backspace' || key.name === 'left') {
+      viewMode = 'agents';
+      render();
+    }
+    return;
+  }
   if (key.name === 'q' || (key.ctrl && key.name === 'c')) {
     console.clear();
     process.exit(0);
@@ -124,10 +136,8 @@ process.stdin.on('keypress', (str, key) => {
       const active = currentAgents[selectedAgentIndex];
       console.log(`\n${c.green}${c.bold}=== SPECIALIST DIRECTIVE: @${active.id} ===${c.reset}\n`);
       console.log(active.content);
-      console.log(`\n${c.yellow}Press [Enter] to return to menu...${c.reset}`);
-      process.stdin.once('keypress', () => {
-        render();
-      });
+      console.log(`\n${c.yellow}Press [Enter] or [Esc] to return to menu...${c.reset}`);
+      viewMode = 'detail';
     }
   }
 });

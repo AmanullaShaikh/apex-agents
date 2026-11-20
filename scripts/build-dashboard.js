@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
+export function buildDashboard() {
 const agentsDir = path.join(ROOT_DIR, 'agents');
 const divisions = fs.readdirSync(agentsDir).filter((d) => fs.statSync(path.join(agentsDir, d)).isDirectory());
 
@@ -115,7 +116,7 @@ const html = `<!DOCTYPE html>
   </footer>
 
   <script>
-    const agents = ${JSON.stringify(allAgents, null, 2)};
+    const agents = ${JSON.stringify(allAgents, null, 2).replace(/<\//g, '<\\/')};
     const grid = document.getElementById('agentGrid');
     const searchInput = document.getElementById('searchInput');
     const countSpan = document.getElementById('countSpan');
@@ -175,3 +176,8 @@ const html = `<!DOCTYPE html>
 
 fs.writeFileSync(path.join(ROOT_DIR, 'dashboard.html'), html);
 console.log(`[Apex-Agents] Generated interactive dashboard.html with ${allAgents.length} specialists!`);
+}
+
+if (process.argv[1] && process.argv[1].endsWith('build-dashboard.js')) {
+  buildDashboard();
+}

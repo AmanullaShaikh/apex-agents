@@ -22,12 +22,12 @@ export const SECRET_PATTERNS = [
   { name: 'Stripe Publishable Key', regex: /pk_live_[0-9a-zA-Z]{24}/ },
   { name: 'OpenAI API Key', regex: /sk-proj-[0-9a-zA-Z-_]{48,}/ },
   { name: 'Anthropic API Key', regex: /sk-ant-api03-[0-9a-zA-Z-_]{80,}/ },
-  { name: 'AWS Access Key ID', regex: /\bAKIA[0-9A-Z]{16}\b/ },
+  { name: 'AWS Access Key ID', regex: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/ },
   { name: 'Base64 Encoded AWS Key', regex: /\bQUtJ[0-9a-zA-Z+/=_-]{16,}\b/ },
   { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
   { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
   { name: 'Private Key Header', regex: /-----BEGIN (?:(?:RSA|OPENSSH|EC|DSA|ENCRYPTED|PGP)\s+)?PRIVATE KEY(?:\s+BLOCK)?-----/ },
-  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
+  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ASIA|ghp_)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
 
@@ -50,9 +50,9 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Skipped Test Suite / Case', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(skip|skipIf|runIf)\s*\(|\b(xit|xtest)\s*\(|\b(it|test|describe)\s*\[\s*(['"`]skip['"`]|String\s*\(\s*['"`]skip['"`]\s*\))\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bskip\s*:\s*(?:true|['"`][^'"`]+['"`])|\b[a-zA-Z_$][a-zA-Z0-9_$]*\s*\.\s*skip\s*\(\s*(?:\)|['"`])/ },
   { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(todo)\s*\(/ },
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bonly\s*:\s*true\b/ },
-  { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert|should)\s*\(/ },
+  { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*exit\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\bexit\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b/ },
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\bexit\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
   { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
@@ -219,7 +219,7 @@ export function inspectBase64Payloads(text) {
   while ((m = b64Regex.exec(normalized)) !== null) {
     try {
       const decoded = Buffer.from(m[0], 'base64').toString('utf-8');
-      if (/\bAKIA[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
+      if (/\b(AKIA|ASIA)[0-9A-Z]{16}\b/.test(decoded) || /sk_live_[0-9a-zA-Z]{24}/.test(decoded) || /sk-proj-/.test(decoded) || /ghp_[0-9a-zA-Z]{36}/.test(decoded)) {
         return { matched: m[0], decodedSnippet: decoded.slice(0, 30) };
       }
     } catch {}
@@ -309,6 +309,9 @@ export function auditDiff(rawDiff) {
   const deletedAssertions = [];
   const commentedAssertions = new Set();
   const fileStringVars = new Map();
+  let inTestOptionsBlock = false;
+  let testOptionsDepth = 0;
+  let helperFnDepth = 0;
 
   for (const line of lines) {
     if (line.startsWith('diff --git ')) {
@@ -316,6 +319,9 @@ export function auditDiff(rawDiff) {
       currentFile = parts[parts.length - 1].replace(/^b\//, '');
       changedFiles.add(currentFile);
       fileStringVars.clear();
+      inTestOptionsBlock = false;
+      testOptionsDepth = 0;
+      helperFnDepth = 0;
 
       // Check if sensitive credential/env file itself is modified or added
       const baseName = currentFile.split('/').pop().toLowerCase();
@@ -339,7 +345,7 @@ export function auditDiff(rawDiff) {
     if (line.startsWith('-') && !line.startsWith('---')) {
       const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       const deletedText = line.substring(1).trim();
-      if (isTestFile && /\b(expect|assert|should)\s*\(/.test(deletedText) && !deletedText.startsWith('//')) {
+      if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(deletedText) && !deletedText.startsWith('//')) {
         deletedAssertions.push({ file: currentFile, snippet: deletedText.slice(0, 80) });
       }
     }
@@ -417,7 +423,58 @@ export function auditDiff(rawDiff) {
       if (isTestFile && !isSelfAuditTest) {
         const foldedText = lineEval.folded;
         const resolvedText = lineEval.resolved;
+
+        // Track standalone helper function declarations so `return;` inside helpers doesn't false-positive
+        const trimmedAdded = addedText.trim();
+        if (helperFnDepth === 0 && /^(?:export\s+)?(?:async\s+)?function\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*\(/.test(trimmedAdded)) {
+          const opens = (addedText.match(/\{/g) || []).length;
+          const closes = (addedText.match(/\}/g) || []).length;
+          if (opens > closes) {
+            helperFnDepth = opens - closes;
+          }
+        } else if (helperFnDepth > 0) {
+          const opens = (addedText.match(/\{/g) || []).length;
+          const closes = (addedText.match(/\}/g) || []).length;
+          helperFnDepth = Math.max(0, helperFnDepth + opens - closes);
+        }
+
+        // Track multiline test/it/describe option objects: test("x", {\n skip: true \n}, ...)
+        if (!inTestOptionsBlock && /\b(?:it|test|describe)\s*\([^)]*,\s*\{[^}]*$/.test(addedText)) {
+          inTestOptionsBlock = true;
+          testOptionsDepth = (addedText.match(/\{/g) || []).length - (addedText.match(/\}/g) || []).length;
+          if (testOptionsDepth <= 0) {
+            inTestOptionsBlock = false;
+            testOptionsDepth = 0;
+          }
+        } else if (inTestOptionsBlock) {
+          if (/\bskip\s*:\s*(?:true|['"`][^'"`]+['"`])/.test(resolvedText) || /\bskip\s*:\s*(?:true|['"`][^'"`]+['"`])/.test(addedText)) {
+            issues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file: currentFile,
+              description: 'AI Agent Attempted Test Weakening: Skipped Test Suite / Case (multiline options)',
+              snippet: addedText.trim().slice(0, 80)
+            });
+          } else if (/\bonly\s*:\s*true\b/.test(resolvedText) || /\bonly\s*:\s*true\b/.test(addedText)) {
+            issues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file: currentFile,
+              description: 'AI Agent Attempted Test Weakening: Isolated Test Suite / Case (.only cheat)',
+              snippet: addedText.trim().slice(0, 80)
+            });
+          }
+          testOptionsDepth += (addedText.match(/\{/g) || []).length - (addedText.match(/\}/g) || []).length;
+          if (testOptionsDepth <= 0) {
+            inTestOptionsBlock = false;
+            testOptionsDepth = 0;
+          }
+        }
+
         for (const ttp of TEST_TAMPERING_PATTERNS) {
+          if (ttp.name.startsWith('Early Return Injection') && helperFnDepth > 0) {
+            continue;
+          }
           if (ttp.regex.test(addedText) || ttp.regex.test(foldedText) || ttp.regex.test(resolvedText)) {
             issues.push({
               severity: 'CRITICAL',

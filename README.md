@@ -74,6 +74,7 @@ npx apex-agents init
 | `npx apex-agents handoff` | State | Serializes git status and recent commits into a compact `<session_handoff>` XML block |
 | `npx apex-agents memory [cmd]` | State | Records project architecture decisions in `.agents/memory.json` and syncs to `CLAUDE.md` |
 | `npx apex-agents mcp` | Protocol | Starts the native stdio Model Context Protocol (MCP) server for Claude Desktop & Cursor |
+| `npx apex-agents scan-secrets` | Security | Scans workspace files for leaked credentials and split/obfuscated keys |
 | `npx apex-agents export-all` | Export | Writes rule configs for Claude Code, Cursor, Windsurf, Copilot, and Aider |
 | `npx apex-agents studio` | Interface | Interactive keyboard-driven terminal explorer for browsing specialist prompt packs |
 | `npx apex-agents dashboard` | Interface | Opens local HTML explorer (`dashboard.html`) in your browser |
@@ -226,7 +227,7 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 - `apex_rollback`: Atomic rollback to a saved checkpoint.
 - `apex_trace_symbol`: Cross-file symbol declaration and caller lookup.
 - `apex_audit_diff`: Security and anti-test-tampering diff auditor.
-- `list_specialists` / `summon_specialist`: Browse and load the 38 specialist prompt packs and 13 operational instincts.
+- `list_specialists` / `summon_specialist` / `get_operational_instinct`: Browse and load the 38 specialist prompt packs and 13 operational instincts.
 
 ### Configuration (`claude_desktop_config.json`)
 ```json

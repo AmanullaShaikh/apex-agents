@@ -8,6 +8,9 @@
     "apex": "bin/apex.js"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "test": "node ./scripts/validate-agents.js && node ./scripts/run-tests.js",
     "test:unit": "node ./scripts/run-tests.js",

@@ -16,7 +16,7 @@ try {
 
 // Helper to read agent files
 function getAgentContent(agentId) {
-  if (!agentId) return null;
+  if (!agentId || typeof agentId !== 'string') return null;
   const safeId = path.basename(agentId);
   const agentsDir = path.join(ROOT_DIR, 'agents');
   const divisions = fs.readdirSync(agentsDir);
@@ -47,7 +47,7 @@ function getAllAgents() {
 }
 
 function getInstinctContent(instinctId) {
-  if (!instinctId) return null;
+  if (!instinctId || typeof instinctId !== 'string') return null;
   const safeId = path.basename(instinctId);
   const filePath = path.join(ROOT_DIR, 'instincts', `${safeId}.md`);
   if (fs.existsSync(filePath)) {
@@ -208,11 +208,17 @@ function sendError(id, code, message) {
 }
 
 // Stdio JSON-RPC line parser
+const MAX_STDIN_BUFFER_BYTES = 10 * 1024 * 1024;
 let buffer = '';
 
 process.stdin.setEncoding('utf-8');
 process.stdin.on('data', (chunk) => {
   buffer += chunk;
+  if (buffer.length > MAX_STDIN_BUFFER_BYTES) {
+    buffer = '';
+    sendError(null, -32700, 'Parse error: Input buffer exceeded 10MB limit.');
+    return;
+  }
   const lines = buffer.split('\n');
   buffer = lines.pop(); // Retain incomplete line
 
@@ -221,7 +227,10 @@ process.stdin.on('data', (chunk) => {
     if (!trimmed) continue;
     try {
       const message = JSON.parse(trimmed);
-      handleMessage(message);
+      handleMessage(message).catch((err) => {
+        const msgId = message && typeof message === 'object' && !Array.isArray(message) ? (message.id ?? null) : null;
+        sendError(msgId, -32603, `Internal error: ${err?.message || 'Unknown error'}`);
+      });
     } catch (err) {
       // Return standard JSON-RPC 2.0 parse error on malformed/garbage input
       sendError(null, -32700, 'Parse error: Invalid JSON was received by the server.');
@@ -230,7 +239,10 @@ process.stdin.on('data', (chunk) => {
 });
 
 async function handleMessage(msg) {
-  if (!msg || typeof msg !== 'object') return;
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+    sendError(null, -32600, 'Invalid Request: Expected a JSON-RPC object.');
+    return;
+  }
   const { id, method, params } = msg;
 
   if (method === 'initialize') {
@@ -383,8 +395,19 @@ async function handleMessage(msg) {
 
     if (name === 'apex_trace_symbol') {
       try {
+        const workspaceRoot = path.resolve(process.cwd());
+        const requestedDir = args?.project_dir ? path.resolve(workspaceRoot, String(args.project_dir)) : workspaceRoot;
+        const rel = path.relative(workspaceRoot, requestedDir);
+        const allowExternal = process.env.APEX_ALLOW_EXTERNAL_DIR === '1';
+        if (!allowExternal && (rel.startsWith('..') || path.isAbsolute(rel))) {
+          sendResponse(id, {
+            isError: true,
+            content: [{ type: 'text', text: 'Error: project_dir must stay within the active workspace directory.' }]
+          });
+          return;
+        }
         const { traceSymbol } = await import('../scripts/symbol-tracer.js');
-        const res = traceSymbol(args?.symbol_name || '', args?.project_dir || process.cwd());
+        const res = traceSymbol(args?.symbol_name || '', requestedDir);
         sendResponse(id, {
           content: [{ type: 'text', text: JSON.stringify(res, null, 2) }]
         });

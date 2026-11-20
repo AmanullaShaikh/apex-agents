@@ -42,8 +42,40 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 3.8);
 }
 
-function scanBudget(dir, rootDir = dir) {
+function loadIgnoreRules(rootDir) {
+  const rules = [];
+  for (const ignoreFile of ['.cursorignore', '.claudeignore']) {
+    const p = path.join(rootDir, ignoreFile);
+    if (!fs.existsSync(p)) continue;
+    try {
+      const lines = fs.readFileSync(p, 'utf-8').split(/\r?\n/);
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) continue;
+        rules.push(line);
+      }
+    } catch {}
+  }
+  return rules;
+}
+
+function isIgnoredByRules(relPath, entryName, rules) {
+  for (const rule of rules) {
+    const clean = rule.replace(/^\/+/, '').replace(/\/+$/, '');
+    if (!clean) continue;
+    if (rule.endsWith('/') && (relPath === clean || relPath.startsWith(clean + '/') || entryName === clean)) return true;
+    if (clean.startsWith('*.')) {
+      const suffix = clean.slice(1);
+      if (entryName.endsWith(suffix) || relPath.endsWith(suffix)) return true;
+    }
+    if (relPath === clean || entryName === clean) return true;
+  }
+  return false;
+}
+
+export function scanBudget(dir, rootDir = dir) {
   const files = [];
+  const ignoreRules = loadIgnoreRules(rootDir);
 
   function walk(currentDir) {
     if (!fs.existsSync(currentDir)) return;
@@ -53,6 +85,7 @@ function scanBudget(dir, rootDir = dir) {
       if (DEFAULT_IGNORED_DIRS.has(entry.name)) continue;
       const fullPath = path.join(currentDir, entry.name);
       const relPath = path.relative(rootDir, fullPath).replace(/\\/g, '/');
+      if (isIgnoredByRules(relPath, entry.name, ignoreRules)) continue;
 
       if (entry.isDirectory()) {
         walk(fullPath);
@@ -137,9 +170,19 @@ function generateIgnoreFiles(cwd, toxicFiles) {
 }
 
 // CLI Execution
+if (process.argv[1] && process.argv[1].endsWith('token-budget.js')) {
 const args = process.argv.slice(2);
-const targetDir = args.find((a) => !a.startsWith('--')) || process.cwd();
 const shouldGenerate = args.includes('--generate-ignores') || args.includes('-g');
+const unknownFlag = args.find((a) => a.startsWith('-') && a !== '--generate-ignores' && a !== '-g');
+if (unknownFlag) {
+  console.error(`${c.red}Unknown flag: ${unknownFlag}${c.reset}`);
+  process.exit(1);
+}
+const targetDir = args.find((a) => !a.startsWith('-')) || process.cwd();
+if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) {
+  console.error(`${c.red}Directory not found or not a directory: ${targetDir}${c.reset}`);
+  process.exit(1);
+}
 
 console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS CONTEXT BUDGET OPTIMIZER ═════${c.reset}`);
 console.log(`Analyzing repository token weight in: ${c.cyan}${targetDir}${c.reset}...\n`);
@@ -179,4 +222,6 @@ if (toxicTokens > 0) {
   }
 } else {
   console.log(`  ${c.green}✓ Clean context! No obvious token bloat detected.${c.reset}\n`);
+}
+
 }

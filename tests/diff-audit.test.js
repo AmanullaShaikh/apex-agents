@@ -580,4 +580,66 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(deepTamperDiff).stats.tampering, 4);
   });
+
+  test('should catch commented/deleted node:assert calls, multiline skip, process.abort/kill, ASIA keys, and not false-positive on helper return;', () => {
+    const assertDiff = [
+      'diff --git a/tests/node.test.js b/tests/node.test.js',
+      '--- a/tests/node.test.js',
+      '+++ b/tests/node.test.js',
+      '@@ -1,3 +1,3 @@',
+      '-assert.strictEqual(a, b);',
+      '+// assert.deepStrictEqual(a, b);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(assertDiff).stats.tampering, 1);
+
+    const delAssertDiff = [
+      'diff --git a/tests/node2.test.js b/tests/node2.test.js',
+      '--- a/tests/node2.test.js',
+      '+++ b/tests/node2.test.js',
+      '@@ -1,2 +1,1 @@',
+      '-assert.strictEqual(a, b);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(delAssertDiff).stats.tampering, 1);
+
+    const multiSkipDiff = [
+      'diff --git a/tests/multi.test.js b/tests/multi.test.js',
+      '--- a/tests/multi.test.js',
+      '+++ b/tests/multi.test.js',
+      '@@ -1,1 +1,4 @@',
+      '+test("x", {',
+      '+  skip: true',
+      '+}, () => {});'
+    ].join('\n');
+    assert.strictEqual(auditDiff(multiSkipDiff).stats.tampering, 1);
+
+    const abortKillDiff = [
+      'diff --git a/tests/abort.test.js b/tests/abort.test.js',
+      '--- a/tests/abort.test.js',
+      '+++ b/tests/abort.test.js',
+      '@@ -1,1 +1,3 @@',
+      '+process.abort();',
+      '+process.kill(process.pid);'
+    ].join('\n');
+    assert.strictEqual(auditDiff(abortKillDiff).stats.tampering, 2);
+
+    const helperReturnDiff = [
+      'diff --git a/tests/helper.test.js b/tests/helper.test.js',
+      '--- a/tests/helper.test.js',
+      '+++ b/tests/helper.test.js',
+      '@@ -1,1 +1,4 @@',
+      '+function helper() {',
+      '+  return;',
+      '+}'
+    ].join('\n');
+    assert.strictEqual(auditDiff(helperReturnDiff).stats.tampering, 0);
+
+    const asiaDiff = [
+      'diff --git a/src/sts.ts b/src/sts.ts',
+      '--- a/src/sts.ts',
+      '+++ b/src/sts.ts',
+      '@@ -1,1 +1,2 @@',
+      '+const stsKey = "ASIA1234567890ABCDEF";'
+    ].join('\n');
+    assert.strictEqual(auditDiff(asiaDiff).stats.secrets, 1);
+  });
 });

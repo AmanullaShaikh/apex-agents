@@ -2,7 +2,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 
 const c = {
   reset: '\x1b[0m',
@@ -45,6 +45,20 @@ function isGitRepository(projectDir = process.cwd()) {
   } catch {
     return false;
   }
+}
+
+function resolveGitHooksDir(projectDir = process.cwd()) {
+  try {
+    const common = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd: projectDir,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    if (common) {
+      return path.join(path.resolve(projectDir, common), 'hooks');
+    }
+  } catch {}
+  return path.join(projectDir, '.git', 'hooks');
 }
 
 function unescapeGitPath(rawPath) {
@@ -129,7 +143,7 @@ export function createCheckpoint(label = 'manual-checkpoint', projectDir = proce
 
   // Snapshot all .git/hooks to prevent rogue agent hook poisoning
   try {
-    const gitHooksDir = path.join(projectDir, '.git', 'hooks');
+    const gitHooksDir = resolveGitHooksDir(projectDir);
     if (fs.existsSync(gitHooksDir)) {
       const hookEntries = fs.readdirSync(gitHooksDir, { withFileTypes: true });
       for (const entry of hookEntries) {
@@ -228,7 +242,9 @@ export function listCheckpoints(projectDir = process.cwd()) {
       if (fs.existsSync(metaPath)) {
         try {
           const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-          list.push(meta);
+          if (meta && typeof meta === 'object' && !Array.isArray(meta) && typeof meta.id === 'string' && typeof meta.timestamp === 'number') {
+            list.push(meta);
+          }
         } catch {
           // Ignore corrupt entry
         }
@@ -264,17 +280,16 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
 
   // 1. If Git: revert any rogue agent commits by resetting to target.gitCommit, or checking out target.gitCommit
   if (isGit && target.isGit !== false) {
-    if (target.gitCommit && target.gitCommit !== 'non-git') {
+    if (target.gitCommit && target.gitCommit !== 'non-git' && /^[0-9a-f]{7,40}$/i.test(target.gitCommit)) {
       try {
-        // Reset working tree and branch back to exact checkpoint commit to undo rogue agent commits
-        execSync(`git -c core.quotepath=false reset --hard ${target.gitCommit}`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
-        execSync(`git -c core.quotepath=false checkout ${target.gitCommit}`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+        // Reset current branch & working tree back to exact checkpoint commit without detaching HEAD
+        execFileSync('git', ['-c', 'core.quotepath=false', 'reset', '--hard', target.gitCommit], { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
       } catch {
         try {
-          execSync(`git -c core.quotepath=false checkout ${target.gitCommit} -- .`, { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+          execFileSync('git', ['-c', 'core.quotepath=false', 'checkout', target.gitCommit, '--', '.'], { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
         } catch {
           try {
-            execSync('git -c core.quotepath=false checkout HEAD -- .', { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
+            execFileSync('git', ['-c', 'core.quotepath=false', 'checkout', 'HEAD', '--', '.'], { cwd: projectDir, stdio: ['pipe', 'pipe', 'ignore'] });
           } catch {}
         }
       }
@@ -369,7 +384,7 @@ export function rollbackToCheckpoint(checkpointId = null, projectDir = process.c
 
   // 6. Restore snapshotted .git/hooks and wipe poisoned rogue hooks
   const hooksFolder = path.join(chkFolder, 'git_hooks');
-  const gitHooksDir = path.join(projectDir, '.git', 'hooks');
+  const gitHooksDir = resolveGitHooksDir(projectDir);
   if (fs.existsSync(gitHooksDir)) {
     try {
       const targetHooks = new Set(target.gitHookFiles || []);
@@ -428,5 +443,8 @@ if (process.argv[1] && process.argv[1].endsWith('checkpoint.js')) {
       console.error(`\n${c.red}✖ Rollback failed:${c.reset}`, err.message);
       process.exit(1);
     }
+  } else {
+    console.error(`\n${c.red}Error: Unknown checkpoint action "${action}". Allowed: create, save, list, rollback, restore.${c.reset}\n`);
+    process.exit(1);
   }
 }
