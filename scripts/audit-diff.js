@@ -15,7 +15,7 @@ const c = {
   gray: '\x1b[90m'
 };
 
-export const ZERO_WIDTH_REGEX = /[\u200B-\u200D\uFEFF\u00AD\u2060\u180E]|\\u(?:200[b-d]|feff|00ad|2060|180e)/gi;
+export const ZERO_WIDTH_REGEX = /[\u200B-\u200F\uFEFF\u00AD\u2060-\u206F\u180E\u202A-\u202E]|\\u(?:200[b-f]|feff|00ad|206[0-f]|180e|202[a-e])/gi;
 
 export const SECRET_PATTERNS = [
   { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
@@ -309,6 +309,8 @@ export function auditDiff(rawDiff) {
   const deletedAssertions = [];
   const commentedAssertions = new Set();
   const fileStringVars = new Map();
+  const fileAddedAssertions = new Map();
+  let totalAddedAssertions = 0;
   let inTestOptionsBlock = false;
   let testOptionsDepth = 0;
   let helperFnDepth = 0;
@@ -353,6 +355,13 @@ export function auditDiff(rawDiff) {
     // Audit added lines
     if (line.startsWith('+') && !line.startsWith('+++')) {
       const addedText = line.substring(1);
+      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
+      const trimmedAdded = addedText.trim();
+
+      if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(trimmedAdded) && !trimmedAdded.startsWith('//')) {
+        totalAddedAssertions++;
+        fileAddedAssertions.set(currentFile, (fileAddedAssertions.get(currentFile) || 0) + 1);
+      }
 
       const isSelfAuditTest = currentFile.includes('diff-audit.test.');
       const lineEval = !isSelfAuditTest ? resolveLineWithVars(addedText, fileStringVars) : null;
@@ -419,7 +428,6 @@ export function auditDiff(rawDiff) {
       }
 
       // Check test tampering if modifying tests
-      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
         const foldedText = lineEval.folded;
         const resolvedText = lineEval.resolved;
@@ -517,17 +525,29 @@ export function auditDiff(rawDiff) {
     }
   }
 
-  // Only count deleted assertions if the file was not already flagged for commenting them out
+  // Only count deleted assertions if they were not replaced or migrated by added assertions
   for (const del of deletedAssertions) {
-    if (!commentedAssertions.has(del.file)) {
-      issues.push({
-        severity: 'HIGH',
-        category: 'TEST_TAMPERING',
-        file: del.file,
-        description: 'AI Agent Deleted Assertion Line from Test Suite',
-        snippet: del.snippet
-      });
+    if (commentedAssertions.has(del.file)) continue;
+
+    const inSameFile = fileAddedAssertions.get(del.file) || 0;
+    if (inSameFile > 0) {
+      fileAddedAssertions.set(del.file, inSameFile - 1);
+      totalAddedAssertions--;
+      continue;
     }
+
+    if (totalAddedAssertions > 0) {
+      totalAddedAssertions--;
+      continue;
+    }
+
+    issues.push({
+      severity: 'HIGH',
+      category: 'TEST_TAMPERING',
+      file: del.file,
+      description: 'AI Agent Deleted Assertion Line from Test Suite',
+      snippet: del.snippet
+    });
   }
 
   const stats = {

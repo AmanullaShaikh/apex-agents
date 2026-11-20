@@ -46,12 +46,12 @@ npm run test:agents
 ## 📁 Repository Structure
 
 ```text
-├── agents/             # 38 Domain-Expert System Instruction Manifests (.md)
+├── agents/             # 32 Domain-Expert System Instruction Manifests (.md)
 │   ├── engineering/    # Core fullstack, backend, frontend, database leads
 │   ├── ai-systems/     # RAG, MCP, prompt injection, and eval leads
 │   ├── security/       # AppSec, auth, secrets, dependency auditors
 │   └── ...             # DevOps, media, reverse-engineering, performance
-├── instincts/          # 13 Operational behavioral rules (Zero-Slop, TDD, Anti-Loop)
+├── instincts/          # 12 Operational behavioral rules (Zero-Slop, TDD, Anti-Loop)
 ├── scripts/            # Executable Node.js engines (Babel AST, checkpoint, audit, trace, bugs)
 ├── bin/                # CLI entrypoints (apex.js, mcp-server.js, tui.js)
 ├── tests/              # Adversarial, unit, and integration test suites

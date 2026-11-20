@@ -642,4 +642,18 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     ].join('\n');
     assert.strictEqual(auditDiff(asiaDiff).stats.secrets, 1);
   });
+
+  test('should detect zero-width evasion using LRM (\\u200e) and RLM (\\u200f) directional marks', () => {
+    const lrmDiff = [
+      'diff --git a/src/config.ts b/src/config.ts',
+      '--- a/src/config.ts',
+      '+++ b/src/config.ts',
+      '@@ -1,1 +1,1 @@',
+      '+const key = "A\\u200eK\\u200eI\\u200eA\\u200eI\\u200eO\\u200eS\\u200eF\\u200eO\\u200eD\\u200eN\\u200eN\\u200e7\\u200eE\\u200eX\\u200eA\\u200eM\\u200eP\\u200eL\\u200eE";'
+    ].join('\n');
+    const result = auditDiff(lrmDiff);
+    assert.strictEqual(result.clean, false);
+    assert.strictEqual(result.stats.secrets, 1);
+    assert.match(result.issues[0].description, /AWS Access Key ID/);
+  });
 });

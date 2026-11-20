@@ -31,8 +31,8 @@ ${c.cyan}${c.bold}   ___    ___  ______ _  __     ___   _____ _____ _  __ _____ 
  / /_\\ \\| |_| | |__  | ' /    / /_\\ \\ |  __| |__ | . ' | | | \\___ \\ 
  |  _  ||  __/|  __| | . \\    |  _  | | |_ |  __|| |\\  | | |  ___) |
  |_| |_||_|   |____|_|\\_\\   |_| |_|\\_____|_____|_| \\_| |_| |____/ ${c.reset}
-  ${c.gray}Developer Tooling & AST Compactor Harness • 10 Divisions, 38 Specialists • 13 Instincts${c.reset}
-  ${c.dim}AST Compactor • Dependency Graph • Handoff Engine • Studio TUI • Native MCP${c.reset}
+  ${c.gray}Developer Tooling & AST Compactor Harness • 8 Divisions, 32 Specialists • 12 Instincts${c.reset}
+  ${c.dim}AST Compactor • Dependency Graph • Security Diff Gate • Native MCP${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}
 `);
 }
@@ -316,12 +316,6 @@ function handleExportAll(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
-function handleStudio() {
-  const tuiScript = path.join(__dirname, 'tui.js');
-  const child = spawn(process.execPath, [tuiScript], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
 function handleInit(args) {
   banner();
   console.log(`${c.bold}⚡ Initializing Apex Agents Developer Tooling Suite in Project...${c.reset}\n`);
@@ -346,7 +340,7 @@ function handleInit(args) {
 
   console.log(`\n${c.green}${c.bold}🚀 APEX AGENTS SUITE FULLY INITIALIZED!${c.reset}`);
   console.log(`${c.bold}Your repository is now equipped with:${c.reset}`);
-  console.log(`  • 38 Domain Specialist prompt packs in Cursor & Claude Code`);
+  console.log(`  • 32 Domain Specialist prompt packs in Cursor & Claude Code`);
   console.log(`  • Pre-commit anti-test-tampering and secret leak gates`);
   console.log(`  • Babel AST context compactor ('npx apex-agents compact')`);
   console.log(`  • Cross-session persistent memory ('npx apex-agents memory')\n`);
@@ -370,20 +364,6 @@ function handleScanSecrets(args) {
   const scanScript = path.join(ROOT_DIR, 'scripts', 'scan-secrets.js');
   const child = spawn(process.execPath, [scanScript, ...args], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
-}
-
-function handleDashboard() {
-  const dashPath = path.join(ROOT_DIR, 'dashboard.html');
-  console.log(`\nOpening Apex Agents Explorer: ${dashPath}\n`);
-  
-  const platform = os.platform();
-  if (platform === 'win32') {
-    spawn('cmd.exe', ['/c', 'start', '""', dashPath], { detached: true });
-  } else if (platform === 'darwin') {
-    spawn('open', [dashPath], { detached: true });
-  } else {
-    spawn('xdg-open', [dashPath], { detached: true });
-  }
 }
 
 function handleTest() {
@@ -450,15 +430,12 @@ function handleDoctor() {
     { name: 'AST Bug Hunter', status: 'Ready (npx apex-agents audit-bugs)' },
     { name: 'Token Volume Auditor', status: 'Ready (npx apex-agents cost)' },
     { name: 'AST Dependency Graph', status: 'Available (npx apex-agents graph)' },
-    { name: 'Architecture Diagram', status: 'Available (npx apex-agents diagram)' },
     { name: 'Session Handoff Engine', status: 'Available (npx apex-agents handoff)' },
     { name: 'Persistent Session Memory', status: 'Available (npx apex-agents memory)' },
     { name: 'Anti-Cheat Test Guard', status: antiCheatStatus },
-    { name: 'Terminal Studio (TUI)', status: 'Available (npx apex-agents studio)' },
     { name: 'Git Worktree Sandbox', status: hasGit ? 'Available (npx apex-agents sandbox)' : 'Requires git repo' },
     { name: 'Pre-Commit Safety Hooks', status: hookStatus },
-    { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' },
-    { name: 'Interactive Dashboard', status: 'Available (npx apex-agents dashboard)' }
+    { name: 'Native MCP Server', status: 'Built-in (npx apex-agents mcp)' }
   ];
 
   for (const check of checks) {
@@ -491,15 +468,9 @@ function handleGraph(args) {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
-function handleDiagram(args) {
-  const diagramScript = path.join(ROOT_DIR, 'scripts', 'generate-diagram.js');
-  const child = spawn(process.execPath, [diagramScript, ...args], { stdio: 'inherit' });
-  child.on('exit', (code) => process.exit(code || 0));
-}
-
 function handleHandoff() {
-  const handoffScript = path.join(ROOT_DIR, 'scripts', 'handoff.js');
-  const child = spawn(process.execPath, [handoffScript], { stdio: 'inherit' });
+  const memoryScript = path.join(ROOT_DIR, 'scripts', 'session-memory.js');
+  const child = spawn(process.execPath, [memoryScript, 'handoff'], { stdio: 'inherit' });
   child.on('exit', (code) => process.exit(code || 0));
 }
 
@@ -560,9 +531,6 @@ switch (command) {
   case 'graph':
     handleGraph(args.slice(1));
     break;
-  case 'diagram':
-    handleDiagram(args.slice(1));
-    break;
   case 'compact':
     handleCompact(args.slice(1));
     break;
@@ -590,10 +558,6 @@ switch (command) {
   case 'export-all':
     handleExportAll(args.slice(1));
     break;
-  case 'studio':
-  case 'tui':
-    handleStudio();
-    break;
   case 'inject':
     handleInject(args.slice(1));
     break;
@@ -611,9 +575,6 @@ switch (command) {
     break;
   case 'sandbox':
     handleSandbox(args[1], args[2]);
-    break;
-  case 'dashboard':
-    handleDashboard();
     break;
   case 'test':
     handleTest();

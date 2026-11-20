@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { handleMemory } from '../scripts/session-memory.js';
+import { handleMemory, generateHandoff } from '../scripts/session-memory.js';
 
 describe('Persistent Session Memory Engine', () => {
   const tmpDir = path.join(os.tmpdir(), 'apex-memory-test-' + Date.now());
@@ -31,5 +31,22 @@ describe('Persistent Session Memory Engine', () => {
 
     // Clean up
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('should generate structured session handoff XML block and survive null memory.json outside git', () => {
+    const handoffTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-handoff-null-'));
+    try {
+      fs.mkdirSync(path.join(handoffTmp, '.agents'), { recursive: true });
+      fs.writeFileSync(path.join(handoffTmp, '.agents', 'memory.json'), 'null');
+      const xml = generateHandoff(handoffTmp);
+      assert.match(xml, /<session_handoff/);
+      assert.match(xml, /branch="none"/);
+      assert.match(xml, /<last_commit>/);
+      assert.match(xml, /<modified_files/);
+      assert.match(xml, /<\/session_handoff>/);
+      assert.ok(xml.length < 2000, 'Handoff block should be compact');
+    } finally {
+      fs.rmSync(handoffTmp, { recursive: true, force: true });
+    }
   });
 });

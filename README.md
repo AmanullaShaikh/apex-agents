@@ -1,7 +1,7 @@
 # ⚡ Apex Agents
 
 > **Local AST Context Compactor, Git Rollback Vault & Developer Tooling Suite for AI Coding Assistants.**  
-> A focused Node.js CLI combining a **Babel AST tooling engine**, **git-native checkpoint/rollback**, **static bug & anti-tamper diff guards**, **native MCP server**, and **38 curated system-prompt packs** for **Cursor, Claude Code, Windsurf, Copilot, and Antigravity**.
+> A focused Node.js CLI combining a **Babel AST tooling engine**, **git-native checkpoint/rollback**, **static bug & anti-tamper diff guards**, **native MCP server**, and **32 curated system-prompt packs** for **Cursor, Claude Code, Windsurf, Copilot, and Antigravity**.
 
 <div align="center">
 
@@ -61,7 +61,6 @@ npx apex-agents init
 | `npx apex-agents init` | Setup | Injects directives into `CLAUDE.md`/`.cursorrules`, exports `.cursor/rules/*.mdc`, installs pre-commit hook |
 | `npx apex-agents compact` | Context | Babel AST compactor stripping JS/TS/Py/Go/Rust bodies to signatures with PageRank & reverse callers |
 | `npx apex-agents graph` | Architecture | Builds AST import/export dependency graph, computes PageRank centrality, and detects import cycles |
-| `npx apex-agents diagram` | Architecture | Generates a standalone dark-mode HTML dependency diagram |
 | `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file call sites into a compact LLM dossier |
 | `npx apex-agents checkpoint` | Safe State | Saves atomic git working-tree snapshot including untracked files, `.env`, and `.git/hooks` |
 | `npx apex-agents rollback` | Safe State | Restores working tree, deletes rogue untracked files, and restores `.env` & git hooks |
@@ -79,8 +78,6 @@ npx apex-agents init
 | `npx apex-agents cursor-rules` | Export | Exports `.cursor/rules/*.mdc` specialist rule files into the current project |
 | `npx apex-agents inject` | Setup | Idempotently injects Apex directives into `CLAUDE.md` and `.cursorrules` |
 | `npx apex-agents install-hooks` | Security | Installs pre-commit secret-scan & anti-tamper git hooks (worktree-aware) |
-| `npx apex-agents studio` | Interface | Interactive keyboard-driven terminal explorer for browsing specialist prompt packs |
-| `npx apex-agents dashboard` | Interface | Opens local HTML explorer (`dashboard.html`) in your browser |
 | `npx apex-agents doctor` | Diagnostics | Checks Node.js runtime, git common dir (worktree-aware), hooks, and `.cursor/rules` |
 
 ---
@@ -230,7 +227,7 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 - `apex_rollback`: Atomic rollback to a saved checkpoint.
 - `apex_trace_symbol`: Cross-file symbol declaration and caller lookup.
 - `apex_audit_diff`: Security and anti-test-tampering diff auditor.
-- `list_specialists` / `summon_specialist` / `get_operational_instinct`: Browse and load the 38 specialist prompt packs and 13 operational instincts.
+- `list_specialists` / `summon_specialist` / `get_operational_instinct`: Browse and load the 32 specialist prompt packs and 12 operational instincts.
 
 ### Configuration (`claude_desktop_config.json`)
 ```json
@@ -246,24 +243,22 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 
 ---
 
-## 🏛️ Specialist Prompt Packs (38 Domain Directives across 10 Divisions)
+## 🏛️ Specialist Prompt Packs (32 Domain Directives across 8 Divisions)
 
 > **Note**: Each specialist is a structured Markdown system-instruction file (`agents/<division>/<name>.md`) containing role boundaries, negative constraints, workflows, and verification gates.
 
 1. **Core Engineering**: `@frontend-architect`, `@typescript-pro`, `@backend-systems-lead`, `@database-tuner`, `@api-microservices-lead`, `@state-machine-architect`, `@fullstack-general`
 2. **AI, LLM & Agentic Systems**: `@rag-pipeline-architect`, `@eval-benchmarker`, `@prompt-injection-shield`, `@mcp-server-builder`
-3. **Media & Video Processing**: `@remotion-motion-engineer`, `@ffmpeg-pipeline-master`
-4. **Cloud-Native & Distributed Scale**: `@system-design-architect`, `@serverless-edge-lead`, `@graphql-federation-architect`, `@event-sourcing-specialist`
-5. **Reverse Engineering & Analysis**: `@binary-decompiler`, `@binary-ast-inspector`, `@network-security-auditor`
-6. **Security & Red Team**: `@appsec-auditor`, `@secret-leak-sentinel`, `@auth-identity-guard`, `@dependency-vulnerability-scanner`
-7. **Performance**: `@cwv-lcp-doctor`, `@memory-leak-hunter`, `@bundle-dietician`, `@sql-query-optimizer`
-8. **Quality Assurance & Testing**: `@tdd-champion`, `@e2e-playwright-tester`, `@edge-case-fuzzer`
-9. **DevOps & Infrastructure**: `@docker-slimmer`, `@ci-cd-pipeline-master`, `@k8s-cloud-architect`
-10. **Product & DevRel**: `@growth-marketer`, `@prompt-architect`, `@pr-artisan`, `@readme-copywriter`
+3. **Cloud-Native & Distributed Scale**: `@system-design-architect`, `@serverless-edge-lead`, `@graphql-federation-architect`, `@event-sourcing-specialist`
+4. **Reverse Engineering & Analysis**: `@binary-decompiler`, `@binary-ast-inspector`, `@network-security-auditor`
+5. **Security & Red Team**: `@appsec-auditor`, `@secret-leak-sentinel`, `@auth-identity-guard`, `@dependency-vulnerability-scanner`
+6. **Performance**: `@cwv-lcp-doctor`, `@memory-leak-hunter`, `@bundle-dietician`, `@sql-query-optimizer`
+7. **Quality Assurance & Testing**: `@tdd-champion`, `@e2e-playwright-tester`, `@edge-case-fuzzer`
+8. **DevOps & Infrastructure**: `@docker-slimmer`, `@ci-cd-pipeline-master`, `@k8s-cloud-architect`
 
 ---
 
-## ⚡ 13 Operational Instincts (`instincts/`)
+## ⚡ 12 Operational Instincts (`instincts/`)
 
 1. Zero-Slop Contract
 2. Verification Before Completion
@@ -276,8 +271,7 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 9. Hallucination Defense
 10. Minimalist Code Discipline
 11. Concise Token Discipline
-12. Clean Diagram Rules
-13. Anti-Cheat Test Tampering
+12. Anti-Cheat Test Tampering
 
 ---
 

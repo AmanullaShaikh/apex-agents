@@ -77,10 +77,10 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     }
   });
 
-  test('should list all 38 specialists and operational instincts', () => {
+  test('should list all 32 specialists and operational instincts', () => {
     const out = stripAnsi(execSync(`node "${APEX_BIN}" list`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(out, /OPERATIONAL INSTINCTS/);
-    assert.match(out, /Total Specialists:\s*38/);
+    assert.match(out, /Total Specialists:\s*32/);
   });
 
   test('should inspect context budget with zero errors', () => {
@@ -153,7 +153,7 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
   });
 
   test('should reject unknown and removed CLI commands with exit code 1', () => {
-    for (const cmd of ['foobar', 'plan', 'spec', 'caveman', 'eval', 'swe-eval', 'design', 'orphans', 'scope-guard']) {
+    for (const cmd of ['foobar', 'plan', 'spec', 'caveman', 'eval', 'swe-eval', 'design', 'orphans', 'scope-guard', 'diagram', 'studio', 'tui', 'dashboard']) {
       assert.throws(() => {
         execSync(`node "${APEX_BIN}" ${cmd}`, { stdio: 'pipe', cwd: ROOT_DIR });
       }, /Command failed/, `Removed/unknown command "${cmd}" must exit non-zero`);
