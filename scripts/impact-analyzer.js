@@ -138,8 +138,18 @@ if (process.argv[1] && safeRealpath(process.argv[1]) === safeRealpath(__filename
   const positional = args.filter(a => !a.startsWith('-'));
 
   for (const target of positional) {
-    if (!fs.existsSync(target)) {
+    const resolved = path.resolve(process.cwd(), target);
+    const rel = path.relative(process.cwd(), resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      console.error(`${c.red}Error: Target file must be inside workspace directory: ${target}${c.reset}`);
+      process.exit(1);
+    }
+    if (!fs.existsSync(resolved)) {
       console.error(`${c.red}Error: Target file not found: ${target}${c.reset}`);
+      process.exit(1);
+    }
+    if (fs.statSync(resolved).isDirectory()) {
+      console.error(`${c.red}Error: Target cannot be a directory: ${target}. Specify source file paths.${c.reset}`);
       process.exit(1);
     }
   }

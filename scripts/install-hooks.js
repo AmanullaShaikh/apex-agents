@@ -90,8 +90,7 @@ fi
     const existingContent = fs.readFileSync(preCommitHookPath, 'utf-8');
     if (existingContent.includes('APEX AGENTS PRE-COMMIT') || existingContent.includes('Apex-Agents Hook')) {
       console.log(`\x1b[33m• Pre-commit hook already contains Apex Agents protection.\x1b[0m`);
-      return true;
-    }
+    } else {
 
     // Safety backup of existing hook
     const backupPath = `${preCommitHookPath}.apex-backup.${Date.now()}`;
@@ -99,8 +98,9 @@ fi
     console.log(`\x1b[36m• Preserved existing pre-commit hook (backed up to: ${path.basename(backupPath)})\x1b[0m`);
 
     // Chain/append without destroying user's existing hook
-    const chained = existingContent.trim() + '\n' + apexSnippet;
-    fs.writeFileSync(preCommitHookPath, chained.replace(/\r\n/g, '\n'), { mode: 0o755 });
+      const chained = existingContent.trim() + '\n' + apexSnippet;
+      fs.writeFileSync(preCommitHookPath, chained.replace(/\r\n/g, '\n'), { mode: 0o755 });
+    }
   } else {
     // Create new executable hook
     const fullHook = `#!/bin/sh\n# Apex Agents Automated Zero-Slop & Secret Leak Pre-Commit Hook\n${apexSnippet}\nexit 0\n`;
@@ -125,6 +125,8 @@ if command -v node >/dev/null 2>&1; then
     node "./scripts/scan-secrets.js" || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
   elif command -v apex-agents >/dev/null 2>&1; then
     apex-agents scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
+  elif command -v apex >/dev/null 2>&1; then
+    apex scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
   elif command -v npx >/dev/null 2>&1; then
     npx apex-agents scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
   fi
@@ -133,6 +135,10 @@ if command -v node >/dev/null 2>&1; then
     node "./scripts/audit-bugs.js" || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
   elif command -v apex-agents >/dev/null 2>&1; then
     apex-agents audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
+  elif command -v apex >/dev/null 2>&1; then
+    apex audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
+  elif command -v npx >/dev/null 2>&1; then
+    npx apex-agents audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
   fi
 
   if [ -f "./package.json" ] && grep -q '"test"' ./package.json; then

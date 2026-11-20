@@ -695,11 +695,13 @@ describe('Diff Security & Anti-Cheat Audit', () => {
       'diff --git a/tests/ast.test.js b/tests/ast.test.js',
       '--- a/tests/ast.test.js',
       '+++ b/tests/ast.test.js',
-      '@@ -1,1 +1,6 @@',
+      '@@ -1,1 +1,8 @@',
       '+const p = process;',
       '+p.exit(0);',
+      '+const { abort } = process;',
+      '+abort();',
       '+test("empty", () => {});',
-      '+try { assert.strictEqual(1, 2); } catch {}'
+      '+try { assert.strictEqual(1, 2); } catch (e) { return; }'
     ].join('\n');
     const astRes = auditDiff(astTamperDiff);
     assert.strictEqual(astRes.clean, false);
@@ -727,5 +729,6 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     assert.strictEqual(sarif.version, '2.1.0');
     assert.ok(Array.isArray(sarif.runs) && sarif.runs.length === 1);
     assert.ok(sarif.runs[0].results.length >= 2);
+    assert.ok(sarif.runs[0].tool.driver.rules.every(r => Boolean(r.helpUri)));
   });
 });

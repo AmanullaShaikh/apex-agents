@@ -498,6 +498,13 @@ async function handleMessage(msg) {
           });
           return;
         }
+        if (args?.files !== undefined && (!Array.isArray(args.files) || args.files.some(f => typeof f !== 'string'))) {
+          sendResponse(id, {
+            isError: true,
+            content: [{ type: 'text', text: 'Error: files parameter must be an array of string file paths.' }]
+          });
+          return;
+        }
         const { analyzeImpact } = await import('../scripts/impact-analyzer.js');
         const filesArg = Array.isArray(args?.files) ? args.files : [];
         const res = analyzeImpact(filesArg, requestedDir);

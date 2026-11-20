@@ -59,7 +59,7 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bonly\s*:\s*true\b/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\bexit\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b/ },
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\b(?:exit|abort|kill)\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
   { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
@@ -268,23 +268,42 @@ function astAuditTestSnippet(file, code) {
   }
 
   const processAliases = new Set();
+  const processExitFuncs = new Set();
   const isAssertionName = (name) => /^(expect|assert|should)$/.test(name);
 
   try {
     traverse(ast, {
       VariableDeclarator(p) {
-        const idName = p.node.id?.type === 'Identifier' ? p.node.id.name : null;
-        if (!idName) return;
         const init = p.node.init;
-        if (
-          (init?.type === 'Identifier' && init.name === 'process') ||
-          (init?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(init.object?.name) && init.property?.name === 'process')
-        ) {
-          processAliases.add(idName);
+        const isProc = (init?.type === 'Identifier' && init.name === 'process') ||
+          (init?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(init.object?.name) && init.property?.name === 'process');
+        if (!isProc) return;
+        if (p.node.id?.type === 'Identifier') {
+          processAliases.add(p.node.id.name);
+        } else if (p.node.id?.type === 'ObjectPattern') {
+          for (const prop of p.node.id.properties || []) {
+            const keyName = prop.key?.name || prop.key?.value;
+            const aliasName = prop.value?.name || keyName;
+            if (['exit', 'abort', 'kill'].includes(keyName) && aliasName) {
+              processExitFuncs.add(aliasName);
+            }
+          }
         }
       },
       CallExpression(p) {
         const callee = p.node.callee;
+        // 0. Direct destructured call: const { abort } = process; abort();
+        if (callee?.type === 'Identifier' && processExitFuncs.has(callee.name)) {
+          astIssues.push({
+            severity: 'CRITICAL',
+            category: 'TEST_TAMPERING',
+            file,
+            line: p.node.loc?.start?.line || 1,
+            description: `AI Agent Attempted Test Weakening: Destructured Process ${callee.name}() Injection (AST)`,
+            snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${callee.name}()`
+          });
+          return;
+        }
         // 1. Aliased process exit/abort/kill: const p = process; p.exit(0);
         if (callee?.type === 'MemberExpression' && callee.object?.type === 'Identifier' && processAliases.has(callee.object.name)) {
           const prop = callee.property?.name || callee.property?.value;
@@ -307,27 +326,26 @@ function astAuditTestSnippet(file, code) {
           callee?.type === 'MemberExpression' &&
           callee.object?.type === 'Identifier' &&
           ['test', 'it'].includes(callee.object.name) &&
-          callee.property?.name !== 'todo'
+          (callee.property?.name || callee.property?.value) !== 'todo'
         ) {
-          testFnName = `${callee.object.name}.${callee.property?.name || callee.property?.value || ''}`;
+          const propName = callee.property?.name || callee.property?.value || '';
+          testFnName = `${callee.object.name}.${propName}`;
         }
         if (testFnName && !/skip|only/i.test(testFnName)) {
           const hasCheatOptions = p.node.arguments.some(a =>
             a.type === 'ObjectExpression' &&
             a.properties?.some(prop => /^(skip|only)$/.test(prop.key?.name || prop.key?.value))
           );
-          if (!hasCheatOptions) {
-            const cb = p.node.arguments.find(a => a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression');
-            if (cb && cb.body?.type === 'BlockStatement' && cb.body.body.length === 0) {
-              astIssues.push({
-                severity: 'CRITICAL',
-                category: 'TEST_TAMPERING',
-                file,
-                line: p.node.loc?.start?.line || 1,
-                description: `AI Agent Attempted Test Weakening: Empty ${testFnName}() Body (AST)`,
-                snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
-              });
-            }
+          const cb = !hasCheatOptions && p.node.arguments.find(a => a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression');
+          if (cb && cb.body?.type === 'BlockStatement' && cb.body.body.length === 0) {
+            astIssues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file,
+              line: p.node.loc?.start?.line || 1,
+              description: `AI Agent Attempted Test Weakening: Empty ${testFnName}() Body (AST)`,
+              snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
+            });
           }
         }
       },
@@ -345,13 +363,13 @@ function astAuditTestSnippet(file, code) {
               if (c.type === 'MemberExpression' && c.object?.type === 'Identifier' && isAssertionName(c.object.name)) hasAssertionInTry = true;
             }
           });
-          if (hasAssertionInTry && catchStmts.length === 0) {
+          if (hasAssertionInTry) {
             astIssues.push({
               severity: 'CRITICAL',
               category: 'TEST_TAMPERING',
               file,
               line: p.node.loc?.start?.line || 1,
-              description: 'AI Agent Attempted Test Weakening: Swallowed Assertion in Empty try/catch (AST)',
+              description: 'AI Agent Attempted Test Weakening: Swallowed Assertion in Non-Throwing try/catch (AST)',
               snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || 'try { ... } catch {}'
             });
           }
@@ -374,7 +392,8 @@ export function buildSarifReport(issues, toolName = 'apex-agents-review', versio
     if (!rulesMap.has(ruleId)) {
       rulesMap.set(ruleId, {
         id: ruleId,
-        shortDescription: { text: ruleId.replace(/_/g, ' ') }
+        shortDescription: { text: ruleId.replace(/_/g, ' ') },
+        helpUri: 'https://github.com/AmanullaShaikh/apex-agents#readme'
       });
     }
     const level = (iss.severity === 'CRITICAL' || iss.severity === 'HIGH') ? 'error' : (iss.severity === 'MEDIUM' ? 'warning' : 'note');
@@ -530,7 +549,8 @@ export function auditDiff(rawDiff) {
       if (currentFile === 'package.json' && /"test"\s*:/.test(line)) {
         deletedPkgTestLine.add(currentFile);
       }
-      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
+      const isSelfAuditTest = currentFile.includes('diff-audit.test.');
+      const isTestFile = (currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/')) && !isSelfAuditTest;
       const deletedText = line.substring(1).trim();
       if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(deletedText) && !deletedText.startsWith('//')) {
         deletedAssertions.push({ file: currentFile, snippet: deletedText.slice(0, 80) });

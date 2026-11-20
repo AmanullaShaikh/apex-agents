@@ -166,7 +166,8 @@ describe('Native MCP Tooling Integration Suite', () => {
       { jsonrpc: '2.0', id: 200, method: 'tools/list' },
       { jsonrpc: '2.0', id: 201, method: 'prompts/list' },
       { jsonrpc: '2.0', id: 202, method: 'prompts/get', params: { name: 'instinct:zero-slop-contract' } },
-      { jsonrpc: '2.0', id: 203, method: 'tools/call', params: { name: 'apex_impact_radius', arguments: { files: ['scripts/dependency-graph.js'] } } }
+      { jsonrpc: '2.0', id: 203, method: 'tools/call', params: { name: 'apex_impact_radius', arguments: { files: ['scripts/dependency-graph.js'] } } },
+      { jsonrpc: '2.0', id: 204, method: 'tools/call', params: { name: 'apex_impact_radius', arguments: { files: 123 } } }
     ]);
     const r200 = responses.find(r => r.id === 200);
     const r201 = responses.find(r => r.id === 201);
@@ -178,5 +179,7 @@ describe('Native MCP Tooling Integration Suite', () => {
     assert.ok(r202.result.messages[0].content.text.includes('Zero-Slop'));
     const impact = JSON.parse(r203.result.content[0].text);
     assert.ok(Array.isArray(impact.directDependents) && impact.directDependents.length > 0);
+    const r204 = responses.find(r => r.id === 204);
+    assert.ok(r204?.result?.isError, 'Non-array files must return isError');
   });
 });

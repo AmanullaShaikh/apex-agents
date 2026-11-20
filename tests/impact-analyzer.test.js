@@ -49,6 +49,14 @@ describe('AST Blast-Radius & Impact Analyzer Suite', () => {
       assert.throws(() => {
         execSync(`node "${IMPACT_BIN}" nonexistent-file.js`, { stdio: 'pipe', cwd: tmpDir });
       }, /Command failed/);
+
+      assert.throws(() => {
+        execSync(`node "${IMPACT_BIN}" ../../etc/passwd`, { stdio: 'pipe', cwd: tmpDir });
+      }, /Command failed/);
+
+      assert.throws(() => {
+        execSync(`node "${IMPACT_BIN}" .`, { stdio: 'pipe', cwd: tmpDir });
+      }, /Command failed/);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

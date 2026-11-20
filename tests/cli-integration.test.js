@@ -228,6 +228,8 @@ describe('CLI Integration Suite (bin/apex.js)', () => {
     const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-prepush-'));
     try {
       execSync('git init -b main', { cwd: repoDir, stdio: 'ignore' });
+      execSync(`node "${APEX_BIN}" install-hooks`, { cwd: repoDir, stdio: 'pipe' });
+      // Re-running with --pre-push when pre-commit already exists must STILL install pre-push
       execSync(`node "${APEX_BIN}" install-hooks --pre-push`, { cwd: repoDir, stdio: 'pipe' });
       const preCommit = path.join(repoDir, '.git', 'hooks', 'pre-commit');
       const prePush = path.join(repoDir, '.git', 'hooks', 'pre-push');
