@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/aveyx-logo.png" alt="Aveyx Logo" width="108" />
+<img src="assets/aveyx-banner.png" alt="Aveyx Banner" width="720" />
 
 # Aveyx
 
@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![NPM Version](https://img.shields.io/npm/v/aveyx.svg?style=flat-square&color=38bdf8)](https://www.npmjs.com/package/aveyx)
 [![CI & Integrity Suite](https://github.com/AmanullaShaikh/aveyx/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/aveyx/actions/workflows/ci.yml)
-[![Babel AST Engine](https://img.shields.io/badge/AST%20Engine-Babel-F5DA55.svg?style=flat-square)](https://babeljs.io)
+[![Node.js >=20](https://img.shields.io/badge/Node.js-%3E%3D20-339933.svg?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![MCP Protocol](https://img.shields.io/badge/MCP-Tools%20%26%20Prompts-8b5cf6.svg?style=flat-square)](#7-native-model-context-protocol-mcp-server)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/aveyx/pulls)
 

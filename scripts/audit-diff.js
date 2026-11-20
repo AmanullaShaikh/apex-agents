@@ -28,13 +28,13 @@ export const SECRET_PATTERNS = [
   { name: 'Anthropic API Key', regex: /sk-ant-api03-[0-9a-zA-Z-_]{80,}/ },
   { name: 'AWS Access Key ID', regex: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/ },
   { name: 'Base64 Encoded AWS Key', regex: /\bQUtJ[0-9a-zA-Z+/=_-]{16,}\b/ },
-  { name: 'GitHub Personal Token', regex: /ghp_[0-9a-zA-Z]{36}/ },
+  { name: 'GitHub Token (PAT / OAuth / App)', regex: /\b(?:ghp|gho|ghu|ghs|ghr)_[0-9a-zA-Z]{36,}\b/ },
   { name: 'GitHub Fine-Grained Personal Access Token', regex: /\bgithub_pat_[0-9a-zA-Z_]{82}\b/ },
   { name: 'Google Cloud / Maps API Key', regex: /\bAIza[0-9A-Za-z\-_]{35}\b/ },
   { name: 'JSON Web Token (JWT)', regex: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
   { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
   { name: 'Private Key Header', regex: /-----BEGIN (?:(?:RSA|OPENSSH|EC|DSA|ENCRYPTED|PGP)\s+)?PRIVATE KEY(?:\s+BLOCK)?-----/ },
-  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ASIA|ghp_|github_pat_|AIza)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
+  { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ASIA|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|AIza)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
 ];
 
@@ -59,7 +59,7 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bonly\s*:\s*true\b/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/ },
   { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\b(?:exit|abort|kill)\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b/ },
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\b(?:exit|abort|kill)\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b|\b(?:const|let|var)\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*(?:exit|abort|kill)\b/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
   { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
@@ -273,8 +273,47 @@ function astAuditTestSnippet(file, code) {
 
   try {
     traverse(ast, {
+      ImportDeclaration(p) {
+        const src = p.node.source?.value;
+        if (src !== 'process' && src !== 'node:process') return;
+        for (const spec of p.node.specifiers || []) {
+          if (spec.type === 'ImportSpecifier') {
+            const imported = spec.imported?.name || spec.imported?.value;
+            if (['exit', 'abort', 'kill'].includes(imported) && spec.local?.name) {
+              processExitFuncs.add(spec.local.name);
+            }
+          } else if (spec.type === 'ImportDefaultSpecifier' || spec.type === 'ImportNamespaceSpecifier') {
+            if (spec.local?.name) processAliases.add(spec.local.name);
+          }
+        }
+      },
+      AssignmentExpression(p) {
+        const right = p.node.right;
+        if (
+          p.node.left?.type === 'Identifier' &&
+          right?.type === 'MemberExpression' &&
+          ((right.object?.type === 'Identifier' && right.object.name === 'process') ||
+           (right.object?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(right.object.object?.name) && right.object.property?.name === 'process'))
+        ) {
+          const prop = right.property?.name || right.property?.value;
+          if (['exit', 'abort', 'kill'].includes(prop)) {
+            processExitFuncs.add(p.node.left.name);
+          }
+        }
+      },
       VariableDeclarator(p) {
         const init = p.node.init;
+        if (
+          init?.type === 'MemberExpression' &&
+          ((init.object?.type === 'Identifier' && init.object.name === 'process') ||
+           (init.object?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(init.object.object?.name) && init.object.property?.name === 'process'))
+        ) {
+          const prop = init.property?.name || init.property?.value;
+          if (['exit', 'abort', 'kill'].includes(prop) && p.node.id?.type === 'Identifier') {
+            processExitFuncs.add(p.node.id.name);
+            return;
+          }
+        }
         const isProc = (init?.type === 'Identifier' && init.name === 'process') ||
           (init?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(init.object?.name) && init.property?.name === 'process');
         if (!isProc) return;
@@ -494,12 +533,11 @@ export function auditDiff(rawDiff) {
   const testFiles = new Set();
   const issues = [];
   const deletedAssertions = [];
+  const fileAddedAssertions = new Map();
   const commentedAssertions = new Set();
   const fileStringVars = new Map();
   const testAddedSnippets = new Map();
   const deletedPkgTestLine = new Set();
-  const fileAddedAssertions = new Map();
-  let totalAddedAssertions = 0;
   let inTestOptionsBlock = false;
   let testOptionsDepth = 0;
   let helperFnDepth = 0;
@@ -551,7 +589,7 @@ export function auditDiff(rawDiff) {
       if (currentFile === 'package.json' && /"test"\s*:/.test(line)) {
         deletedPkgTestLine.add(currentFile);
       }
-      const isSelfAuditTest = currentFile.includes('diff-audit.test.');
+      const isSelfAuditTest = currentFile.includes('diff-audit.test.') || currentFile.includes('redteam') || currentFile.includes('fuzz-stress.test.');
       const isTestFile = (currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/')) && !isSelfAuditTest;
       const deletedText = line.substring(1).trim();
       if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(deletedText) && !deletedText.startsWith('//')) {
@@ -562,16 +600,9 @@ export function auditDiff(rawDiff) {
     // Audit added lines
     if (line.startsWith('+') && !line.startsWith('+++')) {
       const addedText = line.substring(1);
-      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
-      const trimmedAdded = addedText.trim();
 
-      if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(trimmedAdded) && !trimmedAdded.startsWith('//')) {
-        totalAddedAssertions++;
-        fileAddedAssertions.set(currentFile, (fileAddedAssertions.get(currentFile) || 0) + 1);
-      }
-
-      const isSelfAuditTest = currentFile.includes('diff-audit.test.');
-      if (currentFile === 'package.json' && deletedPkgTestLine.has('package.json') && /"test"\s*:\s*"(?:echo\b|true\b|exit\s+0)/i.test(addedText)) {
+      const isSelfAuditTest = currentFile.includes('diff-audit.test.') || currentFile.includes('redteam') || currentFile.includes('fuzz-stress.test.');
+      if (currentFile === 'package.json' && deletedPkgTestLine.has('package.json') && /"test"\s*:\s*"(?:echo\b|true\b|exit\s+0|:|\s*node\s+-e\s+['"]?(?:0|process\.exit\(0\)|;?)['"]?|.*(?:\|\||;|&&)\s*(?:exit\s+0|true\b|:))/i.test(addedText)) {
         issues.push({
           severity: 'CRITICAL',
           category: 'TEST_TAMPERING',
@@ -644,9 +675,13 @@ export function auditDiff(rawDiff) {
       }
 
       // Check test tampering if modifying tests
+      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
         if (!testAddedSnippets.has(currentFile)) testAddedSnippets.set(currentFile, []);
         testAddedSnippets.get(currentFile).push(addedText);
+        if (/^\s*(?:await\s+)?(?:expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(addedText)) {
+          fileAddedAssertions.set(currentFile, (fileAddedAssertions.get(currentFile) || 0) + 1);
+        }
         const foldedText = lineEval.folded;
         const resolvedText = lineEval.resolved;
 
@@ -752,22 +787,14 @@ export function auditDiff(rawDiff) {
     }
   }
 
-  // Only count deleted assertions if they were not replaced or migrated by added assertions
+  // Reconcile deleted assertions strictly within the SAME file (prevents cross-file assertion smuggling)
   for (const del of deletedAssertions) {
     if (commentedAssertions.has(del.file)) continue;
-
     const inSameFile = fileAddedAssertions.get(del.file) || 0;
     if (inSameFile > 0) {
       fileAddedAssertions.set(del.file, inSameFile - 1);
-      totalAddedAssertions--;
       continue;
     }
-
-    if (totalAddedAssertions > 0) {
-      totalAddedAssertions--;
-      continue;
-    }
-
     issues.push({
       severity: 'HIGH',
       category: 'TEST_TAMPERING',

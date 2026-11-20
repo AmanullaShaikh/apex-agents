@@ -25,12 +25,15 @@ const c = {
 };
 
 function banner() {
+  const art = [
+    '    ___  _    _ _______ _     _ __   __',
+    '   /   || |  | |  _____| \\   / |\\ \\ / /',
+    '  / /| || |  | | |__    \\ \\_/ /  \\ V /',
+    ' / ___ |\\ \\/ / |  __|    \\   /    > <',
+    '/_/  |_| \\__/  |_____|    |_|    /_/\\_\\'
+  ].join('\n');
   console.log(`
-${c.cyan}${c.bold}    ___  _    _ _______ _     _ __   __
-   /   || |  | |  _____| \   / |\ \ / /
-  / /| || |  | | |__    \ \_/ /  \ V / 
- / ___ |\ \/ / |  __|    \   /    > <  
-/_/  |_| \__/  |_____|    |_|    /_/\_\ ${c.reset}
+${c.cyan}${c.bold}${art}${c.reset}
   ${c.gray}Developer Tooling & AST Compactor Harness • 8 Divisions, 32 Specialists • 12 Instincts${c.reset}
   ${c.dim}AST Compactor • Blast-Radius • Security Diff Gate • Native MCP${c.reset}
   ${c.dim}Author: Amanulla Shaikh • MIT Open Source${c.reset}

@@ -199,11 +199,13 @@ describe('CLI Integration Suite (bin/aveyx.js)', () => {
       assert.doesNotMatch(hookContent, /--no-install/);
 
       // Provide local PATH shim for aveyx so git commit tests real hook execution offline without hitting npm registry
-      fs.writeFileSync(path.join(shimDir, 'aveyx.cmd'), `@echo off\r\n"${process.execPath}" "${AVEYX_BIN}" %*\r\n`);
       const shPath = path.join(shimDir, 'aveyx');
-      const winNodePath = process.execPath.replace(/\\/g, '/');
-      const winBinPath = AVEYX_BIN.replace(/\\/g, '/');
-      fs.writeFileSync(shPath, `#!/bin/sh\nexec "${winNodePath}" "${winBinPath}" "$@"\n`, { mode: 0o755 });
+      const nodePosix = process.execPath.replace(/\\/g, '/');
+      const binPosix = AVEYX_BIN.replace(/\\/g, '/');
+      fs.writeFileSync(shPath, `#!/bin/sh\nexec "${nodePosix}" "${binPosix}" "$@"\n`, { mode: 0o755 });
+      if (process.platform === 'win32') {
+        fs.writeFileSync(path.join(shimDir, 'aveyx.cmd'), `@echo off\r\n"${process.execPath}" "${AVEYX_BIN}" %*\r\n`);
+      }
       const envWithShim = { ...process.env, PATH: `${shimDir}${path.delimiter}${process.env.PATH || ''}` };
 
       fs.writeFileSync(path.join(extRepo, 'hello.txt'), 'clean commit content\n');

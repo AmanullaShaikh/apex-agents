@@ -94,8 +94,8 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
     return issues; // Skip unparseable files
   }
 
-  const queryFnNames = new Set(['query', 'raw', '$queryRawUnsafe', 'execute', 'exec', 'update', 'runQuery', 'execSql', 'executeSql', 'rawQuery', 'run']);
-  const dbClientIdentifiers = new Set(['db', 'client', 'sql', 'prisma', 'knex', 'sequelize', 'orm']);
+  const queryFnNames = new Set(['query', 'raw', '$queryRawUnsafe', '$executeRawUnsafe', 'execute', 'exec', 'runQuery', 'execSql', 'executeSql', 'rawQuery']);
+  const dbClientIdentifiers = new Set(['db', 'pool', 'client', 'conn', 'connection', 'tx', 'trx', 'sql', 'prisma', 'knex', 'sequelize', 'orm']);
   const syncClassMethods = new Map();
   const varToClass = new Map();
 
@@ -219,6 +219,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
             line: p.node.loc?.start.line || 1,
             severity: 'CRITICAL',
             category: 'SQL_INJECTION',
+            type: 'SQL_INJECTION',
             message: 'Raw SQL concatenation or template interpolation detected in database query call. Use parameterized queries.'
           });
         }
@@ -262,11 +263,9 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
             propName = evalStaticString(p.node.callee.property, p.scope);
           }
           const objName = p.node.callee.object?.name;
-          if (
-            queryFnNames.has(propName) ||
-            /^(query|raw|\$queryRawUnsafe|execute|exec|update|runQuery|rawQuery|execSql|run)$/i.test(propName) ||
-            (dbClientIdentifiers.has(objName) && /query|raw|exec|run/i.test(propName))
-          ) {
+          const isGenericQuery = /^(query|raw|\$queryRawUnsafe|\$executeRawUnsafe|execute|exec|runQuery|rawQuery|execSql)$/i.test(propName);
+          const isDbClientMethod = dbClientIdentifiers.has(objName) && /query|raw|exec|run|update/i.test(propName);
+          if (queryFnNames.has(propName) || isGenericQuery || isDbClientMethod) {
             isSqlCall = true;
             sqlArg = p.node.arguments[0];
           }
@@ -275,7 +274,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         // 2. Direct Identifier: query(...), runQuery(...)
         if (!isSqlCall && p.node.callee.type === 'Identifier') {
           const fnName = p.node.callee.name;
-          if (queryFnNames.has(fnName) || /^(query|raw|\$queryRawUnsafe|execute|exec|runQuery|execSql|rawQuery)$/i.test(fnName)) {
+          if (queryFnNames.has(fnName) || /^(query|raw|\$queryRawUnsafe|\$executeRawUnsafe|execute|exec|runQuery|execSql|rawQuery)$/i.test(fnName)) {
             isSqlCall = true;
             sqlArg = p.node.arguments[0];
           }
@@ -561,6 +560,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               line: p.node.loc?.start.line || 1,
               severity: 'CRITICAL',
               category: 'SQL_INJECTION',
+              type: 'SQL_INJECTION',
               message: 'Raw SQL concatenation or template interpolation detected in database query call. Use parameterized queries.'
             });
           }
@@ -623,6 +623,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
                 line: p.node.loc?.start.line || 1,
                 severity: 'HIGH',
                 category: 'MEMORY_LEAK',
+                type: 'MEMORY_LEAK',
                 message: 'useEffect creates a timer or event listener without returning a valid cleanup function.'
               });
             }
@@ -662,6 +663,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
                 line: p.node.loc?.start.line || 1,
                 severity: 'MEDIUM',
                 category: 'FLOATING_PROMISE',
+                type: 'FLOATING_PROMISE',
                 message: `Async call "${objName ? objName + '.' : ''}${callName}()" is not awaited, assigned, or caught. Risks unhandled promise rejections.`
               });
             }

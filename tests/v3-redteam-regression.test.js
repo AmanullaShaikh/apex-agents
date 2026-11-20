@@ -1,0 +1,183 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { auditDiff } from '../scripts/audit-diff.js';
+import { auditCodeBugs } from '../scripts/audit-bugs.js';
+import { buildDependencyGraph } from '../scripts/dependency-graph.js';
+
+test('Red-Team #1: blocks cross-file assertion smuggling bypass', () => {
+  const diff = [
+    'diff --git a/tests/payment-security.test.js b/tests/payment-security.test.js',
+    '--- a/tests/payment-security.test.js',
+    '+++ b/tests/payment-security.test.js',
+    '@@ -10,3 +10,0 @@',
+    "-expect(userRole).not.toBe('admin');",
+    '-assert.strictEqual(paymentBypassed, false);',
+    '-expect(chargeSucceeded).toBe(true);',
+    'diff --git a/tests/unrelated-dummy.test.js b/tests/unrelated-dummy.test.js',
+    '--- a/tests/unrelated-dummy.test.js',
+    '+++ b/tests/unrelated-dummy.test.js',
+    '@@ -5,0 +6,3 @@',
+    '+expect(dummyVariableA).toBe(123);',
+    "+assert.strictEqual(dummyVariableB, 'hello');",
+    '+expect(dummyVariableC).toBe(true);'
+  ].join('\n');
+
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  const deletedIssues = res.issues.filter(
+    i => i.category === 'TEST_TAMPERING' && i.file === 'tests/payment-security.test.js'
+  );
+  assert.equal(deletedIssues.length, 3);
+});
+
+test('Red-Team #1b: allows legitimate same-file assertion replacement', () => {
+  const diff = [
+    'diff --git a/tests/mcp.test.js b/tests/mcp.test.js',
+    '--- a/tests/mcp.test.js',
+    '+++ b/tests/mcp.test.js',
+    '@@ -10,1 +10,1 @@',
+    "-assert.equal(toolName, 'old_tool');",
+    "+assert.equal(toolName, 'aveyx_tool');"
+  ].join('\n');
+
+  const res = auditDiff(diff);
+  assert.equal(res.clean, true);
+});
+
+test('Red-Team #2: blocks package.json test weakening via || exit 0, || true, :, and node -e 0', () => {
+  const payloads = [
+    '"test": "node ./scripts/run-tests.js || exit 0"',
+    '"test": "node ./scripts/run-tests.js || true"',
+    '"test": ":"',
+    '"test": "node -e 0"'
+  ];
+  for (const added of payloads) {
+    const diff = [
+      'diff --git a/package.json b/package.json',
+      '--- a/package.json',
+      '+++ b/package.json',
+      '@@ -5,1 +5,1 @@',
+      '-"test": "node ./scripts/run-tests.js"',
+      `+${added}`
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected bypass payload to be blocked: ${added}`);
+    assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING' && i.file === 'package.json'));
+  }
+});
+
+test('Red-Team #3: blocks indirect process method extraction (const fn = process.exit; fn(0);)', () => {
+  const diff = [
+    'diff --git a/tests/evasion.test.js b/tests/evasion.test.js',
+    '--- a/tests/evasion.test.js',
+    '+++ b/tests/evasion.test.js',
+    '@@ -1,0 +1,4 @@',
+    '+const fn = process.exit;',
+    '+fn(0);',
+    '+const k = process.kill;',
+    '+k(process.pid);'
+  ].join('\n');
+
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #4: zero false positives on non-DB .run() and .update() calls', () => {
+  const code = `
+export function executeTask(taskRunner, taskName) {
+  return taskRunner.run('task: ' + taskName);
+}
+export function updateForm(state, fieldId) {
+  return state.update('field_' + fieldId);
+}
+`;
+  const bugs = auditCodeBugs(code, 'src/tasks.ts');
+  const sqli = bugs.filter(b => b.type === 'SQL_INJECTION');
+  assert.equal(sqli.length, 0);
+});
+
+test('Red-Team #5: detects pool.$executeRawUnsafe SQL injection', () => {
+  const code = `
+export async function purge(pool, id) {
+  return pool.$executeRawUnsafe('DELETE FROM users WHERE id = ' + id);
+}
+`;
+  const bugs = auditCodeBugs(code, 'src/db.ts');
+  assert.ok(bugs.some(b => b.type === 'SQL_INJECTION'));
+});
+
+test('Red-Team #6: tracks dynamic ESM import(...) in dependency graph', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-dyn-import-'));
+  try {
+    fs.writeFileSync(path.join(tmpDir, 'target.js'), 'export const x = 42;\n');
+    fs.writeFileSync(
+      path.join(tmpDir, 'importer.js'),
+      "export async function load() {\n  const mod = await import('./target.js');\n  return mod.x;\n}\n"
+    );
+    const { graph } = buildDependencyGraph(tmpDir);
+    assert.ok(graph.get('importer.js')?.has('target.js'));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Red-Team #7: CLI ASCII banner preserves backslashes without escaping drop', () => {
+  const out = execFileSync(process.execPath, [path.resolve('bin/aveyx.js'), '--help'], {
+    encoding: 'utf8'
+  });
+  assert.ok(out.includes('/_/\\_\\'), 'Expected properly escaped backslashes in AVEYX banner');
+});
+
+test('Red-Team #8: detects GitHub OAuth, User-to-Server, App, and Refresh tokens (gho/ghu/ghs/ghr)', () => {
+  for (const prefix of ['ghp_', 'gho_', 'ghu_', 'ghs_', 'ghr_']) {
+    const token = prefix + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8';
+    const diff = [
+      'diff --git a/src/auth.js b/src/auth.js',
+      '--- a/src/auth.js',
+      '+++ b/src/auth.js',
+      '@@ -1,0 +1,1 @@',
+      `+const token = "${token}";`
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected ${prefix} token to be flagged`);
+    assert.ok(res.issues.some(i => i.category === 'SECRET_LEAK'));
+  }
+});
+
+test('Red-Team #9: blocks ESM import { exit } from node:process and AssignmentExpression bypasses', () => {
+  const diff = [
+    'diff --git a/tests/esm-evasion.test.js b/tests/esm-evasion.test.js',
+    '--- a/tests/esm-evasion.test.js',
+    '+++ b/tests/esm-evasion.test.js',
+    '@@ -1,0 +1,5 @@',
+    "+import { exit } from 'node:process';",
+    '+exit(0);',
+    '+let stopper;',
+    '+stopper = process.abort;',
+    '+stopper();'
+  ].join('\n');
+
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  const tamper = res.issues.filter(i => i.category === 'TEST_TAMPERING');
+  assert.ok(tamper.length >= 2, `Expected >=2 AST tampering findings, got ${tamper.length}`);
+});
+
+test('Red-Team #10: blocks package.json semicolon/&& exit 0 weakening', () => {
+  const diff = [
+    'diff --git a/package.json b/package.json',
+    '--- a/package.json',
+    '+++ b/package.json',
+    '@@ -5,1 +5,1 @@',
+    '-"test": "node ./scripts/run-tests.js"',
+    '+"test": "node ./scripts/run-tests.js; exit 0"'
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING' && i.file === 'package.json'));
+});

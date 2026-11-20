@@ -300,8 +300,21 @@ export function buildDependencyGraph(rootDir = process.cwd()) {
             }
           }
         },
+        ImportExpression(p) {
+          if (p.node.source?.value) {
+            const src = p.node.source.value;
+            const resolved = resolveImportPath(f, src, rootDir);
+            if (resolved.type === 'internal') {
+              graph.get(rel)?.add(resolved.path);
+            } else {
+              externalDeps.add(resolved.name);
+            }
+          }
+        },
         CallExpression(p) {
-          if (p.node.callee.name === 'require' && p.node.arguments[0]?.value) {
+          const isReq = p.node.callee.name === 'require';
+          const isDynImport = p.node.callee.type === 'Import';
+          if ((isReq || isDynImport) && p.node.arguments[0]?.value) {
             const src = p.node.arguments[0].value;
             const resolved = resolveImportPath(f, src, rootDir);
             if (resolved.type === 'internal') {
