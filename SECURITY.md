@@ -7,8 +7,7 @@ Security updates and patches are actively maintained for the current release lin
 | Version | Supported |
 | :--- | :--- |
 | `3.x` | Yes |
-| `2.x` | Security fixes only |
-| `< 2.0.0` | No |
+| `< 3.0.0` | No (Deprecated) |
 
 ## Reporting a Vulnerability
 

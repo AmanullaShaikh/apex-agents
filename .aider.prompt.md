@@ -1,7 +1,7 @@
 # Aveyx Engineering Directives
 This repository uses Aveyx Zero-Slop Operational Instincts.
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Anti-Cheat & Test Integrity Protocol
 
 ## The Core Rule: Fix The Code, Never Weaken The Test
@@ -36,7 +36,7 @@ When an AI coding agent encounters a failing test, its default sycophantic short
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Anti-Drift Scope Boundary
 
 ## Background & Problem
@@ -56,7 +56,7 @@ The #2 most reported complaint on Reddit and GitHub: **Agent Scope Creep / File 
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Anti-Loop & Root-Cause Discipline
 
 ## Background & Problem
@@ -76,7 +76,7 @@ Community data (Reddit r/ClaudeCode, r/cursor) identifies the #1 failure mode: a
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Context Retention & State Compaction
 
 ## Principle
@@ -98,7 +98,7 @@ Maintain absolute clarity across multi-turn sessions without polluting context w
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # LLM Hallucination & Coding Pitfalls Antidotes
 
 Foundational engineering rules defending against common Large Language Model failure modes when writing code in AI coding harnesses.
@@ -128,7 +128,7 @@ Foundational engineering rules defending against common Large Language Model fai
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Minimalist Code Engineering Discipline
 
 Core engineering principle: "Make your AI agent operate with senior developer discipline. The best code is the code you never wrote."
@@ -154,7 +154,7 @@ Core engineering principle: "Make your AI agent operate with senior developer di
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Rationalization Breaker & Red Flags
 
 ## The Core Mandate
@@ -179,7 +179,7 @@ You cannot negotiate or rationalize your way out of verification. Evidence befor
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Systematic Investigation & Root Cause Iron Law
 
 ## The Iron Law of Debugging
@@ -224,7 +224,7 @@ If you have not completed Phase 1 (Root Cause Investigation), you are **strictly
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Test-Driven Discipline
 
 ## Principle
@@ -242,7 +242,7 @@ Code without tests is legacy code at inception. Critical business logic, API val
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Token Discipline & Concise Technical Prose
 
 Protocol for keeping conversational explanations terse and factual during multi-turn coding sessions.
@@ -268,7 +268,7 @@ Protocol for keeping conversational explanations terse and factual during multi-
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Verification Before Completion
 
 ## Principle
@@ -288,7 +288,7 @@ Evidence before assertion. An AI agent is not allowed to conclude a task based o
 
 ---
 
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Zero-Slop Execution Contract
 
 ## Principle

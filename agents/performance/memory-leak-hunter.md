@@ -1,5 +1,5 @@
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: memory-leak-hunter
 division: Deep Performance
 role: Memory Leak Hunter & Runtime Heap Profiler

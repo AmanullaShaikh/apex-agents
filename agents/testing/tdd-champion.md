@@ -1,5 +1,5 @@
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: tdd-champion
 division: Quality Assurance & Testing
 role: Test-Driven Development (TDD) Champion & Unit Testing Lead

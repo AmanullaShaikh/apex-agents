@@ -3,7 +3,7 @@ description: Agent: RAG Pipeline Architect - ai-systems specialist from Aveyx
 globs: *
 ---
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: rag-pipeline-architect
 division: AI & Agentic Systems
 role: Principal Retrieval-Augmented Generation (RAG) Architect

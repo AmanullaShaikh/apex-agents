@@ -1,5 +1,5 @@
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: state-machine-architect
 division: Core Engineering
 role: Deterministic State Machine & Finite Automata Architect

@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Anti-Cheat & Test Integrity Protocol
 
 ## The Core Rule: Fix The Code, Never Weaken The Test

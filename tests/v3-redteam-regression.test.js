@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { auditDiff } from '../scripts/audit-diff.js';
+import { auditDiff, buildSarifReport, ZERO_WIDTH_REGEX } from '../scripts/audit-diff.js';
 import { auditCodeBugs } from '../scripts/audit-bugs.js';
 import { buildDependencyGraph } from '../scripts/dependency-graph.js';
 
@@ -180,4 +180,116 @@ test('Red-Team #10: blocks package.json semicolon/&& exit 0 weakening', () => {
   const res = auditDiff(diff);
   assert.equal(res.clean, false);
   assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING' && i.file === 'package.json'));
+});
+
+test('Red-Team #11: blocks single-line early return in test() body', () => {
+  const diff = [
+    'diff --git a/tests/payment.test.js b/tests/payment.test.js',
+    '--- a/tests/payment.test.js',
+    '+++ b/tests/payment.test.js',
+    '@@ -10,0 +10,1 @@',
+    "+test('payment works', () => { return; });"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #12: blocks return false; and return 0; early return bypasses', () => {
+  const diff = [
+    'diff --git a/tests/payment.test.js b/tests/payment.test.js',
+    '--- a/tests/payment.test.js',
+    '+++ b/tests/payment.test.js',
+    '@@ -10,0 +10,3 @@',
+    "+test('payment works', () => {",
+    '+  return false;',
+    '+});'
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #13: blocks process.reallyExit(0) silent test killer', () => {
+  const diff = [
+    'diff --git a/tests/payment.test.js b/tests/payment.test.js',
+    '--- a/tests/payment.test.js',
+    '+++ b/tests/payment.test.js',
+    '@@ -10,0 +10,1 @@',
+    "+test('payment works', () => { process.reallyExit(0); });"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #14: blocks dynamic await import("node:process") exit bypass', () => {
+  const diff = [
+    'diff --git a/tests/payment.test.js b/tests/payment.test.js',
+    '--- a/tests/payment.test.js',
+    '+++ b/tests/payment.test.js',
+    '@@ -10,0 +10,1 @@',
+    "+test('payment works', async () => { const p = await import('node:process'); p.exit(0); });"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #15: blocks Object.defineProperty / Reflect.set test runner hijacking', () => {
+  const diff = [
+    'diff --git a/tests/payment.test.js b/tests/payment.test.js',
+    '--- a/tests/payment.test.js',
+    '+++ b/tests/payment.test.js',
+    '@@ -10,0 +10,1 @@',
+    "+test('payment works', () => { Object.defineProperty(globalThis, 'it', { value: () => {} }); });"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #16: blocks package.json test weakening via single | true and & exit 0', () => {
+  for (const cmd of ['"test": "node ./scripts/run-tests.js | true"', '"test": "node ./scripts/run-tests.js & exit 0"']) {
+    const diff = [
+      'diff --git a/package.json b/package.json',
+      '--- a/package.json',
+      '+++ b/package.json',
+      '@@ -5,1 +5,1 @@',
+      '-"test": "node ./scripts/run-tests.js"',
+      `+${cmd}`
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected ${cmd} to be blocked`);
+  }
+});
+
+test('Red-Team #17: ZERO_WIDTH_REGEX does not falsely match punctuation like \\u206@', () => {
+  ZERO_WIDTH_REGEX.lastIndex = 0;
+  assert.equal(ZERO_WIDTH_REGEX.test('\\u206@'), false);
+  ZERO_WIDTH_REGEX.lastIndex = 0;
+  assert.equal(ZERO_WIDTH_REGEX.test('\\u206a'), true);
+});
+
+test('Red-Team #18: auditCodeBugs catches dynamic execSync command injection', () => {
+  const code = `
+import { execSync } from 'node:child_process';
+export function run(userInput) {
+  execSync("ping " + userInput);
+}
+`;
+  const bugs = auditCodeBugs(code, 'src/server.js');
+  assert.ok(bugs.some(b => b.type === 'COMMAND_INJECTION'));
+});
+
+test('Red-Team #19: auditCodeBugs catches destructured db.query and .concat() SQLi', () => {
+  const code1 = `import db from './db'; const { query: run } = db; run("SELECT * FROM users WHERE id = " + userId);`;
+  const code2 = `import db from './db'; db.query("SELECT * FROM users WHERE id = ".concat(userId));`;
+  assert.ok(auditCodeBugs(code1, 'src/a.js').some(b => b.category === 'SQL_INJECTION'));
+  assert.ok(auditCodeBugs(code2, 'src/b.js').some(b => b.category === 'SQL_INJECTION'));
+});
+
+test('Red-Team #20: buildSarifReport normalizes Windows backslashes in artifactLocation.uri', () => {
+  const report = buildSarifReport([{ file: 'tests\\sub\\test.js', category: 'TEST', description: 'desc', severity: 'HIGH' }]);
+  assert.equal(report.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri, 'tests/sub/test.js');
 });

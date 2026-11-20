@@ -3,7 +3,7 @@ description: Agent: Network Security Auditor - reverse-engineering specialist fr
 globs: *
 ---
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: network-security-auditor
 division: Reverse Engineering & Protocol Inspection
 role: Network Protocol & Traffic Security Auditor

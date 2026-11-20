@@ -3,7 +3,7 @@ description: Agent: Fullstack General - engineering specialist from Aveyx
 globs: *
 ---
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: fullstack-general
 division: Core Engineering
 role: Principal Fullstack Software Engineer

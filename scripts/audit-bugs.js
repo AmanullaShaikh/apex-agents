@@ -196,6 +196,13 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           if (init && init.type === 'NewExpression' && init.callee?.name === 'Proxy') {
             dbClientIdentifiers.add(p.node.id.name);
           }
+        } else if (p.node.id?.type === 'ObjectPattern' && p.node.init?.type === 'Identifier' && dbClientIdentifiers.has(p.node.init.name)) {
+          for (const prop of p.node.id.properties || []) {
+            if (prop.type !== 'ObjectProperty') continue;
+            const key = prop.key?.name || prop.key?.value;
+            const local = prop.value?.name || key;
+            if (queryFnNames.has(key) && local) queryFnNames.add(local);
+          }
         }
       },
 
@@ -225,13 +232,33 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         }
       },
 
-      // 1. Raw SQL Injection Detection
+      // 1. Command Injection & Raw SQL Injection Detection
       CallExpression(p) {
-        // Skip native shell process execution calls
-        if (p.node.callee.type === 'Identifier' && ['execSync', 'execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.name)) {
+        // Detect dynamic command injection in exec / execSync (skip test files)
+        const isTestFile = /\.(test|spec)\.[a-z]+$/i.test(filePath) || filePath.startsWith('tests/') || filePath.includes('/tests/');
+        if (
+          !isTestFile &&
+          ((p.node.callee.type === 'Identifier' && ['execSync', 'exec'].includes(p.node.callee.name)) ||
+           (p.node.callee.type === 'MemberExpression' && ['execSync', 'exec'].includes(p.node.callee.property?.name)))
+        ) {
+          const cmdArg = p.node.arguments[0];
+          if (cmdArg && (cmdArg.type === 'BinaryExpression' || (cmdArg.type === 'TemplateLiteral' && cmdArg.expressions.length > 0))) {
+            issues.push({
+              file: filePath,
+              line: p.node.loc?.start.line || 1,
+              severity: 'CRITICAL',
+              category: 'COMMAND_INJECTION',
+              type: 'COMMAND_INJECTION',
+              message: 'Unsafe dynamic command execution in exec/execSync. Use execFile or spawn with array arguments.'
+            });
+          }
           return;
         }
-        if (p.node.callee.type === 'MemberExpression' && ['execSync', 'execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name)) {
+        // Skip safe array-arg / file-specific process execution calls
+        if (p.node.callee.type === 'Identifier' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.name)) {
+          return;
+        }
+        if (p.node.callee.type === 'MemberExpression' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name)) {
           return;
         }
 
@@ -492,6 +519,13 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
             if (node.type === 'CallExpression') {
               if (
                 node.callee?.type === 'MemberExpression' &&
+                node.callee.property?.name === 'concat' &&
+                node.arguments.some(arg => arg && arg.type !== 'StringLiteral')
+              ) {
+                return true;
+              }
+              if (
+                node.callee?.type === 'MemberExpression' &&
                 node.callee.property?.name === 'join'
               ) {
                 let arrayNode = node.callee.object;
@@ -730,7 +764,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
       description: i.message,
       snippet: ''
     }));
-    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.0'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.1'), null, 2));
     process.exit(report.passed ? 0 : 1);
   }
 

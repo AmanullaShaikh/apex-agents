@@ -1,5 +1,5 @@
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: event-sourcing-specialist
 division: Cloud-Native & Serverless
 role: Event Sourcing & CQRS Systems Architect

@@ -1,5 +1,5 @@
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: docker-slimmer
 division: DevOps & Cloud Infrastructure
 role: Docker Container Optimization & Security Engineer

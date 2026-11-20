@@ -18,7 +18,7 @@ function stripAnsi(str) {
 describe('CLI Integration Suite (bin/aveyx.js)', () => {
   test('should display version with -v and --version', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
-    const expectedVer = new RegExp(`aveyx v${pkg.version.replace(/\./g, '\\.')}`);
+    const expectedVer = new RegExp(`aveyx v${pkg.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
     const outV = stripAnsi(execSync(`node "${AVEYX_BIN}" -v`, { encoding: 'utf-8', cwd: ROOT_DIR }));
     assert.match(outV, expectedVer);
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -58,14 +58,14 @@ export function handleStart(name, cwd = process.cwd()) {
     // Check if branch already exists
     let branchExists = false;
     try {
-      execSync(`git rev-parse --verify ${branchName}`, { stdio: 'ignore', cwd });
+      execFileSync('git', ['rev-parse', '--verify', branchName], { stdio: 'ignore', cwd });
       branchExists = true;
     } catch {}
 
     if (branchExists) {
-      execSync(`git worktree add "${worktreeDir}" ${branchName}`, { stdio: 'inherit', cwd });
+      execFileSync('git', ['worktree', 'add', worktreeDir, branchName], { stdio: 'inherit', cwd });
     } else {
-      execSync(`git worktree add -b ${branchName} "${worktreeDir}"`, { stdio: 'inherit', cwd });
+      execFileSync('git', ['worktree', 'add', '-b', branchName, worktreeDir], { stdio: 'inherit', cwd });
     }
 
     // Copy .env.example if present so new sandbox can build without manual intervention
@@ -116,7 +116,7 @@ export function handleClean(name, cwd = process.cwd()) {
   console.log(`\n${c.cyan}[Aveyx] Removing worktree: ${safeName}...${c.reset}`);
   try {
     if (fs.existsSync(worktreeDir)) {
-      execSync(`git worktree remove "${worktreeDir}" --force`, { stdio: 'inherit', cwd });
+      execFileSync('git', ['worktree', 'remove', worktreeDir, '--force'], { stdio: 'inherit', cwd });
     }
     execSync(`git worktree prune`, { stdio: 'ignore', cwd });
     console.log(`  ${c.green}✓ Worktree removed cleanly.${c.reset}\n`);

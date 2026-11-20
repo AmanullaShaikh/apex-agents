@@ -46,7 +46,7 @@ Run directly with `npx` — zero global install or API keys required:
 npx aveyx init
 ```
 
-### Command Reference (`v3.0.0`)
+### Command Reference (`v3.0.1`)
 
 | Command | Category | What It Does |
 | :--- | :--- | :--- |

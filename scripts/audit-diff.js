@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import { parse } from '@babel/parser';
 import _traverse from '@babel/traverse';
 
@@ -19,7 +19,7 @@ const c = {
   gray: '\x1b[90m'
 };
 
-export const ZERO_WIDTH_REGEX = /[\u200B-\u200F\uFEFF\u00AD\u2060-\u206F\u180E\u202A-\u202E]|\\u(?:200[b-f]|feff|00ad|206[0-f]|180e|202[a-e])/gi;
+export const ZERO_WIDTH_REGEX = /[\u200B-\u200F\uFEFF\u00AD\u2060-\u206F\u180E\u202A-\u202E]|\\u(?:200[b-f]|feff|00ad|206[0-9a-f]|180e|202[a-e])/gi;
 
 export const SECRET_PATTERNS = [
   { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/ },
@@ -58,10 +58,10 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Test Todo Cheat (.todo bypass)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(todo)\s*\(/ },
   { name: 'Isolated Test Suite / Case (.only cheat)', regex: /\b(it|test|describe)(?:\s*\.\s*[a-zA-Z0-9_$]+)*\s*\.\s*(only)\s*\(|\b(it|test|describe)\s*\[\s*['"`]only['"`]\s*\]|\b(it|test|describe)\s*\([^)]*,\s*\{[^}]*\bonly\s*:\s*true\b/ },
   { name: 'Commented Out Assertion', regex: /(\/\/|\/\*)\s*(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/ },
-  { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(\s*;|\s+null\s*;|\s+undefined\s*;|\s+true\s*;|\s*$)/ },
-  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`]exit['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`]exit['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*exit\b|\b(?:const|let|var)\s*\{[^}]*\b(?:exit|abort|kill)\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b|\b(?:const|let|var)\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*(?:exit|abort|kill)\b/ },
+  { name: 'Early Return Injection (Bypassing Test Execution)', regex: /^\s*return(?:\s*;|\s+[\w\d'"`[{]|\s*$)/ },
+  { name: 'Process Exit Injection (Silent Test Killer)', regex: /\bprocess\s*\.\s*(?:exit|abort|kill|reallyExit)\s*\(|\b(?:globalThis|global|window)\s*\.\s*process\s*\.\s*(?:exit|abort|kill|reallyExit)\s*\(|(?:\b(?:globalThis|global|window)\s*\[\s*['"`]process['"`]\s*\]|\bprocess)\s*\[\s*['"`](?:exit|reallyExit|abort|kill)['"`]\s*\]\s*\(|\bReflect\s*\.\s*get\s*\(\s*(?:(?:globalThis|global|window)(?:\s*\.\s*process|\s*\[\s*['"`]process['"`]\s*\])|process)\s*,\s*['"`](?:exit|reallyExit|abort|kill)['"`]\s*\)|\bReflect\s*\.\s*apply\s*\(\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*(?:exit|reallyExit)\b|\b(?:const|let|var)\s*\{[^}]*\b(?:exit|abort|kill|reallyExit)\b[^}]*\}\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\b|\b(?:const|let|var)\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*(?:(?:globalThis|global|window)\s*\.\s*)?process\s*\.\s*(?:exit|abort|kill|reallyExit)\b/ },
   { name: 'Local Assertion Library Shadowing', regex: /\b(?:const|let|var)\s+(?:expect|assert|should)\s*=/ },
-  { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*/ },
+  { name: 'Test Runner Global Monkey-Patching / Hijacking', regex: /\b(globalThis|global|window)\s*\.\s*(it|test|describe|expect|assert)\s*=|^\s*(?:it|test|describe)\s*=\s*|\b(?:Object\.defineProperty|Reflect\.set)\s*\(\s*(?:globalThis|global|window)\s*,\s*['"`](?:it|test|describe|expect|assert)['"`]/ },
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
   { name: 'Unhandled Asynchronous Timer or Microtask in Test Execution', regex: /\b(setTimeout|setImmediate|queueMicrotask|process\.nextTick)\s*\(/ },
   { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(?:false|0|null|undefined|!\s*(?:true|1))\s*\)\s*(?:\{|\b(?:assert|expect|should|return|throw)\b)/ },
@@ -279,7 +279,7 @@ function astAuditTestSnippet(file, code) {
         for (const spec of p.node.specifiers || []) {
           if (spec.type === 'ImportSpecifier') {
             const imported = spec.imported?.name || spec.imported?.value;
-            if (['exit', 'abort', 'kill'].includes(imported) && spec.local?.name) {
+            if (['exit', 'abort', 'kill', 'reallyExit'].includes(imported) && spec.local?.name) {
               processExitFuncs.add(spec.local.name);
             }
           } else if (spec.type === 'ImportDefaultSpecifier' || spec.type === 'ImportNamespaceSpecifier') {
@@ -296,7 +296,7 @@ function astAuditTestSnippet(file, code) {
            (right.object?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(right.object.object?.name) && right.object.property?.name === 'process'))
         ) {
           const prop = right.property?.name || right.property?.value;
-          if (['exit', 'abort', 'kill'].includes(prop)) {
+          if (['exit', 'abort', 'kill', 'reallyExit'].includes(prop)) {
             processExitFuncs.add(p.node.left.name);
           }
         }
@@ -309,8 +309,18 @@ function astAuditTestSnippet(file, code) {
            (init.object?.type === 'MemberExpression' && ['globalThis', 'global', 'window'].includes(init.object.object?.name) && init.object.property?.name === 'process'))
         ) {
           const prop = init.property?.name || init.property?.value;
-          if (['exit', 'abort', 'kill'].includes(prop) && p.node.id?.type === 'Identifier') {
+          if (['exit', 'abort', 'kill', 'reallyExit'].includes(prop) && p.node.id?.type === 'Identifier') {
             processExitFuncs.add(p.node.id.name);
+            return;
+          }
+        }
+        if (
+          init?.type === 'AwaitExpression' &&
+          ((init.argument?.type === 'ImportExpression' && (init.argument.source?.value === 'process' || init.argument.source?.value === 'node:process')) ||
+           (init.argument?.type === 'CallExpression' && init.argument.callee?.type === 'Import' && (init.argument.arguments[0]?.value === 'process' || init.argument.arguments[0]?.value === 'node:process')))
+        ) {
+          if (p.node.id?.type === 'Identifier') {
+            processAliases.add(p.node.id.name);
             return;
           }
         }
@@ -323,7 +333,7 @@ function astAuditTestSnippet(file, code) {
           for (const prop of p.node.id.properties || []) {
             const keyName = prop.key?.name || prop.key?.value;
             const aliasName = prop.value?.name || keyName;
-            if (['exit', 'abort', 'kill'].includes(keyName) && aliasName) {
+            if (['exit', 'abort', 'kill', 'reallyExit'].includes(keyName) && aliasName) {
               processExitFuncs.add(aliasName);
             }
           }
@@ -346,7 +356,7 @@ function astAuditTestSnippet(file, code) {
         // 1. Aliased process exit/abort/kill: const p = process; p.exit(0);
         if (callee?.type === 'MemberExpression' && callee.object?.type === 'Identifier' && processAliases.has(callee.object.name)) {
           const prop = callee.property?.name || callee.property?.value;
-          if (['exit', 'abort', 'kill'].includes(prop)) {
+          if (['exit', 'abort', 'kill', 'reallyExit'].includes(prop)) {
             astIssues.push({
               severity: 'CRITICAL',
               category: 'TEST_TAMPERING',
@@ -376,15 +386,27 @@ function astAuditTestSnippet(file, code) {
             a.properties?.some(prop => /^(skip|only)$/.test(prop.key?.name || prop.key?.value))
           );
           const cb = !hasCheatOptions && p.node.arguments.find(a => a.type === 'ArrowFunctionExpression' || a.type === 'FunctionExpression');
-          if (cb && cb.body?.type === 'BlockStatement' && cb.body.body.length === 0) {
-            astIssues.push({
-              severity: 'CRITICAL',
-              category: 'TEST_TAMPERING',
-              file,
-              line: p.node.loc?.start?.line || 1,
-              description: `AI Agent Attempted Test Weakening: Empty ${testFnName}() Body (AST)`,
-              snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
-            });
+          if (cb && cb.body?.type === 'BlockStatement') {
+            const stmts = cb.body.body;
+            if (stmts.length === 0) {
+              astIssues.push({
+                severity: 'CRITICAL',
+                category: 'TEST_TAMPERING',
+                file,
+                line: p.node.loc?.start?.line || 1,
+                description: `AI Agent Attempted Test Weakening: Empty ${testFnName}() Body (AST)`,
+                snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
+              });
+            } else if (stmts[0]?.type === 'ReturnStatement') {
+              astIssues.push({
+                severity: 'CRITICAL',
+                category: 'TEST_TAMPERING',
+                file,
+                line: stmts[0].loc?.start?.line || p.node.loc?.start?.line || 1,
+                description: `AI Agent Attempted Test Weakening: Early return injection in ${testFnName}() (AST)`,
+                snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
+              });
+            }
           }
         }
       },
@@ -422,7 +444,7 @@ function astAuditTestSnippet(file, code) {
   return astIssues;
 }
 
-export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.0') {
+export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.1') {
   const rulesMap = new Map();
   const results = [];
 
@@ -443,7 +465,7 @@ export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3
       locations: [
         {
           physicalLocation: {
-            artifactLocation: { uri: iss.file || 'unknown' },
+            artifactLocation: { uri: (iss.file || 'unknown').replace(/\\/g, '/') },
             region: { startLine: iss.line || 1 }
           }
         }
@@ -472,15 +494,15 @@ export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3
 function getGitDiff(targetBranch = null, stagedOnly = false) {
   try {
     if (targetBranch) {
-      return execSync(`git diff ${targetBranch}...HEAD`, { encoding: 'utf-8' });
+      return execFileSync('git', ['diff', `${targetBranch}...HEAD`], { encoding: 'utf-8' });
     }
     if (stagedOnly) {
-      return execSync('git diff --cached', { encoding: 'utf-8' });
+      return execFileSync('git', ['diff', '--cached'], { encoding: 'utf-8' });
     }
     // Default: Check working tree diff + staged diff + untracked files
     let diff = '';
     try {
-      diff += execSync('git diff HEAD', { encoding: 'utf-8' });
+      diff += execFileSync('git', ['diff', 'HEAD'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
     } catch {}
     if (!diff.trim()) {
       try {
@@ -602,7 +624,7 @@ export function auditDiff(rawDiff) {
       const addedText = line.substring(1);
 
       const isSelfAuditTest = currentFile.includes('diff-audit.test.') || currentFile.includes('redteam') || currentFile.includes('fuzz-stress.test.');
-      if (currentFile === 'package.json' && deletedPkgTestLine.has('package.json') && /"test"\s*:\s*"(?:echo\b|true\b|exit\s+0|:|\s*node\s+-e\s+['"]?(?:0|process\.exit\(0\)|;?)['"]?|.*(?:\|\||;|&&)\s*(?:exit\s+0|true\b|:))/i.test(addedText)) {
+      if (currentFile === 'package.json' && deletedPkgTestLine.has('package.json') && /"test"\s*:\s*"(?:echo\b|true\b|exit\s+0|:|\s*node\s+-e\s+['"]?(?:0|process\.exit\(0\)|;?)['"]?|.*(?:\|\||\||;|&&|&)\s*(?:exit\s+[0-9]+|true\b|:))/i.test(addedText)) {
         issues.push({
           severity: 'CRITICAL',
           category: 'TEST_TAMPERING',
@@ -824,7 +846,7 @@ export function runDiffAuditCli(options = {}) {
   const result = auditDiff(diff);
 
   if (options.format === 'sarif') {
-    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.0'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.1'), null, 2));
     const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
     if (!result.clean && (options.strict || hasCritical)) {
       process.exit(1);

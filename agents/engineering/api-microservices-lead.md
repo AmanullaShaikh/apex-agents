@@ -1,5 +1,5 @@
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: api-microservices-lead
 division: Core Engineering
 role: Senior Microservices & API Gateway Architect

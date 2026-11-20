@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.0 Operational Instinct -->
+<!-- Aveyx v3.0.1 Operational Instinct -->
 # Instinct: Systematic Investigation & Root Cause Iron Law
 
 ## The Iron Law of Debugging

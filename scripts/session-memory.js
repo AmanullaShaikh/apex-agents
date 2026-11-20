@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const __memFilename = fileURLToPath(import.meta.url);
 const __memDirname = path.dirname(__memFilename);
-let PKG_VERSION = '3.0.0';
+let PKG_VERSION = '3.0.1';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__memDirname, '..', 'package.json'), 'utf-8'));
   if (pkg.version) PKG_VERSION = pkg.version;

@@ -3,7 +3,7 @@ description: Agent: Serverless & Edge Compute Architect - cloud-native specialis
 globs: *
 ---
 ---
-version: "3.0.0"
+version: "3.0.1"
 name: serverless-edge-lead
 division: Cloud-Native & Serverless
 role: Principal Serverless & Edge Compute Architect
