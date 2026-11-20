@@ -1,253 +1,175 @@
-# ⚡ Apex Agents
-
-> **Local AST Context Compactor, Git Rollback Vault & Developer Tooling Suite for AI Coding Assistants.**  
-> A focused Node.js CLI combining a **Babel AST tooling engine**, **git-native checkpoint/rollback**, **static bug & anti-tamper diff guards**, **native MCP server**, and **32 curated system-prompt packs** for **Cursor, Claude Code, Windsurf, Copilot, and Antigravity**.
-
 <div align="center">
 
+<img src="assets/aveyx-logo.png" alt="Aveyx Logo" width="108" />
+
+# Aveyx
+
+**Offline-First Babel AST Compactor, Blast-Radius Analyzer, Git Rollback Vault & Security MCP Server for AI Coding Assistants.**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![NPM Version](https://img.shields.io/npm/v/apex-agents.svg?style=flat-square&color=38bdf8)](https://www.npmjs.com/package/apex-agents)
-[![CI & Integrity Suite](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/apex-agents/actions/workflows/ci.yml)
-[![Babel AST Engine](https://img.shields.io/badge/AST%20Parser-Babel%20Engine-F5DA55.svg?style=flat-square)](https://babeljs.io)
-[![MCP Protocol](https://img.shields.io/badge/MCP-Native%20Server-8b5cf6.svg?style=flat-square)](#8-native-model-context-protocol-mcp-server)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/apex-agents/pulls)
+[![NPM Version](https://img.shields.io/npm/v/aveyx.svg?style=flat-square&color=38bdf8)](https://www.npmjs.com/package/aveyx)
+[![CI & Integrity Suite](https://github.com/AmanullaShaikh/aveyx/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanullaShaikh/aveyx/actions/workflows/ci.yml)
+[![Babel AST Engine](https://img.shields.io/badge/AST%20Engine-Babel-F5DA55.svg?style=flat-square)](https://babeljs.io)
+[![MCP Protocol](https://img.shields.io/badge/MCP-Tools%20%26%20Prompts-8b5cf6.svg?style=flat-square)](#7-native-model-context-protocol-mcp-server)
+[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](https://github.com/AmanullaShaikh/aveyx/pulls)
 
 </div>
 
 ---
 
-## 💡 Why This Toolkit Exists
+## Why Aveyx
 
-AI coding assistants (Cursor, Claude Code, Windsurf) perform well on isolated edits, but repeatedly hit three practical failure modes in larger repositories:
+AI coding assistants (**Cursor, Claude Code, Windsurf, Copilot, Antigravity**) work well on isolated edits, but hit four recurring failure modes in real repositories:
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                       THE 3 AI CODING FAILURE MODES                    │
-├────────────────────────────────┬───────────────────────────────────────┤
-│ 1. Context Window Bloat        │ Dumping raw implementation files      │
-│                                │ floods context and hurts precision.   │
-├────────────────────────────────┼───────────────────────────────────────┤
-│ 2. Silent Test Tampering       │ When tests fail, models sometimes     │
-│                                │ insert `it.skip` or delete assertions.│
-├────────────────────────────────┼───────────────────────────────────────┤
-│ 3. Destructive Multi-File Edits│ Broken refactors leave dirty working  │
-│                                │ trees, untracked junk, or broken .env.│
-└────────────────────────────────┴───────────────────────────────────────┘
-```
-
-### 🔬 What Apex Agents IS vs What It Is NOT
-
-| Aspect | What Apex Agents IS | What It Is NOT |
+| Failure Mode | What Goes Wrong | How Aveyx Fixes It |
 | :--- | :--- | :--- |
-| **Tooling Layer** | Local Node.js CLI powered by `@babel/parser`, Git CLI, and JSON-RPC stdio. | Not a hosted SaaS or proprietary model wrapper; runs 100% offline with zero paid API keys. |
-| **Specialist Personas** | Structured **Markdown System Prompt Packs** (`agents/` and `instincts/`). | Not standalone compilers, runtimes, or background multi-agent daemons. |
-| **Safety Gates** | Static AST bug checks, secret leak scanning, and anti-test-tampering diff audits. | Not a container sandbox; untrusted binary execution still requires Docker/VMs or Git Worktrees. |
+| **Context Window Bloat** | Dumping full files floods context and degrades precision. | `aveyx compact` strips function bodies via Babel/multi-lang AST while keeping types, signatures, and PageRank callers. |
+| **Blind Change Blast Radius** | Editing a shared module silently breaks downstream callers and tests. | `aveyx impact` computes the transitive reverse-dependency graph and lists every affected test suite. |
+| **Silent Test Tampering & Leaks** | Models insert `it.skip`, swallow assertions in `try/catch`, or hardcode API keys. | `aveyx review` runs a Babel AST anti-tamper + secret scanner at commit/push time with SARIF 2.1.0 output. |
+| **Destructive Refactors** | Broken edits leave dirty working trees, corrupt `.env`, or poisoned git hooks. | `aveyx checkpoint` / `rollback` atomically snapshots and restores working state without detaching `HEAD`. |
 
----
+### What Aveyx IS vs What It Is NOT
 
-## 🚀 Quickstart
-
-Run directly with `npx` — **zero global installation or API keys required**:
-
-```bash
-# Initialize in your current project (injects rules, exports .cursor/rules & installs pre-commit hook)
-npx apex-agents init
-```
-
-### ⚡ Command Reference (v2.2.0)
-
-| Command | Category | What It Physically Does |
+| Aspect | What Aveyx IS | What Aveyx Is NOT |
 | :--- | :--- | :--- |
-| `npx apex-agents init` | Setup | Injects directives into `CLAUDE.md`/`.cursorrules`, exports `.cursor/rules/*.mdc`, installs pre-commit hook |
-| `npx apex-agents compact` | Context | Babel AST compactor stripping JS/TS/Py/Go/Rust bodies to signatures with PageRank & reverse callers |
-| `npx apex-agents graph` | Architecture | Builds AST import/export dependency graph, computes PageRank centrality, and detects import cycles |
-| `npx apex-agents impact [files]` | Architecture | Computes transitive AST blast-radius, affected test suites, and change risk level |
-| `npx apex-agents trace <sym>` | Code Intel | Traces symbol declaration and cross-file call sites into a compact LLM dossier |
-| `npx apex-agents checkpoint` | Safe State | Saves atomic git working-tree snapshot including untracked files, `.env`, and `.git/hooks` |
-| `npx apex-agents rollback` | Safe State | Restores working tree, deletes rogue untracked files, and restores `.env` & git hooks |
-| `npx apex-agents audit-bugs
-
-# Export SARIF 2.1.0 for GitHub PR annotations
-npx apex-agents audit-bugs --format=sarif` | Static Scan | Babel AST scanner for raw SQL injection, React `useEffect` timer leaks, and floating promises |
-| `npx apex-agents review` | Security | Git diff auditor blocking credential leaks, lazy `TODO` stubs, and test tampering (`it.skip`, etc.) |
-| `npx apex-agents test-loop` | Testing | Detects test runner, runs suite, and writes structured `APEX_FIX_PROMPT.md` on failure |
-| `npx apex-agents cost` | Metrics | Measures repo token volume (subword regex), actual AST compaction savings, and optional `--price-in=<$/1M>` |
-| `npx apex-agents budget` | Metrics | Inspects context bloat and generates recommended `.cursorignore` rules |
-| `npx apex-agents sandbox <cmd>` | Isolation | Creates and cleans isolated Git Worktrees (`.worktrees/`, branch `apex/<name>`) |
-| `npx apex-agents handoff` | State | Serializes git status and recent commits into a compact `<session_handoff>` XML block |
-| `npx apex-agents memory [cmd]` | State | Records project architecture decisions in `.agents/memory.json` and syncs to `CLAUDE.md` |
-| `npx apex-agents mcp` | Protocol | Starts the native stdio Model Context Protocol (MCP) server for Claude Desktop & Cursor |
-| `npx apex-agents scan-secrets` | Security | Scans workspace files for leaked credentials and split/obfuscated keys |
-| `npx apex-agents export-all` | Export | Writes rule configs for Claude Code, Cursor, Windsurf, Copilot, and Aider |
-| `npx apex-agents cursor-rules` | Export | Exports `.cursor/rules/*.mdc` specialist rule files into the current project |
-| `npx apex-agents inject` | Setup | Idempotently injects Apex directives into `CLAUDE.md` and `.cursorrules` |
-| `npx apex-agents install-hooks` | Security | Installs pre-commit (and optional `--pre-push`) secret-scan & anti-tamper git hooks |
-| `npx apex-agents doctor` | Diagnostics | Checks Node.js runtime, git common dir (worktree-aware), hooks, and `.cursor/rules` |
+| **Runtime** | Local Node.js 20+ CLI using `@babel/parser`, Git CLI, and JSON-RPC 2.0 stdio. | Not a hosted SaaS or paid API wrapper; runs 100% offline with zero API keys. |
+| **Specialists** | 32 curated Markdown system-prompt packs (`agents/`) & 12 instincts (`instincts/`). | Not background autonomous daemons or cloud agent runners. |
+| **Security Gates** | Static AST bug checks, credential scanning, and anti-test-tampering diff audits. | Not an OS container sandbox; untrusted binaries still require Docker/VMs. |
 
 ---
 
-## 🗜️ 1. AST Context Compactor (`apex-agents compact`)
+## Quickstart
 
-Instead of dumping full source files into an AI chat, `apex-agents compact` parses **TypeScript, JavaScript, JSX, Python (`.py`), Go (`.go`), and Rust (`.rs`)**, replacing internal function bodies with `{}` or `pass` while keeping interfaces, types, exports, parameter signatures, and cross-file callers:
+Run directly with `npx` — zero global install or API keys required:
 
 ```bash
-# Compact repository -> APEX_CONTEXT.md
-npx apex-agents compact
-
-# Output structured XML or JSON
-npx apex-agents compact --xml
-npx apex-agents compact --json
-
-# Prioritize top 10 hubs by PageRank or enforce a token cap
-npx apex-agents compact --top=10
-npx apex-agents compact --budget=8000
+npx aveyx init
 ```
 
-- **Reverse Caller Annotation**:
-  ```typescript
-  // 🔗 Callers (2): src/controllers/user.ts:45, src/routes/auth.ts:12
-  export function authenticateUser(token: string): Promise<Session>;
-  ```
-- **PageRank Centrality**: Ranks core hub modules (`types.ts`, `auth.ts`, `db.ts`) first when fitting inside a `--budget`.
+### Command Reference (`v3.0.0`)
+
+| Command | Category | What It Does |
+| :--- | :--- | :--- |
+| `npx aveyx init` | Setup | Injects directives into `CLAUDE.md`/`.cursorrules`, exports `.cursor/rules/*.mdc`, installs pre-commit hook |
+| `npx aveyx compact` | Context | AST compactor for JS/TS/Py/Go/Rust with PageRank & reverse callers (`--xml`, `--json`, `--top`, `--budget`) |
+| `npx aveyx impact [files]` | Architecture | Computes transitive AST blast radius, affected test suites, and risk level (`--diff`, `--json`) |
+| `npx aveyx graph` | Architecture | Builds AST import/export dependency graph, PageRank centrality, and detects import cycles |
+| `npx aveyx trace <symbol>` | Code Intel | Traces symbol declarations and cross-file call sites into a compact dossier |
+| `npx aveyx audit-bugs` | Static Scan | Babel AST scanner for SQL injection, React `useEffect` leaks, and floating promises (`--format=sarif`) |
+| `npx aveyx review` | Security | Babel AST + regex git diff auditor for secrets, protected configs, and test tampering (`--staged`, `--strict`, `--format=sarif`) |
+| `npx aveyx scan-secrets` | Security | Full-workspace credential scanner supporting cross-line splits and obfuscation |
+| `npx aveyx install-hooks` | Security | Installs worktree-aware `pre-commit` (and optional `--pre-push`) git safety hooks |
+| `npx aveyx test-loop` | Testing | Runs project test suite and generates structured `AVEYX_FIX_PROMPT.md` on failure |
+| `npx aveyx checkpoint` | Safe State | Saves atomic git snapshot including untracked files, `.env`, and `.git/hooks` |
+| `npx aveyx rollback` | Safe State | Restores working tree, wipes rogue untracked files, and restores `.env` & hooks (preserves branch) |
+| `npx aveyx sandbox <cmd>` | Isolation | Manages isolated Git Worktrees (`.worktrees/`, branch `aveyx/<name>`) |
+| `npx aveyx cost` | Metrics | Measures repo token volume, actual AST compaction reduction, and optional `--price-in=<$/1M>` |
+| `npx aveyx budget` | Metrics | Scans context bloat and generates `.cursorignore` / `.claudeignore` rules (`-g`) |
+| `npx aveyx memory [cmd]` | State | Records architectural decisions in `.agents/memory.json` and syncs to `CLAUDE.md` |
+| `npx aveyx handoff` | State | Serializes git status, memory, and branch into a compact `<session_handoff>` XML block (`AVEYX_HANDOFF.md`) |
+| `npx aveyx cursor-rules` | Export | Exports `.cursor/rules/aveyx-*.mdc` specialist rule files |
+| `npx aveyx inject` | Setup | Idempotently injects Aveyx directives into `CLAUDE.md` and `.cursorrules` |
+| `npx aveyx export-all` | Export | Writes unified rules for Claude Code, Cursor, Windsurf, Copilot, and Aider |
+| `npx aveyx mcp` | Protocol | Starts the native stdio Model Context Protocol (MCP) server |
+| `npx aveyx doctor` | Diagnostics | Verifies Node.js runtime, git common dir (worktree-aware), hooks, and `.cursor/rules` |
 
 ---
 
-## 💾 2. Git-Native Checkpoint & Rollback (`apex-agents checkpoint`)
+## 1. AST Context Compactor (`aveyx compact`)
 
-Before letting an AI assistant run a large refactor, snapshot your exact working state (tracked diffs, untracked files including unicode paths, gitignored `.env` files, and `.git/hooks`):
+Parses **TypeScript, JavaScript, JSX/TSX, Python, Go, and Rust**, replacing function bodies with `{}` / `pass` while keeping interfaces, types, exports, parameter signatures, and cross-file reverse callers:
 
 ```bash
-# Save an atomic snapshot
-npx apex-agents checkpoint "before auth refactor"
-
-# List saved checkpoints
-npx apex-agents checkpoints list
-
-# Roll back working tree, delete rogue untracked files, and restore .env & hooks
-npx apex-agents rollback
+npx aveyx compact
+npx aveyx compact --xml
+npx aveyx compact --json --top 10 --budget 8000
 ```
 
 ---
 
-## 🔍 3. Semantic Symbol Tracer (`apex-agents trace`)
+## 2. Blast-Radius & Impact Analyzer (`aveyx impact`)
 
-Locate any symbol's declaration and every cross-file call site without loading entire files:
+Before or after editing a shared module, compute every direct and transitive dependent plus the exact test files to re-run:
 
 ```bash
-npx apex-agents trace authenticateUser
-```
+# Analyze specific modified files
+npx aveyx impact src/auth/service.ts
 
-```markdown
-### 🔗 SYMBOL TRACE DOSSIER: `authenticateUser`
-- Declarations:
-  • src/auth/service.ts:42 ➔ function authenticateUser(token: string) [EXPORTED]
-- Call Sites & Dependents (3):
-  • src/routes/login.ts:18: authenticateUser(req.headers.authorization)
-  • src/middleware/guard.ts:55: await authenticateUser(jwt)
-  • tests/auth.test.ts:91: authenticateUser('mock-token')
+# Analyze uncommitted git changes as JSON
+npx aveyx impact --diff --json
 ```
 
 ---
 
-## 🪲 4. Static AST Bug Hunter (`apex-agents audit-bugs`)
+## 3. Static AST Bug Hunter (`aveyx audit-bugs`)
 
-Traverses JS/TS ASTs with Babel to flag common runtime bugs:
+Traverses JS/TS ASTs with Babel and exports **OASIS SARIF 2.1.0** for GitHub Code Scanning:
 
 ```bash
-npx apex-agents audit-bugs
-
-# Export SARIF 2.1.0 for GitHub PR annotations
-npx apex-agents audit-bugs --format=sarif
+npx aveyx audit-bugs
+npx aveyx audit-bugs --format=sarif > audit-bugs.sarif
 ```
 
-- **SQL Injection**: String concatenation, template literals, multi-hop variable aliases, computed member calls (`db['query']`), `.call`/`.apply`/`.bind`, and `Reflect.get` sinks.
-- **React Hook Timer Leaks**: `useEffect` calls registering `setInterval` or `addEventListener` without a cleanup return function.
-- **Floating Promises**: Un-awaited async persistence/network calls risking unhandled rejections.
+- **SQL Injection**: Template literals, concatenation, multi-hop aliases, ternary/logical expressions, `Array.join()`, computed member calls (`db['query']`), `.call`/`.apply`/`.bind`, `Reflect.get`, and `Proxy`.
+- **React Hook Timer Leaks**: `useEffect` calls registering `setInterval`/`addEventListener` without a valid cleanup return.
+- **Floating Promises**: Un-awaited async persistence/network calls with zero false positives on local synchronous methods.
 
 ---
 
-## 📊 5. Token Volume & AST Compaction Auditor (`apex-agents cost`)
+## 4. Security Diff & Anti-Cheat Gate (`aveyx review`)
 
-Measures repository token volume (using a fast local subword regex approximation) and calculates **actual measured AST compaction savings** across your codebase. Pass `--price-in` to compute cost for your own model's live input rate without relying on stale hardcoded vendor tables:
+Combines regex folding with a **Babel AST anti-tamper pass** and **protected-config guard**:
 
 ```bash
-# Measure token volume and real AST compaction savings
-npx apex-agents cost
-
-# Optional: calculate dollar cost using your model's current $/1M input token rate
-npx apex-agents cost --price-in=2.00
+npx aveyx review --staged --strict
+npx aveyx review --staged --format=sarif > review.sarif
 ```
+
+- **Secret Leak Detection** (shared with `aveyx scan-secrets`): AWS (`AKIA`/`ASIA`), Stripe, OpenAI, Anthropic, GitHub (`ghp_`/`github_pat_`), Google (`AIza`), Slack, JWTs, PEM/PKCS#8/PGP keys, hex/unicode/zero-width/bidi escapes, byte arrays, base64 payloads, and cross-line splits.
+- **Anti-Cheat Test Tampering**: Intercepts `.skip`/`.only`/`.todo`, commented/deleted `node:assert`/`expect` calls, aliased/destructured `process.exit`/`abort`/`kill`, empty test bodies, swallowed assertions in non-throwing `try/catch`, dead branches, and tautologies.
+- **Protected-Config Guard**: Flags unauthorized modifications to `.git/hooks/`, `.claude/settings.json`, or `package.json` `"test"` script weakening.
 
 ---
 
-## 🔁 6. Deterministic Test-Loop Runner (`apex-agents test-loop`)
-
-Runs your project's test runner (auto-detecting `npm`, `pnpm`, `yarn`, `bun`, `vitest`, `jest`, `pytest`, `cargo test`, `go test`, or any custom command) and writes a structured `APEX_FIX_PROMPT.md` on failure for your IDE agent:
+## 5. Git-Native Checkpoint, Rollback & Hooks
 
 ```bash
-# Auto-detect project test runner
-npx apex-agents test-loop
+# Snapshot working tree, untracked files, .env, and .git/hooks
+npx aveyx checkpoint "before auth refactor"
 
-# Or pass a custom command (quoted or unquoted)
-npx apex-agents test-loop node --test tests/auth.test.js
-```
+# Roll back cleanly (stays on current branch, never detaches HEAD)
+npx aveyx rollback
 
-```
-┌─────────────────┐       Pass (Exit 0)       ┌────────────────────────┐
-│  Run Test Suite ├──────────────────────────►│ Removes stale prompt   │
-└────────┬────────┘                           └────────────────────────┘
-         │ Fail (Exit > 0)
-         ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  Parse failures (file, line, expected vs actual, stack trace)        │
-│  Emit APEX_FIX_PROMPT.md with anti-test-tampering constraints        │
-│  Hand off directly to Cursor, Claude Code, or Windsurf               │
-└──────────────────────────────────────────────────────────────────────┘
+# Install pre-commit + pre-push safety hooks
+npx aveyx install-hooks --pre-push
 ```
 
 ---
 
-## 🛡️ 7. Pre-Commit Security & Anti-Cheat Diff Auditor (`apex-agents review`)
+## 6. Deterministic Test-Loop Runner (`aveyx test-loop`)
+
+Detects `npm`, `pnpm`, `yarn`, `bun`, `vitest`, `jest`, `pytest`, `cargo test`, `go test`, or runs any custom command, writing `AVEYX_FIX_PROMPT.md` on failure and cleaning it automatically on pass:
 
 ```bash
-# Audit working tree diff
-npx apex-agents review
-
-# Audit staged diff with strict exit code on violations
-npx apex-agents review --staged --strict
-
-# Export SARIF 2.1.0 for GitHub Code Scanning
-npx apex-agents review --staged --format=sarif
+npx aveyx test-loop
+npx aveyx test-loop node --test tests/auth.test.js
 ```
-
-- **Secret Leak Detection** (shared with `scripts/scan-secrets.js`): Detects AWS keys, Stripe keys, OpenAI/Anthropic keys, GitHub tokens, Slack tokens, private keys, base64 payloads, split/concatenated strings, hex/unicode escapes, zero-width characters, and bitwise `String.fromCharCode` obfuscation.
-- **Anti-Cheat Test Tampering**: Intercepts `it.skip`, `it.only`, commented assertions, early returns, `process.exit`, assertion shadowing, dead branches, and tautological assertions in test diffs.
-- **Placeholder Detection**: Flags `TODO`/`FIXME` placeholders, empty `catch {}` blocks, and unimplemented stubs in source diffs.
 
 ---
 
-## 🔌 8. Native Model Context Protocol (MCP) Server
+## 7. Native Model Context Protocol (MCP) Server
 
-Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 stdio to **Claude Desktop**, **Cursor**, **Windsurf**, and **Antigravity**:
+Exposes **10 AST/Git/Security tools** and **44 native MCP prompts** (`prompts/list` & `prompts/get`) over stdio JSON-RPC 2.0:
 
-### MCP Tools Exposed
-- `apex_compact_code`: Babel AST compactor preserving signatures and types.
-- `apex_audit_code_bugs`: Static AST scanner for SQLi, hook leaks, and floating promises.
-- `apex_checkpoint`: Git-native working tree snapshot (including untracked files, `.env`, hooks).
-- `apex_rollback`: Atomic rollback to a saved checkpoint.
-- `apex_trace_symbol`: Cross-file symbol declaration and caller lookup.
-- `apex_impact_radius`: Transitive blast-radius and affected test-suite analyzer.
-- **Native MCP Prompts (`prompts/list`, `prompts/get`)**: Exposes all 32 specialists and 12 instincts directly as MCP prompts.
-- `apex_audit_diff`: Security and anti-test-tampering diff auditor.
-- `list_specialists` / `summon_specialist` / `get_operational_instinct`: Browse and load the 32 specialist prompt packs and 12 operational instincts.
+- **Tools**: `aveyx_compact_code`, `aveyx_impact_radius`, `aveyx_audit_code_bugs`, `aveyx_audit_diff`, `aveyx_trace_symbol`, `aveyx_checkpoint`, `aveyx_rollback`, `list_specialists`, `summon_specialist`, `get_operational_instinct`.
+- **Prompts**: 32 `specialist:<id>` + 12 `instinct:<id>` directives exposed natively via `prompts/list` and `prompts/get`.
 
-### Configuration (`claude_desktop_config.json`)
 ```json
 {
   "mcpServers": {
-    "apex-agents": {
+    "aveyx": {
       "command": "npx",
-      "args": ["-y", "apex-agents", "mcp"]
+      "args": ["-y", "aveyx", "mcp"]
     }
   }
 }
@@ -255,9 +177,7 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 
 ---
 
-## 🏛️ Specialist Prompt Packs (32 Domain Directives across 8 Divisions)
-
-> **Note**: Each specialist is a structured Markdown system-instruction file (`agents/<division>/<name>.md`) containing role boundaries, negative constraints, workflows, and verification gates.
+## Specialist Prompt Packs (32 Directives across 8 Divisions)
 
 1. **Core Engineering**: `@frontend-architect`, `@typescript-pro`, `@backend-systems-lead`, `@database-tuner`, `@api-microservices-lead`, `@state-machine-architect`, `@fullstack-general`
 2. **AI, LLM & Agentic Systems**: `@rag-pipeline-architect`, `@eval-benchmarker`, `@prompt-injection-shield`, `@mcp-server-builder`
@@ -268,9 +188,7 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 7. **Quality Assurance & Testing**: `@tdd-champion`, `@e2e-playwright-tester`, `@edge-case-fuzzer`
 8. **DevOps & Infrastructure**: `@docker-slimmer`, `@ci-cd-pipeline-master`, `@k8s-cloud-architect`
 
----
-
-## ⚡ 12 Operational Instincts (`instincts/`)
+## 12 Operational Instincts (`instincts/`)
 
 1. Zero-Slop Contract
 2. Verification Before Completion
@@ -287,6 +205,6 @@ Exposes the local AST, Git, and diff-audit engines directly over JSON-RPC 2.0 st
 
 ---
 
-## 📜 License
+## License
 
 Distributed under the **MIT License**. Authored by **Amanulla Shaikh**.

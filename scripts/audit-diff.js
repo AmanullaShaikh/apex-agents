@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import { execSync } from 'child_process';
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 import { parse } from '@babel/parser';
 import _traverse from '@babel/traverse';
 
@@ -383,17 +383,17 @@ function astAuditTestSnippet(file, code) {
   return astIssues;
 }
 
-export function buildSarifReport(issues, toolName = 'apex-agents-review', version = '2.2.0') {
+export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.0') {
   const rulesMap = new Map();
   const results = [];
 
   for (const iss of issues) {
-    const ruleId = iss.category || 'APEX_FINDING';
+    const ruleId = iss.category || 'AVEYX_FINDING';
     if (!rulesMap.has(ruleId)) {
       rulesMap.set(ruleId, {
         id: ruleId,
         shortDescription: { text: ruleId.replace(/_/g, ' ') },
-        helpUri: 'https://github.com/AmanullaShaikh/apex-agents#readme'
+        helpUri: 'https://github.com/AmanullaShaikh/aveyx#readme'
       });
     }
     const level = (iss.severity === 'CRITICAL' || iss.severity === 'HIGH') ? 'error' : (iss.severity === 'MEDIUM' ? 'warning' : 'note');
@@ -498,6 +498,8 @@ export function auditDiff(rawDiff) {
   const fileStringVars = new Map();
   const testAddedSnippets = new Map();
   const deletedPkgTestLine = new Set();
+  const fileAddedAssertions = new Map();
+  let totalAddedAssertions = 0;
   let inTestOptionsBlock = false;
   let testOptionsDepth = 0;
   let helperFnDepth = 0;
@@ -560,6 +562,13 @@ export function auditDiff(rawDiff) {
     // Audit added lines
     if (line.startsWith('+') && !line.startsWith('+++')) {
       const addedText = line.substring(1);
+      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
+      const trimmedAdded = addedText.trim();
+
+      if (isTestFile && /\b(expect|assert(?:\.[a-zA-Z0-9_$]+)?|should(?:\.[a-zA-Z0-9_$]+)?)\s*\(/.test(trimmedAdded) && !trimmedAdded.startsWith('//')) {
+        totalAddedAssertions++;
+        fileAddedAssertions.set(currentFile, (fileAddedAssertions.get(currentFile) || 0) + 1);
+      }
 
       const isSelfAuditTest = currentFile.includes('diff-audit.test.');
       if (currentFile === 'package.json' && deletedPkgTestLine.has('package.json') && /"test"\s*:\s*"(?:echo\b|true\b|exit\s+0)/i.test(addedText)) {
@@ -635,7 +644,6 @@ export function auditDiff(rawDiff) {
       }
 
       // Check test tampering if modifying tests
-      const isTestFile = currentFile.includes('.test.') || currentFile.includes('.spec.') || currentFile.includes('tests/');
       if (isTestFile && !isSelfAuditTest) {
         if (!testAddedSnippets.has(currentFile)) testAddedSnippets.set(currentFile, []);
         testAddedSnippets.get(currentFile).push(addedText);
@@ -744,17 +752,29 @@ export function auditDiff(rawDiff) {
     }
   }
 
-  // Only count deleted assertions if the file was not already flagged for commenting them out
+  // Only count deleted assertions if they were not replaced or migrated by added assertions
   for (const del of deletedAssertions) {
-    if (!commentedAssertions.has(del.file)) {
-      issues.push({
-        severity: 'HIGH',
-        category: 'TEST_TAMPERING',
-        file: del.file,
-        description: 'AI Agent Deleted Assertion Line from Test Suite',
-        snippet: del.snippet
-      });
+    if (commentedAssertions.has(del.file)) continue;
+
+    const inSameFile = fileAddedAssertions.get(del.file) || 0;
+    if (inSameFile > 0) {
+      fileAddedAssertions.set(del.file, inSameFile - 1);
+      totalAddedAssertions--;
+      continue;
     }
+
+    if (totalAddedAssertions > 0) {
+      totalAddedAssertions--;
+      continue;
+    }
+
+    issues.push({
+      severity: 'HIGH',
+      category: 'TEST_TAMPERING',
+      file: del.file,
+      description: 'AI Agent Deleted Assertion Line from Test Suite',
+      snippet: del.snippet
+    });
   }
 
   const stats = {
@@ -777,7 +797,7 @@ export function runDiffAuditCli(options = {}) {
   const result = auditDiff(diff);
 
   if (options.format === 'sarif') {
-    console.log(JSON.stringify(buildSarifReport(result.issues, 'apex-agents-review', '2.2.0'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.0'), null, 2));
     const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
     if (!result.clean && (options.strict || hasCritical)) {
       process.exit(1);
@@ -787,9 +807,9 @@ export function runDiffAuditCli(options = {}) {
 
   if (options.format === 'markdown') {
     if (result.clean) {
-      console.log('### ⚡ Apex Agents Diff Review: PASSED\nZero leaked secrets, AI placeholders, or test tampering detected.');
+      console.log('### ⚡ Aveyx Diff Review: PASSED\nZero leaked secrets, AI placeholders, or test tampering detected.');
     } else {
-      console.log('### ❌ Apex Agents Diff Review: FAILED\n');
+      console.log('### ❌ Aveyx Diff Review: FAILED\n');
       console.log(`Found **${result.issues.length}** critical issue(s):\n`);
       result.issues.forEach(iss => {
         console.log(`- **[${iss.severity}] ${iss.category}** in \`${iss.file}\`: ${iss.description}`);
@@ -800,7 +820,7 @@ export function runDiffAuditCli(options = {}) {
     return result;
   }
 
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS ZERO-SLOP DIFF AUDITOR ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX ZERO-SLOP DIFF AUDITOR ═════${c.reset}`);
   console.log(`  Files Audited: ${c.bold}${result.files.length}${c.reset}`);
   console.log(`  Critical Secrets: ${result.stats.secrets > 0 ? c.red : c.green}${result.stats.secrets}${c.reset}`);
   console.log(`  Test Tampering:   ${result.stats.tampering > 0 ? c.red : c.green}${result.stats.tampering}${c.reset}`);

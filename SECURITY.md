@@ -1,39 +1,31 @@
-# 🛡️ Security Policy
+# Security Policy
 
 ## Supported Versions
 
-Security updates and patches are actively maintained for the following versions of **Apex Agents**:
+Security updates and patches are actively maintained for the current release line:
 
-| Version | Supported          |
-| :------ | :----------------- |
-| 2.1.x   | :white_check_mark: |
-| 2.0.x   | :white_check_mark: |
-| < 2.0.0 | :x:                |
-
----
+| Version | Supported |
+| :--- | :--- |
+| `3.x` | Yes |
+| `2.x` | Security fixes only |
+| `< 2.0.0` | No |
 
 ## Reporting a Vulnerability
 
-The Apex Agents team takes security vulnerabilities seriously. We appreciate your efforts to responsibly disclose findings.
+Please **do NOT** open public GitHub issues for security vulnerabilities (such as command injection, path traversal, MCP server escapes, or secret-scanner bypasses).
 
-### Where to Report
-If you believe you have found a security vulnerability in Apex Agents (including credential exposure, command injection, path traversal, or privilege escalation):
-1. **GitHub Security Advisory**: Open a private draft security advisory at [Security Advisories](https://github.com/AmanullaShaikh/apex-agents/security/advisories/new).
-2. **Direct Email**: Alternatively, email the lead maintainer directly at:
-   - **Email**: [businessamanulla@gmail.com](mailto:businessamanulla@gmail.com)
-   - **Subject**: `[SECURITY] Apex Agents Vulnerability Report`
+1. **Email:** Send a detailed report to **[businessamanulla@gmail.com](mailto:businessamanulla@gmail.com)** with the subject `[SECURITY] Aveyx: <short summary>`.
+2. **Include:**
+   - Exact commit SHA or npm package version
+   - Step-by-step reproduction script or diff payload
+   - Expected vs. actual behavior and potential impact
+3. **Response Timeline:**
+   - Acknowledgment within **48 hours**
+   - Triage and severity assessment within **5 business days**
+   - Coordinated fix and release before public disclosure
 
-Please include:
-- A description of the vulnerability and its potential impact.
-- Clear reproduction steps or proof-of-concept (PoC).
-- The affected version and operating system.
+## Security Design Boundaries
 
----
-
-## Response SLA
-
-- **Initial Response**: Within **48 hours** acknowledging receipt of your report.
-- **Triage & Assessment**: Within **5 business days** with an assessment of severity.
-- **Fix & Disclosure**: Coordinated patch release and advisory publication.
-
-We ask that you refrain from disclosing the vulnerability publicly until a patch has been published and released to NPM.
+- **Offline-First:** Aveyx never transmits source code, diffs, or credentials over the network and never requires cloud API keys.
+- **Workspace Containment:** MCP tools (`aveyx_trace_symbol`, `aveyx_impact_radius`) and CLI analyzers enforce workspace boundary checks against path traversal.
+- **Untrusted Code:** Aveyx performs static AST parsing (`@babel/parser`) without executing target repository code (`test-loop` and `install-hooks` execute user-configured commands/hooks locally).

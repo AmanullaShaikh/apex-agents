@@ -1,13 +1,13 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { createCheckpoint, listCheckpoints, rollbackToCheckpoint } from '../scripts/checkpoint.js';
 
 describe('Git-Native Checkpoint & Rollback Suite', () => {
   test('should create, list, and restore checkpoints in working tree', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-test-'));
     try {
       // Create initial file
       const testFile = path.join(tmpDir, 'service.ts');
@@ -40,7 +40,7 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
   });
 
   test('should throw error when rolling back with empty checkpoint list', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-empty-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-empty-'));
     try {
       assert.throws(() => {
         rollbackToCheckpoint('non-existent', tmpDir);
@@ -51,7 +51,7 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
   });
 
   test('should revert corrupted clean files and delete rogue untracked files on rollback', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-adv-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-adv-'));
     try {
       const cleanFile = path.join(tmpDir, 'app.js');
       fs.writeFileSync(cleanFile, 'export const version = "clean";');
@@ -84,7 +84,7 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
   });
 
   test('should snapshot and restore gitignored .env files on rollback', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-env-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-env-'));
     try {
       const envPath = path.join(tmpDir, '.env');
       fs.writeFileSync(envPath, 'PORT=3000\nSECRET_KEY=initial_secret');
@@ -105,7 +105,7 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
   });
 
   test('should handle and delete untracked unicode path files on rollback', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-unicode-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-unicode-'));
     try {
       const chk = createCheckpoint('unicode-save', tmpDir);
 
@@ -128,7 +128,7 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
   });
 
   test('should snapshot git hooks and wipe rogue poisoned hooks on rollback', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-hook-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-hook-'));
     try {
       const hooksDir = path.join(tmpDir, '.git', 'hooks');
       fs.mkdirSync(hooksDir, { recursive: true });
@@ -158,12 +158,12 @@ describe('Git-Native Checkpoint & Rollback Suite', () => {
   });
 
   test('should preserve branch (no detached HEAD) on rollback and ignore null meta.json', async () => {
-    const { execSync } = await import('child_process');
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-chk-branch-'));
+    const { execSync } = await import('node:child_process');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-chk-branch-'));
     try {
       execSync('git init -b main', { cwd: tmpDir, stdio: 'pipe' });
-      execSync('git config user.email "test@apex.local"', { cwd: tmpDir, stdio: 'pipe' });
-      execSync('git config user.name "Apex Test"', { cwd: tmpDir, stdio: 'pipe' });
+      execSync('git config user.email "test@aveyx.local"', { cwd: tmpDir, stdio: 'pipe' });
+      execSync('git config user.name "Aveyx Test"', { cwd: tmpDir, stdio: 'pipe' });
       fs.writeFileSync(path.join(tmpDir, 'index.js'), 'export const v = 1;\n');
       execSync('git add -A && git commit -m "init"', { cwd: tmpDir, stdio: 'pipe' });
 

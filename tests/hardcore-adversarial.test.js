@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 import { compactSourceCode, compactPythonCode, compactGoCode, compactRustCode } from '../scripts/compact-context.js';
 import { createCheckpoint, listCheckpoints, rollbackToCheckpoint } from '../scripts/checkpoint.js';
@@ -112,7 +112,7 @@ impl<'a, T: Send + Sync> MemoryCache<'a, T> {
 
   describe('2. Git Checkpoint & Rollback Extreme Hostility', () => {
     test('should handle filenames with spaces, unicode, and deep directory trees', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-hostile-chk-'));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-hostile-chk-'));
       try {
         const deepDir = path.join(tmpDir, 'deep', 'level1', 'level2');
         fs.mkdirSync(deepDir, { recursive: true });
@@ -136,7 +136,7 @@ impl<'a, T: Send + Sync> MemoryCache<'a, T> {
     });
 
     test('should gracefully handle corrupted meta.json in checkpoints directory', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-corrupt-chk-'));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-corrupt-chk-'));
       try {
         const chkDir = path.join(tmpDir, '.agents', 'checkpoints', 'chk_999999999');
         fs.mkdirSync(chkDir, { recursive: true });
@@ -155,7 +155,7 @@ impl<'a, T: Send + Sync> MemoryCache<'a, T> {
 
   describe('3. Symbol Tracer Hostile Names & Prototype Collision', () => {
     test('should safely trace Object prototype property names without collision', () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-proto-trace-'));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-proto-trace-'));
       try {
         const file = path.join(tmpDir, 'model.ts');
         fs.writeFileSync(file, `

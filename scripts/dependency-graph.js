@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { parse } from '@babel/parser';
 import * as t from '@babel/traverse';
 
@@ -370,7 +370,7 @@ export function buildDependencyGraph(rootDir = process.cwd()) {
 }
 
 export function printDependencyGraph(rootDir = process.cwd(), exportJson = false) {
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: AST CODEBASE DEPENDENCY GRAPH & PAGERANK ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: AST CODEBASE DEPENDENCY GRAPH & PAGERANK ═════${c.reset}`);
   console.log(`Analyzing modules and import topology in: ${c.cyan}${rootDir}${c.reset}...\n`);
 
   const { modulesCount, graph, externalDeps, cycles, inDegree, pageRank } = buildDependencyGraph(rootDir);

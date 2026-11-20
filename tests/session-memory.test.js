@@ -1,12 +1,12 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { handleMemory, generateHandoff } from '../scripts/session-memory.js';
 
 describe('Persistent Session Memory Engine', () => {
-  const tmpDir = path.join(os.tmpdir(), 'apex-memory-test-' + Date.now());
+  const tmpDir = path.join(os.tmpdir(), 'aveyx-memory-test-' + Date.now());
 
   test('should record and recall architectural decisions and rules', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
@@ -34,7 +34,7 @@ describe('Persistent Session Memory Engine', () => {
   });
 
   test('should generate structured session handoff XML block and survive null memory.json outside git', () => {
-    const handoffTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-handoff-null-'));
+    const handoffTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-handoff-null-'));
     try {
       fs.mkdirSync(path.join(handoffTmp, '.agents'), { recursive: true });
       fs.writeFileSync(path.join(handoffTmp, '.agents', 'memory.json'), 'null');

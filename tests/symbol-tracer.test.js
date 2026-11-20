@@ -1,13 +1,13 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { traceSymbol, formatTraceReport } from '../scripts/symbol-tracer.js';
 
 describe('Local Semantic Symbol Tracer Suite', () => {
   test('should detect declarations and call sites across project files', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-trace-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-trace-test-'));
     try {
       // Create target module with definition
       const targetFile = path.join(tmpDir, 'authService.ts');
@@ -52,7 +52,7 @@ describe('Local Semantic Symbol Tracer Suite', () => {
   });
 
   test('should ignore .worktrees directories to prevent duplicate declarations', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-trace-wt-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-trace-wt-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'main.js'), 'export function myUniqueFn() { return 1; }\n');
       const wtDir = path.join(tmpDir, '.worktrees', 'wt1');

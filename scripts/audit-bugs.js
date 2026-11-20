@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { parse } from '@babel/parser';
 import { buildSarifReport } from './audit-diff.js';
 import _traverse from '@babel/traverse';
@@ -728,7 +728,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
       description: i.message,
       snippet: ''
     }));
-    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'apex-agents-audit-bugs', '2.2.0'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.0'), null, 2));
     process.exit(report.passed ? 0 : 1);
   }
 
@@ -737,7 +737,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
     process.exit(report.passed ? 0 : 1);
   }
 
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: PRODUCTION AST BUG AUDITOR ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: PRODUCTION AST BUG AUDITOR ═════${c.reset}`);
   console.log(`Scanning repository: ${c.yellow}${targetDir}${c.reset}...\n`);
 
   if (report.passed) {

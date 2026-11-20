@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { buildDependencyGraph } from './dependency-graph.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -130,7 +130,7 @@ if (process.argv[1] && safeRealpath(process.argv[1]) === safeRealpath(__filename
   const unknownFlag = args.find(a => a.startsWith('-') && !knownFlags.has(a));
   if (unknownFlag) {
     console.error(`${c.red}Unknown flag: ${unknownFlag}${c.reset}`);
-    console.error('Usage: npx apex-agents impact [file1 file2 ...] [--diff] [--json]');
+    console.error('Usage: npx aveyx impact [file1 file2 ...] [--diff] [--json]');
     process.exit(1);
   }
 
@@ -161,7 +161,7 @@ if (process.argv[1] && safeRealpath(process.argv[1]) === safeRealpath(__filename
     process.exit(0);
   }
 
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: BLAST-RADIUS & IMPACT ANALYZER ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: BLAST-RADIUS & IMPACT ANALYZER ═════${c.reset}`);
   if (report.targets.length === 0) {
     console.log(`${c.yellow}No target files or uncommitted git changes found to analyze.${c.reset}\n`);
     process.exit(0);

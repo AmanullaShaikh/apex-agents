@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +23,7 @@ const SLOP_PATTERNS = [
 ];
 
 function validateAgents() {
-  console.log(`\x1b[36m\x1b[1m[Apex-Agents Validator] Running rigorous schema and zero-slop checks...\x1b[0m\n`);
+  console.log(`\x1b[36m\x1b[1m[Aveyx Validator] Running rigorous schema and zero-slop checks...\x1b[0m\n`);
 
   const agentsDir = path.join(ROOT_DIR, 'agents');
   const divisions = fs.readdirSync(agentsDir).filter((d) => fs.statSync(path.join(agentsDir, d)).isDirectory());

@@ -1,5 +1,5 @@
 name: "🐛 Bug Report"
-description: "File an actionable, reproducible bug report for Apex Agents"
+description: "File an actionable, reproducible bug report for Aveyx"
 title: "fix: "
 labels: ["bug", "triage"]
 body:
@@ -10,9 +10,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: "Apex Agents Version"
-      description: "Run `npx apex-agents -v` to check"
-      placeholder: "e.g., 2.1.0"
+      label: "Aveyx Version"
+      description: "Run `npx aveyx -v` to check"
+      placeholder: "e.g., 3.0.0"
     validations:
       required: true
   - type: dropdown
@@ -39,7 +39,7 @@ body:
     id: command
     attributes:
       label: "Command Executed"
-      placeholder: "e.g., npx apex-agents compact --xml"
+      placeholder: "e.g., npx aveyx compact --xml"
     validations:
       required: true
   - type: textarea

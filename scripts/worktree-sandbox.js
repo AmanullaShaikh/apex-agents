@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const c = {
   reset: '\x1b[0m',
@@ -33,12 +33,12 @@ export function handleStart(name, cwd = process.cwd()) {
   }
   const effectiveName = name || `task-${Date.now().toString().slice(-4)}`;
   const safeName = path.basename(effectiveName).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const branchName = `apex/${safeName}`;
+  const branchName = `aveyx/${safeName}`;
   const worktreesBase = path.join(cwd, '.worktrees');
   const worktreeDir = path.join(worktreesBase, safeName);
   const lockFile = path.join(worktreesBase, '.lock');
 
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: GIT WORKTREE SANDBOX ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: GIT WORKTREE SANDBOX ═════${c.reset}`);
   console.log(`Spawning isolated workspace: ${c.cyan}${safeName}${c.reset}...\n`);
 
   fs.mkdirSync(worktreesBase, { recursive: true });
@@ -89,7 +89,7 @@ export function handleStart(name, cwd = process.cwd()) {
 }
 
 export function handleStatus(cwd = process.cwd()) {
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: ACTIVE WORKTREE SANDBOXES ═════${c.reset}\n`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: ACTIVE WORKTREE SANDBOXES ═════${c.reset}\n`);
   try {
     const output = execSync('git worktree list', { encoding: 'utf-8', cwd });
     const lines = output.trim().split('\n');
@@ -109,11 +109,11 @@ export function handleClean(name, cwd = process.cwd()) {
   }
   const safeName = path.basename(name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
   if (!safeName) {
-    console.error(`\n${c.red}Error: Worktree name is required for "clean". Usage: npx apex-agents sandbox clean <name>${c.reset}\n`);
+    console.error(`\n${c.red}Error: Worktree name is required for "clean". Usage: npx aveyx sandbox clean <name>${c.reset}\n`);
     process.exit(1);
   }
   const worktreeDir = path.join(cwd, '.worktrees', safeName);
-  console.log(`\n${c.cyan}[Apex-Agents] Removing worktree: ${safeName}...${c.reset}`);
+  console.log(`\n${c.cyan}[Aveyx] Removing worktree: ${safeName}...${c.reset}`);
   try {
     if (fs.existsSync(worktreeDir)) {
       execSync(`git worktree remove "${worktreeDir}" --force`, { stdio: 'inherit', cwd });

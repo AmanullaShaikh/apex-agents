@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: "💬 Community & Q&A"
-    url: "https://github.com/AmanullaShaikh/apex-agents/discussions"
+    url: "https://github.com/AmanullaShaikh/aveyx/discussions"
     about: "Ask questions, share workflows, and discuss with the community."
   - name: "📦 NPM Package"
-    url: "https://www.npmjs.com/package/apex-agents"
+    url: "https://www.npmjs.com/package/aveyx"
     about: "View live releases, tarballs, and installation metrics on NPM."

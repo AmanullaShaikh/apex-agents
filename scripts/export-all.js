@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 export function exportAllHarnesses(targetDir = process.cwd()) {
-  console.log(`\x1b[36m\x1b[1m[Apex-Agents Universal Exporter] Generating configs for all AI harnesses in ${targetDir}...\x1b[0m\n`);
+  console.log(`\x1b[36m\x1b[1m[Aveyx Universal Exporter] Generating configs for all AI harnesses in ${targetDir}...\x1b[0m\n`);
 
   const instinctsDir = path.join(ROOT_DIR, 'instincts');
   const instincts = fs.readdirSync(instinctsDir).filter(f => f.endsWith('.md')).map(f => {
     return fs.readFileSync(path.join(instinctsDir, f), 'utf-8');
   }).join('\n\n---\n\n');
 
-  const unifiedDirectives = `# Apex Agents Engineering Directives
-This repository uses Apex Agents Zero-Slop Operational Instincts.
+  const unifiedDirectives = `# Aveyx Engineering Directives
+This repository uses Aveyx Zero-Slop Operational Instincts.
 
 ${instincts}
 `;

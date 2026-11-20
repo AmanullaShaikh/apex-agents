@@ -1,10 +1,10 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import os from 'os';
+import fs from 'node:fs';
+import os from 'node:os';
 import { buildDependencyGraph, computePageRank, extractSymbolCallers, resolveImportPath } from '../scripts/dependency-graph.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,7 +40,7 @@ describe('AST Codebase Dependency Graph & Cycle Detection', () => {
   });
 
   test('should resolve NodeNext TypeScript ESM .js imports to .ts files', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-dep-nodenext-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-dep-nodenext-'));
     try {
       const fooPath = path.join(tmpDir, 'foo.ts');
       const barPath = path.join(tmpDir, 'bar.ts');

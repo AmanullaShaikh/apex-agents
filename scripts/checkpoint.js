@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { execSync, execFileSync } from 'child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execSync, execFileSync } from 'node:child_process';
 
 const c = {
   reset: '\x1b[0m',
@@ -429,7 +429,7 @@ if (process.argv[1] && process.argv[1].endsWith('checkpoint.js')) {
     }
   } else if (action === 'list') {
     const list = listCheckpoints();
-    console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: GIT-NATIVE CHECKPOINTS (${list.length}) ═════${c.reset}`);
+    console.log(`\n${c.cyan}${c.bold}═════ AVEYX: GIT-NATIVE CHECKPOINTS (${list.length}) ═════${c.reset}`);
     list.forEach(chk => {
       console.log(`  • ${c.bold}${chk.id}${c.reset} [${chk.iso.slice(0, 19)}] - "${chk.label}" (${chk.modifiedFilesCount} files)`);
     });

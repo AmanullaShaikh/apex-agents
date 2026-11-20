@@ -1,4 +1,4 @@
-<!-- Apex Agents v2.1.0 Operational Instinct -->
+<!-- Aveyx v3.0.0 Operational Instinct -->
 # Instinct: Rationalization Breaker & Red Flags
 
 ## The Core Mandate

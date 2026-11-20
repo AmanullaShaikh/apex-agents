@@ -1,11 +1,10 @@
 {
-  "name": "apex-agents",
-  "version": "2.2.0",
+  "name": "aveyx",
+  "version": "3.0.0",
   "description": "Developer Tooling & Babel AST Context Compactor Harness: PageRank & Caller Graph Compactor, Git-Native Checkpoint & Rollback, Semantic Symbol Tracer, Static AST Bug Hunter, Token Volume & AST Compaction Auditor, Deterministic Test-Loop Runner, Codebase Dependency Graph, Anti-Test-Tampering Diff Auditor, Persistent Memory & Handoff, Git Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Windsurf, Copilot, and Antigravity",
-  "main": "bin/apex.js",
+  "main": "bin/aveyx.js",
   "bin": {
-    "apex-agents": "bin/apex.js",
-    "apex": "bin/apex.js"
+    "aveyx": "bin/aveyx.js"
   },
   "type": "module",
   "engines": {
@@ -16,27 +15,27 @@
     "test:unit": "node ./scripts/run-tests.js",
     "test:agents": "node ./scripts/validate-agents.js",
     "test-loop": "node ./scripts/test-loop.js",
-    "checkpoint": "node ./bin/apex.js checkpoint",
-    "rollback": "node ./bin/apex.js rollback",
-    "trace": "node ./bin/apex.js trace",
-    "audit-bugs": "node ./bin/apex.js audit-bugs",
-    "cost": "node ./bin/apex.js cost",
-    "review": "node ./bin/apex.js review",
-    "budget": "node ./bin/apex.js budget",
-    "graph": "node ./bin/apex.js graph",
-    "impact": "node ./bin/apex.js impact",
-    "memory": "node ./bin/apex.js memory",
-    "handoff": "node ./bin/apex.js handoff",
-    "compact": "node ./bin/apex.js compact",
-    "export-all": "node ./bin/apex.js export-all",
+    "checkpoint": "node ./bin/aveyx.js checkpoint",
+    "rollback": "node ./bin/aveyx.js rollback",
+    "trace": "node ./bin/aveyx.js trace",
+    "audit-bugs": "node ./bin/aveyx.js audit-bugs",
+    "cost": "node ./bin/aveyx.js cost",
+    "review": "node ./bin/aveyx.js review",
+    "budget": "node ./bin/aveyx.js budget",
+    "graph": "node ./bin/aveyx.js graph",
+    "impact": "node ./bin/aveyx.js impact",
+    "memory": "node ./bin/aveyx.js memory",
+    "handoff": "node ./bin/aveyx.js handoff",
+    "compact": "node ./bin/aveyx.js compact",
+    "export-all": "node ./bin/aveyx.js export-all",
     "scan-secrets": "node ./scripts/scan-secrets.js",
     "sandbox": "node ./scripts/worktree-sandbox.js",
-    "install-global": "node ./bin/apex.js install",
-    "list": "node ./bin/apex.js list",
-    "doctor": "node ./bin/apex.js doctor",
-    "install-hooks": "node ./bin/apex.js install-hooks",
-    "cursor-rules": "node ./bin/apex.js cursor-rules",
-    "inject": "node ./bin/apex.js inject",
+    "install-global": "node ./bin/aveyx.js install",
+    "list": "node ./bin/aveyx.js list",
+    "doctor": "node ./bin/aveyx.js doctor",
+    "install-hooks": "node ./bin/aveyx.js install-hooks",
+    "cursor-rules": "node ./bin/aveyx.js cursor-rules",
+    "inject": "node ./bin/aveyx.js inject",
     "mcp": "node ./bin/mcp-server.js"
   },
   "keywords": [
@@ -56,19 +55,20 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AmanullaShaikh/apex-agents.git"
+    "url": "git+https://github.com/AmanullaShaikh/aveyx.git"
   },
   "bugs": {
-    "url": "https://github.com/AmanullaShaikh/apex-agents/issues"
+    "url": "https://github.com/AmanullaShaikh/aveyx/issues"
   },
-  "homepage": "https://github.com/AmanullaShaikh/apex-agents#readme",
+  "homepage": "https://github.com/AmanullaShaikh/aveyx#readme",
   "files": [
     "bin",
     "scripts",
     "agents",
     "instincts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "assets"
   ],
   "dependencies": {
     "@babel/generator": "^8.1.2",

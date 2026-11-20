@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   SECRET_PATTERNS,
   ZERO_WIDTH_REGEX,
@@ -117,7 +117,7 @@ if (process.argv[1] && safeRealpath(process.argv[1]) === safeRealpath(__filename
     console.error(`\x1b[31mError: Target path does not exist or is not a directory: ${targetDir}\x1b[0m`);
     process.exit(1);
   }
-  console.log(`[Apex-Agents] Scanning for leaked credentials in: ${targetDir}...`);
+  console.log(`[Aveyx] Scanning for leaked credentials in: ${targetDir}...`);
   const findings = scanDirectory(targetDir);
 
   if (findings.length === 0) {

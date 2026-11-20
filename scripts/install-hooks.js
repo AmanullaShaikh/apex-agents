@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 function resolveGitCommonDir(projectDir) {
   try {
@@ -30,9 +30,9 @@ export function installGitHooks(projectDir = process.cwd(), options = {}) {
 
   const preCommitHookPath = path.join(hooksDir, 'pre-commit');
 
-  const apexSnippet = `
-# --- APEX AGENTS PRE-COMMIT SAFETY BLOCK ---
-echo "⚡ [Apex-Agents Hook] Running pre-commit safety checks..."
+  const aveyxSnippet = `
+# --- AVEYX PRE-COMMIT SAFETY BLOCK ---
+echo "⚡ [Aveyx Hook] Running pre-commit safety checks..."
 
 if command -v node >/dev/null 2>&1; then
   # 1. Run Secret Leak Sentinel
@@ -41,18 +41,13 @@ if command -v node >/dev/null 2>&1; then
       echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
       exit 1
     }
-  elif command -v apex-agents >/dev/null 2>&1; then
-    apex-agents scan-secrets || {
-      echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
-      exit 1
-    }
-  elif command -v apex >/dev/null 2>&1; then
-    apex scan-secrets || {
+  elif command -v aveyx >/dev/null 2>&1; then
+    aveyx scan-secrets || {
       echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
       exit 1
     }
   elif command -v npx >/dev/null 2>&1; then
-    npx apex-agents scan-secrets || {
+    npx aveyx scan-secrets || {
       echo "❌ COMMIT BLOCKED: Secret Leak Sentinel detected exposed credentials!"
       exit 1
     }
@@ -64,46 +59,41 @@ if command -v node >/dev/null 2>&1; then
       echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
       exit 1
     }
-  elif command -v apex-agents >/dev/null 2>&1; then
-    apex-agents review --staged --strict || {
-      echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
-      exit 1
-    }
-  elif command -v apex >/dev/null 2>&1; then
-    apex review --staged --strict || {
+  elif command -v aveyx >/dev/null 2>&1; then
+    aveyx review --staged --strict || {
       echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
       exit 1
     }
   elif command -v npx >/dev/null 2>&1; then
-    npx apex-agents review --staged --strict || {
+    npx aveyx review --staged --strict || {
       echo "❌ COMMIT BLOCKED: Audit Diff detected critical secrets, slop, or test tampering!"
       exit 1
     }
   fi
 
-  echo "✓ [Apex-Agents Hook] Safety checks passed."
+  echo "✓ [Aveyx Hook] Safety checks passed."
 fi
-# --- END APEX AGENTS BLOCK ---
+# --- END AVEYX BLOCK ---
 `;
 
   if (fs.existsSync(preCommitHookPath)) {
     const existingContent = fs.readFileSync(preCommitHookPath, 'utf-8');
-    if (existingContent.includes('APEX AGENTS PRE-COMMIT') || existingContent.includes('Apex-Agents Hook')) {
-      console.log(`\x1b[33m• Pre-commit hook already contains Apex Agents protection.\x1b[0m`);
+    if (existingContent.includes('AVEYX PRE-COMMIT') || existingContent.includes('Aveyx Hook')) {
+      console.log(`\x1b[33m• Pre-commit hook already contains Aveyx protection.\x1b[0m`);
     } else {
 
     // Safety backup of existing hook
-    const backupPath = `${preCommitHookPath}.apex-backup.${Date.now()}`;
+    const backupPath = `${preCommitHookPath}.aveyx-backup.${Date.now()}`;
     fs.copyFileSync(preCommitHookPath, backupPath);
     console.log(`\x1b[36m• Preserved existing pre-commit hook (backed up to: ${path.basename(backupPath)})\x1b[0m`);
 
     // Chain/append without destroying user's existing hook
-      const chained = existingContent.trim() + '\n' + apexSnippet;
+      const chained = existingContent.trim() + '\n' + aveyxSnippet;
       fs.writeFileSync(preCommitHookPath, chained.replace(/\r\n/g, '\n'), { mode: 0o755 });
     }
   } else {
     // Create new executable hook
-    const fullHook = `#!/bin/sh\n# Apex Agents Automated Zero-Slop & Secret Leak Pre-Commit Hook\n${apexSnippet}\nexit 0\n`;
+    const fullHook = `#!/bin/sh\n# Aveyx Automated Zero-Slop & Secret Leak Pre-Commit Hook\n${aveyxSnippet}\nexit 0\n`;
     fs.writeFileSync(preCommitHookPath, fullHook.replace(/\r\n/g, '\n'), { mode: 0o755 });
   }
 
@@ -117,53 +107,49 @@ fi
   if (options.prePush) {
     const prePushPath = path.join(hooksDir, 'pre-push');
     const prePushSnippet = `
-# --- APEX AGENTS PRE-PUSH SAFETY BLOCK ---
-echo "⚡ [Apex-Agents Hook] Running pre-push verification..."
+# --- AVEYX PRE-PUSH SAFETY BLOCK ---
+echo "⚡ [Aveyx Hook] Running pre-push verification..."
 
 if command -v node >/dev/null 2>&1; then
   if [ -f "./scripts/scan-secrets.js" ]; then
     node "./scripts/scan-secrets.js" || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
-  elif command -v apex-agents >/dev/null 2>&1; then
-    apex-agents scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
-  elif command -v apex >/dev/null 2>&1; then
-    apex scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
+  elif command -v aveyx >/dev/null 2>&1; then
+    aveyx scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
   elif command -v npx >/dev/null 2>&1; then
-    npx apex-agents scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
+    npx aveyx scan-secrets || { echo "❌ PUSH BLOCKED: Secret Leak Sentinel failed!"; exit 1; }
   fi
 
   if [ -f "./scripts/audit-bugs.js" ]; then
     node "./scripts/audit-bugs.js" || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
-  elif command -v apex-agents >/dev/null 2>&1; then
-    apex-agents audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
-  elif command -v apex >/dev/null 2>&1; then
-    apex audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
+  elif command -v aveyx >/dev/null 2>&1; then
+    aveyx audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
   elif command -v npx >/dev/null 2>&1; then
-    npx apex-agents audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
+    npx aveyx audit-bugs || { echo "❌ PUSH BLOCKED: AST Bug Auditor detected runtime flaws!"; exit 1; }
   fi
 
   if [ -f "./package.json" ] && grep -q '"test"' ./package.json; then
     npm test || { echo "❌ PUSH BLOCKED: Test suite failed!"; exit 1; }
   fi
 
-  echo "✓ [Apex-Agents Hook] Pre-push verification passed."
+  echo "✓ [Aveyx Hook] Pre-push verification passed."
 fi
-# --- END APEX AGENTS PRE-PUSH BLOCK ---
+# --- END AVEYX PRE-PUSH BLOCK ---
 `;
     if (fs.existsSync(prePushPath)) {
       const existing = fs.readFileSync(prePushPath, 'utf-8');
-      if (!existing.includes('APEX AGENTS PRE-PUSH')) {
-        const backup = `${prePushPath}.apex-backup.${Date.now()}`;
+      if (!existing.includes('AVEYX PRE-PUSH')) {
+        const backup = `${prePushPath}.aveyx-backup.${Date.now()}`;
         fs.copyFileSync(prePushPath, backup);
         fs.writeFileSync(prePushPath, (existing.trim() + '\n' + prePushSnippet).replace(/\r\n/g, '\n'), { mode: 0o755 });
       }
     } else {
-      fs.writeFileSync(prePushPath, `#!/bin/sh\n# Apex Agents Pre-Push Safety Hook\n${prePushSnippet}\nexit 0\n`.replace(/\r\n/g, '\n'), { mode: 0o755 });
+      fs.writeFileSync(prePushPath, `#!/bin/sh\n# Aveyx Pre-Push Safety Hook\n${prePushSnippet}\nexit 0\n`.replace(/\r\n/g, '\n'), { mode: 0o755 });
     }
     try { fs.chmodSync(prePushPath, 0o755); } catch {}
-    console.log(`\x1b[32m\x1b[1m✓ Configured Apex Agents pre-push hook in .git/hooks/pre-push\x1b[0m`);
+    console.log(`\x1b[32m\x1b[1m✓ Configured Aveyx pre-push hook in .git/hooks/pre-push\x1b[0m`);
   }
 
-  console.log(`\x1b[32m\x1b[1m✓ Successfully configured Apex Agents pre-commit hook in .git/hooks/pre-commit\x1b[0m`);
+  console.log(`\x1b[32m\x1b[1m✓ Successfully configured Aveyx pre-commit hook in .git/hooks/pre-commit\x1b[0m`);
   console.log(`\x1b[90mRepository is protected against secret leaks and test tampering.\x1b[0m\n`);
   return true;
 }

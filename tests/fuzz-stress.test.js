@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { compactSourceCode } from '../scripts/compact-context.js';
 import { auditDiff } from '../scripts/audit-diff.js';
@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-describe('Apex Agents Fuzzing & Extreme Stress Suite', () => {
+describe('Aveyx Fuzzing & Extreme Stress Suite', () => {
 
   describe('1. AST Compactor Extreme Fuzzing', () => {
     test('should survive 100 levels of nested functions without stack overflow', () => {
@@ -209,7 +209,7 @@ zcmeAS@N?(olHy` + '0'.repeat(500);
 
   describe('5. Native MCP Server Resilience & Hostile Input Fuzzing', () => {
     test('should survive malformed JSON and directory traversal attacks', async () => {
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('node:child_process');
       const mcpBin = path.join(ROOT_DIR, 'bin', 'mcp-server.js');
       const proc = spawn(process.execPath, [mcpBin], { stdio: ['pipe', 'pipe', 'pipe'] });
 

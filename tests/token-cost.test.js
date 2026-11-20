@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { computeTokenCost, estimateTokens, countBpeTokens } from '../scripts/token-cost.js';
 
 describe('Token Volume & Measured AST Compaction Auditor Suite', () => {
@@ -20,7 +20,7 @@ describe('Token Volume & Measured AST Compaction Auditor Suite', () => {
   });
 
   test('should measure actual AST compaction savings without hardcoded vendor tables', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-cost-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-cost-test-'));
     try {
       const sampleTs = `
         export interface Invoice {

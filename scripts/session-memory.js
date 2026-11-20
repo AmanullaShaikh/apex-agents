@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const __memFilename = fileURLToPath(import.meta.url);
 const __memDirname = path.dirname(__memFilename);
-let PKG_VERSION = '2.1.0';
+let PKG_VERSION = '3.0.0';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__memDirname, '..', 'package.json'), 'utf-8'));
   if (pkg.version) PKG_VERSION = pkg.version;
@@ -64,7 +64,7 @@ function saveMemory(filePath, data) {
 
 
 export function generateHandoff(cwd = process.cwd()) {
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: SESSION HANDOFF GENERATOR ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: SESSION HANDOFF GENERATOR ═════${c.reset}`);
   console.log(`Extracting clean session state to prevent context window degradation (>120k tokens)...\n`);
 
   let modifiedFiles = [];
@@ -128,7 +128,7 @@ ${memoryData.knownBugs.length > 0 ? memoryData.knownBugs.map((b) => `  - ${b.tex
 </session_handoff>
 `.trim();
 
-  const outputPath = path.join(cwd, 'APEX_HANDOFF.md');
+  const outputPath = path.join(cwd, 'AVEYX_HANDOFF.md');
   fs.writeFileSync(outputPath, handoffContent + '\n');
 
   console.log(`${c.bold}SESSION HANDOFF BLOCK (~85 tokens):${c.reset}`);
@@ -170,7 +170,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
         } else if (args.length === 2 && !args[1].startsWith('-')) {
           if (validCategories.includes(args[1].toLowerCase())) {
             console.error(`\n${c.red}Error: Entry text is required for category "${args[1]}".${c.reset}`);
-            console.error(`Usage: npx apex-agents memory record <decision|rule|bug> "<text>"\n`);
+            console.error(`Usage: npx aveyx memory record <decision|rule|bug> "<text>"\n`);
             process.exit(1);
           } else {
             entry = args[1].trim();
@@ -181,13 +181,13 @@ export function handleMemory(args = [], cwd = process.cwd()) {
       if (!validCategories.includes(category)) {
         console.error(`\n${c.red}Error: Invalid category "${category}".${c.reset}`);
         console.error(`Allowed categories: ${c.cyan}decision${c.reset}, ${c.cyan}rule${c.reset}, ${c.cyan}bug${c.reset}`);
-        console.error(`Usage: npx apex-agents memory record <decision|rule|bug> "<text>"`);
-        console.error(`   or: npx apex-agents memory record -k <rule|decision|bug> -v "<text>"\n`);
+        console.error(`Usage: npx aveyx memory record <decision|rule|bug> "<text>"`);
+        console.error(`   or: npx aveyx memory record -k <rule|decision|bug> -v "<text>"\n`);
         process.exit(1);
       }
 
       if (!entry) {
-        console.error(`\n${c.red}Usage: npx apex-agents memory record <decision|rule|bug> "<text>"${c.reset}\n`);
+        console.error(`\n${c.red}Usage: npx aveyx memory record <decision|rule|bug> "<text>"${c.reset}\n`);
         process.exit(1);
       }
 
@@ -207,7 +207,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
 
     case 'recall':
     case 'list': {
-      console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: PERSISTENT SESSION MEMORY ═════${c.reset}`);
+      console.log(`\n${c.cyan}${c.bold}═════ AVEYX: PERSISTENT SESSION MEMORY ═════${c.reset}`);
       console.log(`Storage: ${c.cyan}${memoryFile}${c.reset} (Updated: ${new Date(data.lastUpdated).toLocaleString()})\n`);
 
       console.log(`${c.bold}Architectural Rules (${data.architecturalRules.length}):${c.reset}`);
@@ -233,7 +233,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
 
     case 'sync': {
       // Sync memory into CLAUDE.md and .cursorrules
-      let memoryBlock = `\n<!-- APEX-AGENTS PERSISTENT MEMORY -->\n## Persistent Repository Memory & Decisions\n`;
+      let memoryBlock = `\n<!-- AVEYX PERSISTENT MEMORY -->\n## Persistent Repository Memory & Decisions\n`;
       if (data.architecturalRules.length > 0) {
         memoryBlock += `### Core Architectural Rules:\n` + data.architecturalRules.map((r) => `- ${r.text}`).join('\n') + '\n\n';
       }
@@ -248,7 +248,7 @@ export function handleMemory(args = [], cwd = process.cwd()) {
         const p = path.join(cwd, f);
         if (fs.existsSync(p)) {
           let content = fs.readFileSync(p, 'utf-8');
-          content = content.replace(/<!-- APEX-AGENTS PERSISTENT MEMORY -->[\s\S]*?(?=(<!--|$))/, '');
+          content = content.replace(/<!-- AVEYX PERSISTENT MEMORY -->[\s\S]*?(?=(<!--|$))/, '');
           content = content.trim() + '\n\n' + memoryBlock.trim() + '\n';
           fs.writeFileSync(p, content);
           console.log(`  ${c.green}✓${c.reset} Synced memory to ${c.cyan}${f}${c.reset}`);
@@ -277,13 +277,13 @@ export function handleMemory(args = [], cwd = process.cwd()) {
 
     default:
       console.error(`\n${c.red}Error: Unknown memory subcommand "${subCommand}".${c.reset}`);
-      console.log(`\n${c.bold}Apex Agents Session Memory Commands:${c.reset}`);
-      console.log(`  ${c.green}npx apex-agents memory record decision "<text>"${c.reset}`);
-      console.log(`  ${c.green}npx apex-agents memory record rule "<text>"${c.reset}`);
-      console.log(`  ${c.green}npx apex-agents memory record bug "<text>"${c.reset}`);
-      console.log(`  ${c.green}npx apex-agents memory recall${c.reset}`);
-      console.log(`  ${c.green}npx apex-agents memory sync${c.reset}`);
-      console.log(`  ${c.green}npx apex-agents memory clear${c.reset}\n`);
+      console.log(`\n${c.bold}Aveyx Session Memory Commands:${c.reset}`);
+      console.log(`  ${c.green}npx aveyx memory record decision "<text>"${c.reset}`);
+      console.log(`  ${c.green}npx aveyx memory record rule "<text>"${c.reset}`);
+      console.log(`  ${c.green}npx aveyx memory record bug "<text>"${c.reset}`);
+      console.log(`  ${c.green}npx aveyx memory recall${c.reset}`);
+      console.log(`  ${c.green}npx aveyx memory sync${c.reset}`);
+      console.log(`  ${c.green}npx aveyx memory clear${c.reset}\n`);
       process.exit(1);
   }
 }

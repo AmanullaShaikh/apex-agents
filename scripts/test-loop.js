@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { spawn } from 'child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
 
 const c = {
   reset: '\x1b[0m',
@@ -170,13 +170,13 @@ export function parseTestFailures(output) {
 }
 
 /**
- * Generates structured APEX_FIX_PROMPT.md for IDE coding agents (Cursor, Claude Code, Windsurf).
+ * Generates structured AVEYX_FIX_PROMPT.md for IDE coding agents (Cursor, Claude Code, Windsurf).
  */
 export function generateFixPrompt(projectDir, failures, fullOutput) {
-  const outputPath = path.join(projectDir, 'APEX_FIX_PROMPT.md');
+  const outputPath = path.join(projectDir, 'AVEYX_FIX_PROMPT.md');
   const timestamp = new Date().toISOString();
 
-  let md = `# APEX AGENTS: TEST FAILURE FIX PROMPT\n`;
+  let md = `# AVEYX: TEST FAILURE FIX PROMPT\n`;
   md += `> **Generated**: ${timestamp}\n`;
   md += `> **Target**: Zero-slop repair of failing implementation code.\n\n`;
 
@@ -209,7 +209,7 @@ export function generateFixPrompt(projectDir, failures, fullOutput) {
   md += `1. Inspect the failing test file and the implementation file.\n`;
   md += `2. Identify why the assertion failed (root cause analysis).\n`;
   md += `3. Modify the source code to satisfy the test contract.\n`;
-  md += `4. Run \`npx apex-agents test-loop\` to verify the fix.\n\n`;
+  md += `4. Run \`npx aveyx test-loop\` to verify the fix.\n\n`;
 
   md += `## RAW TEST RUNNER TAIL\n`;
   md += `\`\`\`text\n${fullOutput.slice(-2000)}\n\`\`\`\n`;
@@ -292,12 +292,12 @@ function runCommandCapture(projectDir, cmdStr, streamToConsole = false) {
  */
 export async function runTestLoop(projectDir = process.cwd(), customCmd = null) {
   const cmdStr = customCmd || detectTestRunner(projectDir);
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: TEST-LOOP RUNNER ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: TEST-LOOP RUNNER ═════${c.reset}`);
   console.log(`Executing test suite: ${c.yellow}${cmdStr}${c.reset} in ${c.cyan}${projectDir}${c.reset}...\n`);
 
   const { code, stdout, stderr } = await runCommandCapture(projectDir, cmdStr, true);
   const fullOutput = stdout + '\n' + stderr;
-  const promptPath = path.join(projectDir, 'APEX_FIX_PROMPT.md');
+  const promptPath = path.join(projectDir, 'AVEYX_FIX_PROMPT.md');
 
   if (code === 0) {
     console.log(`\n${c.green}${c.bold}✓ ALL TESTS PASSING! (Exit Code: 0)${c.reset}`);
@@ -309,7 +309,7 @@ export async function runTestLoop(projectDir = process.cwd(), customCmd = null) 
 
   if (detectNoRunner(code, stdout, stderr)) {
     console.error(`\n${c.red}${c.bold}✖ NO TEST RUNNER CONFIGURED:${c.reset} No test script found or runner failed to launch.`);
-    console.error(`Configure "scripts.test" in package.json or run with custom command: apex test-loop "<cmd>"\n`);
+    console.error(`Configure "scripts.test" in package.json or run with custom command: aveyx test-loop "<cmd>"\n`);
     return { success: false, code, failures: [], fixPromptFile: null };
   }
 
@@ -320,7 +320,7 @@ export async function runTestLoop(projectDir = process.cwd(), customCmd = null) 
   const fixPromptFile = generateFixPrompt(projectDir, failures, fullOutput);
 
   console.log(`  ${c.green}✓${c.reset} Generated Fix Prompt: ${c.cyan}${fixPromptFile}${c.reset}`);
-  console.log(`\n${c.bold}Next Action:${c.reset} Feed ${c.cyan}APEX_FIX_PROMPT.md${c.reset} into Cursor, Claude Code, or Windsurf to repair implementation.\n`);
+  console.log(`\n${c.bold}Next Action:${c.reset} Feed ${c.cyan}AVEYX_FIX_PROMPT.md${c.reset} into Cursor, Claude Code, or Windsurf to repair implementation.\n`);
   return { success: false, code, failures, fixPromptFile };
 }
 
@@ -329,7 +329,7 @@ if (process.argv[1] && process.argv[1].endsWith('test-loop.js')) {
   const args = process.argv.slice(2);
   if (args.length > 0 && args[0].startsWith('-')) {
     console.error(`${c.red}Unknown flag "${args[0]}".${c.reset}`);
-    console.error(`Usage: npx apex-agents test-loop [custom test command]`);
+    console.error(`Usage: npx aveyx test-loop [custom test command]`);
     process.exit(1);
   }
   const customCmd = args.length > 0 ? args.join(' ') : null;

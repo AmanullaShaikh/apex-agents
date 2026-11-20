@@ -1,10 +1,10 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { analyzeImpact } from '../scripts/impact-analyzer.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,7 +14,7 @@ const IMPACT_BIN = path.join(ROOT_DIR, 'scripts', 'impact-analyzer.js');
 
 describe('AST Blast-Radius & Impact Analyzer Suite', () => {
   test('should compute direct dependents, transitive dependents, and affected test suites', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-impact-test-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-impact-test-'));
     try {
       fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
       fs.mkdirSync(path.join(tmpDir, 'tests'), { recursive: true });
@@ -35,7 +35,7 @@ describe('AST Blast-Radius & Impact Analyzer Suite', () => {
   });
 
   test('should handle cyclic imports without infinite loops and reject invalid CLI inputs', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-impact-cycle-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-impact-cycle-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'a.js'), "import './b.js';\n");
       fs.writeFileSync(path.join(tmpDir, 'b.js'), "import './a.js';\n");

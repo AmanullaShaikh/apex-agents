@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-let pkgVersion = '2.1.0';
+let pkgVersion = '3.0.0';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
   if (pkg.version) pkgVersion = pkg.version;
@@ -59,7 +59,7 @@ function getInstinctContent(instinctId) {
 const TOOLS = [
   {
     name: 'list_specialists',
-    description: 'Lists all available specialized agents in Apex Agents by division',
+    description: 'Lists all available specialized agents in Aveyx by division',
     inputSchema: {
       type: 'object',
       properties: {}
@@ -94,7 +94,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_compact_code',
+    name: 'aveyx_compact_code',
     description: 'Compacts JS, TS, React, Python, Go, or Rust source code using Babel AST. Strips method and function bodies down to {} or pass, preserving 100% of types, interfaces, struct fields, and signatures. Reduces token size by 80-90%.',
     inputSchema: {
       type: 'object',
@@ -112,7 +112,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_audit_code_bugs',
+    name: 'aveyx_audit_code_bugs',
     description: 'Performs AST static analysis on code to detect critical bugs: SQL injections (template literals, concatenation, multi-hop aliases, .call/.apply/.bind), React timer leaks (useEffect missing cleanup), and unhandled floating promises (e.g. unawaited u.save()).',
     inputSchema: {
       type: 'object',
@@ -130,7 +130,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_checkpoint',
+    name: 'aveyx_checkpoint',
     description: 'Creates an atomic Git snapshot of the current working tree, untracked files, gitignored .env files, and hooks. Essential safety gate before executing destructive code modifications.',
     inputSchema: {
       type: 'object',
@@ -143,7 +143,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_rollback',
+    name: 'aveyx_rollback',
     description: 'Instantly rolls back working tree to the latest checkpoint or a specific checkpoint label, cleaning rogue untracked files and restoring .env/hooks.',
     inputSchema: {
       type: 'object',
@@ -156,7 +156,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_trace_symbol',
+    name: 'aveyx_trace_symbol',
     description: 'Scans project AST to trace declarations and cross-file call sites of any symbol across TypeScript and JavaScript modules.',
     inputSchema: {
       type: 'object',
@@ -174,7 +174,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_impact_radius',
+    name: 'aveyx_impact_radius',
     description: 'Computes transitive reverse-dependency blast radius for modified or specified files, returning direct dependents, transitive dependents, affected test suites, and risk level.',
     inputSchema: {
       type: 'object',
@@ -192,7 +192,7 @@ const TOOLS = [
     }
   },
   {
-    name: 'apex_audit_diff',
+    name: 'aveyx_audit_diff',
     description: 'Audits a raw Git diff for leaked credentials (API keys, Stripe/AWS/GitHub keys, hex/unicode escape evasion), test tampering (.skip, .skipIf, microtasks, deleted assertions), and AI slop.',
     inputSchema: {
       type: 'object',
@@ -271,7 +271,7 @@ async function handleMessage(msg) {
         prompts: {}
       },
       serverInfo: {
-        name: 'apex-agents-mcp',
+        name: 'aveyx-mcp',
         version: pkgVersion
       }
     });
@@ -286,13 +286,13 @@ async function handleMessage(msg) {
   if (method === 'prompts/list') {
     const agents = getAllAgents().map(a => ({
       name: `specialist:${a.id}`,
-      description: `Apex Agents specialist (${a.division}): @${a.id}`
+      description: `Aveyx specialist (${a.division}): @${a.id}`
     }));
     const instinctsDir = path.join(ROOT_DIR, 'instincts');
     const instincts = fs.existsSync(instinctsDir)
       ? fs.readdirSync(instinctsDir).filter(f => f.endsWith('.md')).map(f => {
           const id = f.replace('.md', '');
-          return { name: `instinct:${id}`, description: `Apex Agents operational instinct: ${id}` };
+          return { name: `instinct:${id}`, description: `Aveyx operational instinct: ${id}` };
         })
       : [];
     sendResponse(id, { prompts: [...agents, ...instincts] });
@@ -318,7 +318,7 @@ async function handleMessage(msg) {
       return;
     }
     sendResponse(id, {
-      description: `Apex Agents directive: ${promptName}`,
+      description: `Aveyx directive: ${promptName}`,
       messages: [
         {
           role: 'user',
@@ -358,7 +358,7 @@ async function handleMessage(msg) {
       if (!specialist) {
         sendResponse(id, {
           isError: true,
-          content: [{ type: 'text', text: `Error: Specialist '${agentId}' not found in Apex Agents.` }]
+          content: [{ type: 'text', text: `Error: Specialist '${agentId}' not found in Aveyx.` }]
         });
         return;
       }
@@ -379,7 +379,7 @@ async function handleMessage(msg) {
       if (!instinct) {
         sendResponse(id, {
           isError: true,
-          content: [{ type: 'text', text: `Error: Instinct '${instinctId}' not found in Apex Agents.` }]
+          content: [{ type: 'text', text: `Error: Instinct '${instinctId}' not found in Aveyx.` }]
         });
         return;
       }
@@ -394,7 +394,7 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_compact_code') {
+    if (name === 'aveyx_compact_code') {
       try {
         const { compactSourceCode } = await import('../scripts/compact-context.js');
         const compacted = compactSourceCode(args?.code || '', { ext: args?.ext || 'ts' });
@@ -410,7 +410,7 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_audit_code_bugs') {
+    if (name === 'aveyx_audit_code_bugs') {
       try {
         const { auditCodeBugs } = await import('../scripts/audit-bugs.js');
         const bugs = auditCodeBugs(args?.code || '', args?.file_path || 'virtual.ts');
@@ -426,7 +426,7 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_checkpoint') {
+    if (name === 'aveyx_checkpoint') {
       try {
         const { createCheckpoint } = await import('../scripts/checkpoint.js');
         const res = createCheckpoint(args?.label || 'mcp-checkpoint');
@@ -442,7 +442,7 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_rollback') {
+    if (name === 'aveyx_rollback') {
       try {
         const { rollbackToCheckpoint } = await import('../scripts/checkpoint.js');
         const res = rollbackToCheckpoint(args?.label || null);
@@ -458,12 +458,12 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_trace_symbol') {
+    if (name === 'aveyx_trace_symbol') {
       try {
         const workspaceRoot = path.resolve(process.cwd());
         const requestedDir = args?.project_dir ? path.resolve(workspaceRoot, String(args.project_dir)) : workspaceRoot;
         const rel = path.relative(workspaceRoot, requestedDir);
-        const allowExternal = process.env.APEX_ALLOW_EXTERNAL_DIR === '1';
+        const allowExternal = process.env.AVEYX_ALLOW_EXTERNAL_DIR === '1';
         if (!allowExternal && (rel.startsWith('..') || path.isAbsolute(rel))) {
           sendResponse(id, {
             isError: true,
@@ -485,12 +485,12 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_impact_radius') {
+    if (name === 'aveyx_impact_radius') {
       try {
         const workspaceRoot = path.resolve(process.cwd());
         const requestedDir = args?.project_dir ? path.resolve(workspaceRoot, String(args.project_dir)) : workspaceRoot;
         const rel = path.relative(workspaceRoot, requestedDir);
-        const allowExternal = process.env.APEX_ALLOW_EXTERNAL_DIR === '1';
+        const allowExternal = process.env.AVEYX_ALLOW_EXTERNAL_DIR === '1';
         if (!allowExternal && (rel.startsWith('..') || path.isAbsolute(rel))) {
           sendResponse(id, {
             isError: true,
@@ -520,7 +520,7 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (name === 'apex_audit_diff') {
+    if (name === 'aveyx_audit_diff') {
       try {
         const { auditDiff } = await import('../scripts/audit-diff.js');
         const res = auditDiff(args?.diff || '');

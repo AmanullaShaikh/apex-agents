@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,15 +59,15 @@ describe('Native MCP Tooling Integration Suite', () => {
     const resp = responses.find(r => r.id === 1);
     assert.ok(resp && resp.result && resp.result.tools);
     const toolNames = resp.result.tools.map(t => t.name);
-    assert.ok(toolNames.includes('apex_compact_code'));
-    assert.ok(toolNames.includes('apex_audit_code_bugs'));
-    assert.ok(toolNames.includes('apex_checkpoint'));
-    assert.ok(toolNames.includes('apex_rollback'));
-    assert.ok(toolNames.includes('apex_trace_symbol'));
-    assert.ok(toolNames.includes('apex_audit_diff'));
+    assert.ok(toolNames.includes('aveyx_compact_code'));
+    assert.ok(toolNames.includes('aveyx_audit_code_bugs'));
+    assert.ok(toolNames.includes('aveyx_checkpoint'));
+    assert.ok(toolNames.includes('aveyx_rollback'));
+    assert.ok(toolNames.includes('aveyx_trace_symbol'));
+    assert.ok(toolNames.includes('aveyx_audit_diff'));
   });
 
-  test('should execute apex_compact_code via MCP', async () => {
+  test('should execute aveyx_compact_code via MCP', async () => {
     const code = 'function add(a: number, b: number): number {\n  const res = a + b;\n  return res;\n}';
     const responses = await callMcpSession([
       {
@@ -75,7 +75,7 @@ describe('Native MCP Tooling Integration Suite', () => {
         id: 2,
         method: 'tools/call',
         params: {
-          name: 'apex_compact_code',
+          name: 'aveyx_compact_code',
           arguments: { code, ext: 'ts' }
         }
       }
@@ -85,7 +85,7 @@ describe('Native MCP Tooling Integration Suite', () => {
     assert.ok(resp.result.content[0].text.includes('function add(a: number, b: number): number { /* stripped */ }') || resp.result.content[0].text.includes('function add(a: number, b: number): number {}'));
   });
 
-  test('should execute apex_audit_code_bugs via MCP and report bugs', async () => {
+  test('should execute aveyx_audit_code_bugs via MCP and report bugs', async () => {
     const vulnerableCode = 'export async function test(req) { const id = req.id; const q = "SELECT * FROM users WHERE id = " + id; return await db.query(q); }';
     const responses = await callMcpSession([
       {
@@ -93,7 +93,7 @@ describe('Native MCP Tooling Integration Suite', () => {
         id: 3,
         method: 'tools/call',
         params: {
-          name: 'apex_audit_code_bugs',
+          name: 'aveyx_audit_code_bugs',
           arguments: { code: vulnerableCode, file_path: 'auth.ts' }
         }
       }
@@ -105,7 +105,7 @@ describe('Native MCP Tooling Integration Suite', () => {
     assert.strictEqual(parsed[0].category, 'SQL_INJECTION');
   });
 
-  test('should execute apex_audit_diff via MCP and catch tampering', async () => {
+  test('should execute aveyx_audit_diff via MCP and catch tampering', async () => {
     const dirtyDiff = [
       'diff --git a/tests/auth.test.js b/tests/auth.test.js',
       '--- a/tests/auth.test.js',
@@ -121,7 +121,7 @@ describe('Native MCP Tooling Integration Suite', () => {
         id: 4,
         method: 'tools/call',
         params: {
-          name: 'apex_audit_diff',
+          name: 'aveyx_audit_diff',
           arguments: { diff: dirtyDiff }
         }
       }
@@ -145,7 +145,7 @@ describe('Native MCP Tooling Integration Suite', () => {
         jsonrpc: '2.0',
         id: 101,
         method: 'tools/call',
-        params: { name: 'apex_trace_symbol', arguments: { symbol_name: 'traceSymbol', project_dir: '/tmp' } }
+        params: { name: 'aveyx_trace_symbol', arguments: { symbol_name: 'traceSymbol', project_dir: '/tmp' } }
       },
       {
         jsonrpc: '2.0',
@@ -161,20 +161,20 @@ describe('Native MCP Tooling Integration Suite', () => {
     assert.ok(r102?.result?.serverInfo, 'Server must stay alive after errors');
   });
 
-  test('should expose prompts/list, prompts/get, and apex_impact_radius tool', async () => {
+  test('should expose prompts/list, prompts/get, and aveyx_impact_radius tool', async () => {
     const responses = await callMcpSession([
       { jsonrpc: '2.0', id: 200, method: 'tools/list' },
       { jsonrpc: '2.0', id: 201, method: 'prompts/list' },
       { jsonrpc: '2.0', id: 202, method: 'prompts/get', params: { name: 'instinct:zero-slop-contract' } },
-      { jsonrpc: '2.0', id: 203, method: 'tools/call', params: { name: 'apex_impact_radius', arguments: { files: ['scripts/dependency-graph.js'] } } },
-      { jsonrpc: '2.0', id: 204, method: 'tools/call', params: { name: 'apex_impact_radius', arguments: { files: 123 } } }
+      { jsonrpc: '2.0', id: 203, method: 'tools/call', params: { name: 'aveyx_impact_radius', arguments: { files: ['scripts/dependency-graph.js'] } } },
+      { jsonrpc: '2.0', id: 204, method: 'tools/call', params: { name: 'aveyx_impact_radius', arguments: { files: 123 } } }
     ]);
     const r200 = responses.find(r => r.id === 200);
     const r201 = responses.find(r => r.id === 201);
     const r202 = responses.find(r => r.id === 202);
     const r203 = responses.find(r => r.id === 203);
 
-    assert.ok(r200.result.tools.some(t => t.name === 'apex_impact_radius'));
+    assert.ok(r200.result.tools.some(t => t.name === 'aveyx_impact_radius'));
     assert.ok(r201.result.prompts.some(p => p.name === 'instinct:zero-slop-contract'));
     assert.ok(r202.result.messages[0].content.text.includes('Zero-Slop'));
     const impact = JSON.parse(r203.result.content[0].text);

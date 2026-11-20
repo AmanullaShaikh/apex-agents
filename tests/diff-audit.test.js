@@ -408,9 +408,9 @@ describe('Diff Security & Anti-Cheat Audit', () => {
   });
 
   test('should detect PKCS#8 keys, ES6 unicode escapes, spread fromCharCode, cross-line variable splits, and node:test/exit/dead-branch tampering', async () => {
-    const fs = await import('fs');
-    const os = await import('os');
-    const path = await import('path');
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
 
     // 1. PKCS#8 private key
     const pkcs8Diff = [
@@ -480,8 +480,8 @@ describe('Diff Security & Anti-Cheat Audit', () => {
 
     // 7. scripts/scan-secrets.js: ESM import must NOT terminate caller, must scan .test.js files, cross-line splits, and use generic base64 label
     const { scanDirectory } = await import('../scripts/scan-secrets.js');
-    const { execSync } = await import('child_process');
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-scan-secrets-'));
+    const { execSync } = await import('node:child_process');
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-scan-secrets-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'auth.test.js'), 'export const k = "AKIAIOSFODNN7EXAMPLE";\n');
       const stripeB64 = Buffer.from(['sk', 'live', '1234567890abcdefghijklmn'].join('_')).toString('base64');
@@ -725,7 +725,7 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     assert.ok(protRes.issues.some(i => i.category === 'PROTECTED_CONFIG_TAMPER'));
     assert.ok(protRes.stats.tampering >= 1);
 
-    const sarif = buildSarifReport(protRes.issues, 'apex-agents-review', '2.2.0');
+    const sarif = buildSarifReport(protRes.issues, 'aveyx-review', '3.0.0');
     assert.strictEqual(sarif.version, '2.1.0');
     assert.ok(Array.isArray(sarif.runs) && sarif.runs.length === 1);
     assert.ok(sarif.runs[0].results.length >= 2);

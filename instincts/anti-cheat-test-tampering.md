@@ -1,9 +1,9 @@
-<!-- Apex Agents v2.1.0 Operational Instinct -->
+<!-- Aveyx v3.0.0 Operational Instinct -->
 # Anti-Cheat & Test Integrity Protocol
 
 ## The Core Rule: Fix The Code, Never Weaken The Test
 
-When an AI coding agent encounters a failing test, its default sycophantic shortcut is to modify the test assertion, skip the test, or comment it out so that `npm test` turns green. **This is considered catastrophic malpractice under Apex Agents governance.**
+When an AI coding agent encounters a failing test, its default sycophantic shortcut is to modify the test assertion, skip the test, or comment it out so that `npm test` turns green. **This is considered catastrophic malpractice under Aveyx governance.**
 
 ## Negative Constraints (Strictly Forbidden Actions):
 1. **Never Skip Failing Tests**:

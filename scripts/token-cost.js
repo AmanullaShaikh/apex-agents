@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   compactSourceCode,
   compactPythonCode,
@@ -221,7 +221,7 @@ if (process.argv[1] && process.argv[1].endsWith('token-cost.js')) {
       priceInPerMillion = val;
       i++;
     } else if (arg.startsWith('-')) {
-      console.error(`${c.red}Unknown flag: ${arg}${c.reset}\nUsage: npx apex-agents cost [dir] [--price-in=<dollars_per_1M>]`);
+      console.error(`${c.red}Unknown flag: ${arg}${c.reset}\nUsage: npx aveyx cost [dir] [--price-in=<dollars_per_1M>]`);
       process.exit(1);
     } else if (!explicitDir) {
       projectDir = arg;
@@ -237,7 +237,7 @@ if (process.argv[1] && process.argv[1].endsWith('token-cost.js')) {
     process.exit(1);
   }
 
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: TOKEN VOLUME & AST COMPACTION AUDITOR ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: TOKEN VOLUME & AST COMPACTION AUDITOR ═════${c.reset}`);
   console.log(`Analyzing repository: ${c.yellow}${projectDir}${c.reset}...\n`);
 
   const report = computeTokenCost(projectDir, { priceInPerMillion });

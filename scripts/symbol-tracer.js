@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { parse } from '@babel/parser';
 import _traverse from '@babel/traverse';
 
@@ -229,12 +229,12 @@ export function formatTraceReport(traceData) {
 if (process.argv[1] && process.argv[1].endsWith('symbol-tracer.js')) {
   const symbol = process.argv[2];
   if (!symbol) {
-    console.log(`\n${c.red}Usage: npx apex-agents trace <symbolName>${c.reset}\n`);
+    console.log(`\n${c.red}Usage: npx aveyx trace <symbolName>${c.reset}\n`);
     process.exit(1);
   }
 
   const res = traceSymbol(symbol);
-  console.log(`\n${c.cyan}${c.bold}═════ APEX AGENTS: SYMBOL TRACER ═════${c.reset}`);
+  console.log(`\n${c.cyan}${c.bold}═════ AVEYX: SYMBOL TRACER ═════${c.reset}`);
   console.log(`Symbol: ${c.yellow}${c.bold}${res.symbol}${c.reset} (Scanned ${res.scannedFiles} files)\n`);
   console.log(formatTraceReport(res));
 }

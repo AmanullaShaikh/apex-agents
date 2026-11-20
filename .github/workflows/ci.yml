@@ -1,42 +1,48 @@
-name: CI & Agent Integrity Suite
+name: CI & Integrity Suite
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  validate:
+  verify:
+    name: Node ${{ matrix.node-version }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [20.x, 22.x]
+        os: [ubuntu-latest, windows-latest]
+        node-version: [20, 22]
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Run Agent Schema & Zero-Slop Validator
+      - name: Validate specialist manifests
+        run: npm run test:agents
+
+      - name: Run full test suite
         run: npm test
 
-      - name: Run Secret Leak Sentinel
-        run: npm run scan-secrets
+      - name: Run workspace secret scan
+        run: node ./scripts/scan-secrets.js
 
-      - name: Run CLI Smoke Tests
-        run: |
-          node ./bin/apex.js --version
-          node ./bin/apex.js list
-          node ./bin/apex.js doctor
-          node ./bin/apex.js budget
-          node ./bin/apex.js cost
+      - name: Run AST bug auditor
+        run: node ./scripts/audit-bugs.js
+
+      - name: Verify npm package tarball
+        run: npm pack --dry-run

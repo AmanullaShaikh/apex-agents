@@ -1,9 +1,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { execSync } from 'child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { execSync } from 'node:child_process';
 import {
   detectTestRunner,
   parseTestFailures,
@@ -14,7 +14,7 @@ import {
 
 describe('Deterministic Test-Loop Runner & Fix Prompt Suite', () => {
   test('should detect test runner from package.json or config files', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-testloop-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-testloop-'));
     try {
       // 1. package.json with test:unit
       fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({
@@ -103,8 +103,8 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
     assert.strictEqual(deduped[0].actual, "'hi'");
   });
 
-  test('should generate structured APEX_FIX_PROMPT.md with anti-tampering constraints', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-fixprompt-'));
+  test('should generate structured AVEYX_FIX_PROMPT.md with anti-tampering constraints', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-fixprompt-'));
     try {
       const mockFailures = [
         {
@@ -120,7 +120,7 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
       assert.strictEqual(fs.existsSync(promptFile), true);
 
       const content = fs.readFileSync(promptFile, 'utf-8');
-      assert.match(content, /# APEX AGENTS: TEST FAILURE FIX PROMPT/);
+      assert.match(content, /# AVEYX: TEST FAILURE FIX PROMPT/);
       assert.match(content, /computeHash should be deterministic/);
       assert.match(content, /tests\/crypto\.test\.ts/);
       assert.match(content, /STRICT NEGATIVE CONSTRAINTS/);
@@ -132,16 +132,16 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
   });
 
   test('should not generate fake fix prompt when no test runner or script is configured', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-notest-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-notest-'));
     try {
       const res = await runTestLoop(tmpDir);
       assert.strictEqual(res.success, false);
-      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'AVEYX_FIX_PROMPT.md')), false);
 
       // Verify custom non-existent command does not produce fake prompt
       const resMissing = await runTestLoop(tmpDir, 'non_existent_binary_tool_xyz_123');
       assert.strictEqual(resMissing.success, false);
-      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), false);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'AVEYX_FIX_PROMPT.md')), false);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -154,8 +154,8 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
     assert.strictEqual(detectNoRunner(1, '', "'fakebin' is not recognized as an internal or external command"), true);
     assert.strictEqual(detectNoRunner(1, '', 'npm error Missing script: "test"'), true);
 
-    // End-to-end real node:test failure with "user not found" MUST generate APEX_FIX_PROMPT.md
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-notfound-err-'));
+    // End-to-end real node:test failure with "user not found" MUST generate AVEYX_FIX_PROMPT.md
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-notfound-err-'));
     try {
       fs.writeFileSync(path.join(tmpDir, 'user.test.mjs'), `
         import { test } from 'node:test';
@@ -164,7 +164,7 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
       `);
       const res = await runTestLoop(tmpDir, 'node --test user.test.mjs');
       assert.strictEqual(res.success, false);
-      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'APEX_FIX_PROMPT.md')), true);
+      assert.strictEqual(fs.existsSync(path.join(tmpDir, 'AVEYX_FIX_PROMPT.md')), true);
       assert.strictEqual(res.failures.length, 1);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -172,7 +172,7 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
   });
 
   test('should support unquoted multi-token CLI test commands without spawning Node REPL', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-unquoted-cli-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-unquoted-cli-'));
     try {
       const testFile = path.join(tmpDir, 'ok.test.mjs');
       fs.writeFileSync(testFile, `import { test } from 'node:test';\nimport assert from 'node:assert';\ntest('ok', () => { assert.strictEqual(1 + 1, 2); });\n`);
@@ -191,10 +191,10 @@ test at file:///C:/Users/dev/app/greet.test.mjs:4:1
     }
   });
 
-  test('should clean stale APEX_FIX_PROMPT.md once tests pass', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-clean-prompt-'));
+  test('should clean stale AVEYX_FIX_PROMPT.md once tests pass', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aveyx-clean-prompt-'));
     try {
-      const promptPath = path.join(tmpDir, 'APEX_FIX_PROMPT.md');
+      const promptPath = path.join(tmpDir, 'AVEYX_FIX_PROMPT.md');
       fs.writeFileSync(promptPath, '# stale prompt');
       fs.writeFileSync(path.join(tmpDir, 'pass.test.mjs'), `import { test } from 'node:test';\nimport assert from 'node:assert';\ntest('passes', () => { assert.strictEqual(2 + 2, 4); });\n`);
 
