@@ -44,12 +44,10 @@ function printHelp() {
   console.log(`${c.bold}COMMANDS:${c.reset}`);
   console.log(`  ${c.green}init | setup${c.reset}    One-shot setup: injects router, exports Cursor rules & pre-commit hooks`);
   console.log(`  ${c.green}install${c.reset}         Install all agent personas & instincts globally`);
-  console.log(`  ${c.green}studio | tui${c.reset}    Launch the interactive keyboard-driven terminal studio`);
   console.log(`  ${c.green}review | diff${c.reset}   Audit staged/committed git diff for secret leaks, test tampering & slop`);
   console.log(`  ${c.green}budget${c.reset}          Analyze context window token bloat & generate .cursorignore`);
   console.log(`  ${c.green}memory [cmd]${c.reset}    Manage persistent cross-session memory [record|recall|sync|clear]`);
   console.log(`  ${c.green}graph${c.reset}           Analyze AST codebase dependencies & detect circular import cycles`);
-  console.log(`  ${c.green}diagram${c.reset}         Generate responsive dark-mode HTML architecture diagram`);
   console.log(`  ${c.green}compact${c.reset}         Shrink codebase tokens with Babel AST PageRank & callers [--xml|--json|--top|--budget]`);
   console.log(`  ${c.green}test-loop${c.reset}       Run test suite & synthesize structured APEX_FIX_PROMPT.md on failure`);
   console.log(`  ${c.green}checkpoint${c.reset}      Save atomic git-native working tree snapshot [save <label>|list|rollback]`);
@@ -61,10 +59,9 @@ function printHelp() {
   console.log(`  ${c.green}export-all${c.reset}      Generate configs for Claude, Cursor, Windsurf, Copilot, & Aider`);
   console.log(`  ${c.green}cursor-rules${c.reset}    Export modern .cursor/rules/*.mdc files into current project`);
   console.log(`  ${c.green}inject${c.reset}          Inject rules into local CLAUDE.md and .cursorrules`);
-  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)
-  ${c.green}scan-secrets${c.reset}    Scan workspace files for leaked credentials`);
+  console.log(`  ${c.green}install-hooks${c.reset}   Install pre-commit safety hooks (.git/hooks/pre-commit)`);
+  console.log(`  ${c.green}scan-secrets${c.reset}    Scan workspace files for leaked credentials`);
   console.log(`  ${c.green}sandbox${c.reset}         Manage isolated Git Worktree sandboxes [start|clean|status]`);
-  console.log(`  ${c.green}dashboard${c.reset}       Open the interactive visual Agent Explorer in browser`);
   console.log(`  ${c.green}mcp${c.reset}             Start the native Model Context Protocol (MCP) server`);
   console.log(`  ${c.green}test${c.reset}            Run the automated schema validation suite`);
   console.log(`  ${c.green}doctor${c.reset}          Verify environment, git hooks, and agent setup\n`);
