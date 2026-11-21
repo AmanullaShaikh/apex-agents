@@ -1,4 +1,4 @@
-# Security Policy
+# Aveyx Security Policy (`v3.0.4`)
 
 ## Supported Versions
 

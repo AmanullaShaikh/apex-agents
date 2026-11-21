@@ -514,3 +514,14 @@ test('Red-Team #36: detects Slack Bot tokens with variable-length workspace/user
   assert.equal(res.clean, false);
   assert.ok(res.issues.some(i => i.category === 'SECRET_LEAK'));
 });
+
+test('Red-Team #37: catches String.raw SQL template literal interpolation in db.query()', () => {
+  const code = `
+import db from './db';
+export function q(id) {
+  return db.query(String.raw\`SELECT * FROM users WHERE id = \${id}\`);
+}
+`;
+  const bugs = auditCodeBugs(code, 'src/db.js');
+  assert.ok(bugs.some(b => b.category === 'SQL_INJECTION'));
+});

@@ -1,4 +1,4 @@
-# Aveyx — Contributor Covenant Code of Conduct
+# Aveyx (`v3.0.4`) — Contributor Covenant Code of Conduct
 
 ## Our Pledge
 

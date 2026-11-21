@@ -468,6 +468,12 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
             }
             if (node.type === 'TaggedTemplateExpression' && node.quasi?.expressions?.length > 0) {
               const tag = node.tag;
+              const isStringRaw =
+                tag?.type === 'MemberExpression' &&
+                tag.object?.type === 'Identifier' &&
+                tag.object.name === 'String' &&
+                tag.property?.name === 'raw';
+              if (isStringRaw) return true;
               const isSafe =
                 (tag?.type === 'Identifier' && safeSqlTaggedIdentifiers.has(tag.name)) ||
                 (tag?.type === 'MemberExpression' &&
