@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.1 Operational Instinct -->
+<!-- Aveyx v3.0.2 Operational Instinct -->
 # Instinct: Anti-Drift Scope Boundary
 
 ## Background & Problem

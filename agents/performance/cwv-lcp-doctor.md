@@ -1,5 +1,5 @@
 ---
-version: "3.0.1"
+version: "3.0.2"
 name: cwv-lcp-doctor
 division: Deep Performance
 role: Core Web Vitals & Web Performance Engineer

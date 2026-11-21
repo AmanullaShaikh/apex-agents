@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.1 Operational Instinct -->
+<!-- Aveyx v3.0.2 Operational Instinct -->
 # Minimalist Code Engineering Discipline
 
 Core engineering principle: "Make your AI agent operate with senior developer discipline. The best code is the code you never wrote."

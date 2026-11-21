@@ -1,5 +1,5 @@
 ---
-version: "3.0.1"
+version: "3.0.2"
 name: bundle-dietician
 division: Deep Performance
 role: JavaScript Bundle Dietician & Tree-Shaking Engineer

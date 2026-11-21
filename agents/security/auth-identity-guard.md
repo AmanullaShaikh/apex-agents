@@ -1,5 +1,5 @@
 ---
-version: "3.0.1"
+version: "3.0.2"
 name: auth-identity-guard
 division: Security & Red Team
 role: Authentication & Identity Management Lead

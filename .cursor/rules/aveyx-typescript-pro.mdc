@@ -3,7 +3,7 @@ description: Agent: TypeScript Pro Architect - engineering specialist from Aveyx
 globs: *
 ---
 ---
-version: "3.0.1"
+version: "3.0.2"
 name: typescript-pro
 division: Core Engineering
 role: Principal TypeScript & Type Systems Architect

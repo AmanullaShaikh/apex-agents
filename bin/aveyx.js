@@ -497,7 +497,7 @@ function printVersion() {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
     console.log(`aveyx v${pkg.version}`);
   } catch {
-    console.log('aveyx v3.0.1');
+    console.log('aveyx v3.0.2');
   }
 }
 

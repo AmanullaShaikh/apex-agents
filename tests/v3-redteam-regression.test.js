@@ -293,3 +293,56 @@ test('Red-Team #20: buildSarifReport normalizes Windows backslashes in artifactL
   const report = buildSarifReport([{ file: 'tests\\sub\\test.js', category: 'TEST', description: 'desc', severity: 'HIGH' }]);
   assert.equal(report.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri, 'tests/sub/test.js');
 });
+
+test('Red-Team #21: blocks concise arrow function return in test() (test("x", () => true))', () => {
+  const diff = [
+    'diff --git a/tests/auth.test.js b/tests/auth.test.js',
+    '--- a/tests/auth.test.js',
+    '+++ b/tests/auth.test.js',
+    '@@ -10,1 +10,1 @@',
+    "-test('auth works', async () => { assert.equal(user.admin, true); });",
+    "+test('auth works', () => true);"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'TEST_TAMPERING'));
+});
+
+test('Red-Team #22: detects spawn / execFile command injection when { shell: true } is set', () => {
+  const code = `
+import { spawn } from 'node:child_process';
+export function run(userCmd) {
+  spawn('sh -c ' + userCmd, { shell: true });
+}
+`;
+  const bugs = auditCodeBugs(code, 'src/exec.js');
+  assert.ok(bugs.some(b => b.category === 'COMMAND_INJECTION'));
+});
+
+test('Red-Team #23: zero false positives on safe parameterized SQL tagged templates (slonik & prisma.$queryRaw)', () => {
+  const safeCode = `
+import { sql } from 'slonik';
+export async function getUser(prisma, userId) {
+  const q1 = sql\`SELECT * FROM users WHERE id = \${userId}\`;
+  const q2 = await prisma.$queryRaw\`SELECT * FROM users WHERE id = \${userId}\`;
+  return { q1, q2 };
+}
+`;
+  const bugs = auditCodeBugs(safeCode, 'src/db.js');
+  assert.equal(bugs.filter(b => b.category === 'SQL_INJECTION').length, 0);
+});
+
+test('Red-Team #24: Tautological assertion regex handles 35k-char hostile input in <20ms without ReDoS', () => {
+  const longLine = '+expect(' + 'a'.repeat(35000) + ')';
+  const diff = [
+    'diff --git a/tests/perf.test.js b/tests/perf.test.js',
+    '--- a/tests/perf.test.js',
+    '+++ b/tests/perf.test.js',
+    '@@ -1,0 +1,1 @@',
+    longLine
+  ].join('\n');
+  const start = Date.now();
+  auditDiff(diff);
+  const elapsed = Date.now() - start;
+  assert.ok(elapsed < 100, `Expected <100ms, got ${elapsed}ms`);
+});

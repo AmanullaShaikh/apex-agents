@@ -96,6 +96,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
 
   const queryFnNames = new Set(['query', 'raw', '$queryRawUnsafe', '$executeRawUnsafe', 'execute', 'exec', 'runQuery', 'execSql', 'executeSql', 'rawQuery']);
   const dbClientIdentifiers = new Set(['db', 'pool', 'client', 'conn', 'connection', 'tx', 'trx', 'sql', 'prisma', 'knex', 'sequelize', 'orm']);
+  const safeSqlTaggedIdentifiers = new Set();
   const syncClassMethods = new Map();
   const varToClass = new Map();
 
@@ -174,6 +175,12 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         if (src === 'child_process' || src === 'node:child_process' || src === 'fs' || src === 'node:fs' || src === 'path' || src === 'node:path') {
           return;
         }
+        const isSafeSqlTagLib = ['slonik', 'postgres', 'pg-promise', '@vercel/postgres', 'squid'].includes(src);
+        if (isSafeSqlTagLib) {
+          for (const spec of p.node.specifiers) {
+            if (spec.local?.name) safeSqlTaggedIdentifiers.add(spec.local.name);
+          }
+        }
         const isDbSource = /db|sql|database|pg|mysql|sqlite|orm|prisma|knex|barrel|\.\//i.test(src);
         for (const spec of p.node.specifiers) {
           if (spec.type === 'ImportSpecifier') {
@@ -211,10 +218,16 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
         if (p.node.tag.type === 'MemberExpression') {
           const prop = p.node.tag.property.name || p.node.tag.property.value;
           const obj = p.node.tag.object?.name;
+          if (prop === '$queryRaw' || prop === '$executeRaw' || safeSqlTaggedIdentifiers.has(obj)) {
+            return;
+          }
           if (queryFnNames.has(prop) || dbClientIdentifiers.has(obj) || /query|raw|exec|sql/i.test(prop)) {
             isSqlTag = true;
           }
         } else if (p.node.tag.type === 'Identifier') {
+          if (safeSqlTaggedIdentifiers.has(p.node.tag.name)) {
+            return;
+          }
           if (queryFnNames.has(p.node.tag.name) || /query|raw|exec|sql/i.test(p.node.tag.name)) {
             isSqlTag = true;
           }
@@ -235,7 +248,7 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
       // 1. Command Injection & Raw SQL Injection Detection
       CallExpression(p) {
         // Detect dynamic command injection in exec / execSync (skip test files)
-        const isTestFile = /\.(test|spec)\.[a-z]+$/i.test(filePath) || filePath.startsWith('tests/') || filePath.includes('/tests/');
+        const isTestFile = /\.(test|spec)\.[a-z]+$/i.test(filePath) || filePath.startsWith('tests/') || filePath.includes('/tests/') || filePath.startsWith('tests\\') || filePath.includes('\\tests\\');
         if (
           !isTestFile &&
           ((p.node.callee.type === 'Identifier' && ['execSync', 'exec'].includes(p.node.callee.name)) ||
@@ -254,11 +267,31 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           }
           return;
         }
-        // Skip safe array-arg / file-specific process execution calls
-        if (p.node.callee.type === 'Identifier' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.name)) {
-          return;
-        }
-        if (p.node.callee.type === 'MemberExpression' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name)) {
+        // Detect shell: true in spawn / execFile / spawnSync / execFileSync; skip safe array-arg calls otherwise
+        const isSpawnOrExecFile =
+          (p.node.callee.type === 'Identifier' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.name)) ||
+          (p.node.callee.type === 'MemberExpression' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name));
+        if (!isTestFile && isSpawnOrExecFile) {
+          const hasShellTrue = p.node.arguments.some(arg =>
+            arg && arg.type === 'ObjectExpression' &&
+            arg.properties?.some(pr => (pr.key?.name === 'shell' || pr.key?.value === 'shell') && pr.value?.type === 'BooleanLiteral' && pr.value.value === true)
+          );
+          if (hasShellTrue) {
+            const cmdArg = p.node.arguments[0];
+            const argsArg = p.node.arguments[1];
+            const isDyn = (n) => n && (n.type === 'BinaryExpression' || (n.type === 'TemplateLiteral' && n.expressions.length > 0) || n.type === 'Identifier');
+            const hasDynCmd = isDyn(cmdArg) || (argsArg?.type === 'ArrayExpression' && argsArg.elements?.some(isDyn));
+            if (hasDynCmd) {
+              issues.push({
+                file: filePath,
+                line: p.node.loc?.start.line || 1,
+                severity: 'CRITICAL',
+                category: 'COMMAND_INJECTION',
+                type: 'COMMAND_INJECTION',
+                message: 'Unsafe dynamic command execution with { shell: true }. Remove shell: true and pass static executable + argument array.'
+              });
+            }
+          }
           return;
         }
 
@@ -764,7 +797,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
       description: i.message,
       snippet: ''
     }));
-    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.1'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.2'), null, 2));
     process.exit(report.passed ? 0 : 1);
   }
 

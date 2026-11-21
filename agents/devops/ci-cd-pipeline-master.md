@@ -1,5 +1,5 @@
 ---
-version: "3.0.1"
+version: "3.0.2"
 name: ci-cd-pipeline-master
 division: DevOps & Cloud Infrastructure
 role: Principal CI/CD & GitHub Actions Automation Architect

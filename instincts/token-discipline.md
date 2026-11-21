@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.1 Operational Instinct -->
+<!-- Aveyx v3.0.2 Operational Instinct -->
 # Token Discipline & Concise Technical Prose
 
 Protocol for keeping conversational explanations terse and factual during multi-turn coding sessions.

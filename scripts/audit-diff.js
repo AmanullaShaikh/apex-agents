@@ -65,7 +65,7 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
   { name: 'Unhandled Asynchronous Timer or Microtask in Test Execution', regex: /\b(setTimeout|setImmediate|queueMicrotask|process\.nextTick)\s*\(/ },
   { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(?:false|0|null|undefined|!\s*(?:true|1))\s*\)\s*(?:\{|\b(?:assert|expect|should|return|throw)\b)/ },
-  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^)]+?)\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^']*'|"[^"]*")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,]+?)\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^)]+\)\.toBe\s*\(\s*['"][^'"]+['"]\s*\)|\bexpect\s*\(\s*\[[^\]]*\]\[0\]\s*\)\.toBe\s*\(/i }
+  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^()\r\n]{1,120})\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^'\r\n]{0,80}'|"[^"\r\n]{0,80}")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,\r\n]{1,120})\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^()\r\n]{1,120}\)\.toBe\s*\(\s*['"][^'"\r\n]{1,40}['"]\s*\)|\bexpect\s*\(\s*\[[^\]\r\n]{0,120}\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
 
 function hasConstantFalseIf(text) {
@@ -314,14 +314,15 @@ function astAuditTestSnippet(file, code) {
             return;
           }
         }
-        if (
-          init?.type === 'AwaitExpression' &&
-          ((init.argument?.type === 'ImportExpression' && (init.argument.source?.value === 'process' || init.argument.source?.value === 'node:process')) ||
-           (init.argument?.type === 'CallExpression' && init.argument.callee?.type === 'Import' && (init.argument.arguments[0]?.value === 'process' || init.argument.arguments[0]?.value === 'node:process')))
-        ) {
-          if (p.node.id?.type === 'Identifier') {
-            processAliases.add(p.node.id.name);
-            return;
+        if (init?.type === 'AwaitExpression') {
+          const isImportExpr = init.argument?.type === 'ImportExpression';
+          const isCallImport = init.argument?.type === 'CallExpression' && init.argument.callee?.type === 'Import';
+          if (isImportExpr || isCallImport) {
+            const src = isImportExpr ? init.argument.source?.value : init.argument.arguments[0]?.value;
+            if ((src === 'process' || src === 'node:process') && p.node.id?.type === 'Identifier') {
+              processAliases.add(p.node.id.name);
+              return;
+            }
           }
         }
         const isProc = (init?.type === 'Identifier' && init.name === 'process') ||
@@ -407,6 +408,19 @@ function astAuditTestSnippet(file, code) {
                 snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
               });
             }
+          } else if (
+            cb &&
+            cb.body &&
+            ['BooleanLiteral', 'NumericLiteral', 'StringLiteral', 'NullLiteral', 'Identifier', 'ObjectExpression', 'ArrayExpression'].includes(cb.body.type)
+          ) {
+            astIssues.push({
+              severity: 'CRITICAL',
+              category: 'TEST_TAMPERING',
+              file,
+              line: cb.body.loc?.start?.line || p.node.loc?.start?.line || 1,
+              description: `AI Agent Attempted Test Weakening: Concise arrow return in ${testFnName}() (AST)`,
+              snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
+            });
           }
         }
       },
@@ -444,7 +458,7 @@ function astAuditTestSnippet(file, code) {
   return astIssues;
 }
 
-export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.1') {
+export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.2') {
   const rulesMap = new Map();
   const results = [];
 
@@ -846,7 +860,7 @@ export function runDiffAuditCli(options = {}) {
   const result = auditDiff(diff);
 
   if (options.format === 'sarif') {
-    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.1'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.2'), null, 2));
     const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
     if (!result.clean && (options.strict || hasCritical)) {
       process.exit(1);
