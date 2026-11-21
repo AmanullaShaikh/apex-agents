@@ -408,3 +408,59 @@ test('Red-Team #29: blocks aliased test.skip (const s = test.skip) and computed 
   assert.equal(res.clean, false);
   assert.ok(res.issues.filter(i => i.category === 'TEST_TAMPERING').length >= 2);
 });
+
+test('Red-Team #30: allows legitimate concise arrow assertions (assert.equal & expect().toBe)', () => {
+  const diff = [
+    'diff --git a/tests/valid.test.js b/tests/valid.test.js',
+    '--- a/tests/valid.test.js',
+    '+++ b/tests/valid.test.js',
+    '@@ -1,0 +1,2 @@',
+    "+test('x', () => assert.equal(1, 1));",
+    "+test('y', () => expect(200).toBe(200));"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, true);
+});
+
+test('Red-Team #31: blocks destructured skip, indirect .call/.apply, Reflect.apply, and non-asserting block body', () => {
+  const payloads = [
+    "+const { skip: mySkip } = it; mySkip('x', () => { assert.equal(1, 1); });",
+    "+test.skip.call(test, 'x', () => { assert.equal(1, 1); });",
+    "+Reflect.apply(test.skip, null, ['x', () => {}]);",
+    "+test('fake', () => { const x = 1; noop(); });"
+  ];
+  for (const line of payloads) {
+    const diff = [
+      'diff --git a/tests/cheat.test.js b/tests/cheat.test.js',
+      '--- a/tests/cheat.test.js',
+      '+++ b/tests/cheat.test.js',
+      '@@ -1,0 +1,1 @@',
+      line
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected payload to be blocked: ${line}`);
+  }
+});
+
+test('Red-Team #32: zero false positive when passing Slonik sql`...` into pool.query()', () => {
+  const safeCode = `
+import { sql } from 'slonik';
+export async function getUser(pool, id) {
+  return pool.query(sql\`SELECT * FROM users WHERE id = \${id}\`);
+}
+`;
+  const bugs = auditCodeBugs(safeCode, 'src/db.js');
+  assert.equal(bugs.filter(b => b.category === 'SQL_INJECTION').length, 0);
+});
+
+test('Red-Team #33: catches aliased db.query assignment (const q = db.query; q(...))', () => {
+  const code = `
+import db from './db';
+export function find(id) {
+  const q = db.query;
+  return q('SELECT * FROM users WHERE id = ' + id);
+}
+`;
+  const bugs = auditCodeBugs(code, 'src/db.js');
+  assert.ok(bugs.some(b => b.category === 'SQL_INJECTION'));
+});

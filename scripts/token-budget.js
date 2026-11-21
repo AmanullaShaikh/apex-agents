@@ -37,9 +37,26 @@ const TOXIC_PATTERNS = [
   { name: 'Binary / Media', test: (f) => /\.(png|jpg|jpeg|gif|webp|ico|mp4|mov|wasm|pdf)$/i.test(f) }
 ];
 
-function estimateTokens(text) {
-  // ~3.8 chars per token is standard for code/English text in modern BPE tokenizers
-  return Math.ceil(text.length / 3.8);
+export function estimateTokens(text) {
+  if (!text) return 0;
+  let asciiChars = 0;
+  let nonAsciiChars = 0;
+  let punctuation = 0;
+  let numbers = 0;
+  for (let i = 0; i < text.length; i++) {
+    const cp = text.charCodeAt(i);
+    if (cp > 127) {
+      nonAsciiChars++;
+    } else if ((cp >= 65 && cp <= 90) || (cp >= 97 && cp <= 122) || cp === 95) {
+      asciiChars++;
+    } else if (cp >= 48 && cp <= 57) {
+      numbers++;
+    } else if (cp > 32) {
+      punctuation++;
+    }
+  }
+  const estimated = (asciiChars / 3.7) + (numbers / 2.5) + (punctuation / 1.5) + (nonAsciiChars / 1.2);
+  return Math.max(1, Math.ceil(estimated));
 }
 
 function loadIgnoreRules(rootDir) {

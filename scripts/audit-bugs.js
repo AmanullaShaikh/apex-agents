@@ -203,6 +203,13 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           if (init && init.type === 'NewExpression' && init.callee?.name === 'Proxy') {
             dbClientIdentifiers.add(p.node.id.name);
           }
+          if (init && init.type === 'MemberExpression') {
+            const prop = init.property?.name || init.property?.value;
+            const obj = init.object?.name;
+            if (queryFnNames.has(prop) || (obj && dbClientIdentifiers.has(obj) && /query|raw|exec|run/i.test(prop))) {
+              queryFnNames.add(p.node.id.name);
+            }
+          }
         } else if (p.node.id?.type === 'ObjectPattern' && p.node.init?.type === 'Identifier' && dbClientIdentifiers.has(p.node.init.name)) {
           for (const prop of p.node.id.properties || []) {
             if (prop.type !== 'ObjectProperty') continue;
@@ -455,9 +462,18 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
               return true;
             }
 
-            // 2. Direct template literal or tagged template with interpolation (${...})
-            if ((node.type === 'TemplateLiteral' || node.type === 'TaggedTemplateExpression') && (node.expressions?.length > 0 || node.quasi?.expressions?.length > 0)) {
+            // 2. Direct template literal or unsafe tagged template with interpolation (${...})
+            if (node.type === 'TemplateLiteral' && node.expressions?.length > 0) {
               return true;
+            }
+            if (node.type === 'TaggedTemplateExpression' && node.quasi?.expressions?.length > 0) {
+              const tag = node.tag;
+              const isSafe =
+                (tag?.type === 'Identifier' && safeSqlTaggedIdentifiers.has(tag.name)) ||
+                (tag?.type === 'MemberExpression' &&
+                  (['$queryRaw', '$executeRaw'].includes(tag.property?.name) || safeSqlTaggedIdentifiers.has(tag.property?.name)));
+              if (!isSafe) return true;
+              return false;
             }
 
             // 2b. Conditional (ternary) & logical expressions
