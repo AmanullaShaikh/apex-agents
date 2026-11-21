@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: secret-leak-sentinel
 division: Security & Red Team
 role: Secret Leak Sentinel & Credential Protection Lead

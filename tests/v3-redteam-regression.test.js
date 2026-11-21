@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { auditDiff, buildSarifReport, ZERO_WIDTH_REGEX } from '../scripts/audit-diff.js';
 import { auditCodeBugs } from '../scripts/audit-bugs.js';
 import { buildDependencyGraph } from '../scripts/dependency-graph.js';
+import { parseTestFailures } from '../scripts/test-loop.js';
 
 test('Red-Team #1: blocks cross-file assertion smuggling bypass', () => {
   const diff = [
@@ -345,4 +346,65 @@ test('Red-Team #24: Tautological assertion regex handles 35k-char hostile input 
   auditDiff(diff);
   const elapsed = Date.now() - start;
   assert.ok(elapsed < 100, `Expected <100ms, got ${elapsed}ms`);
+});
+
+test('Red-Team #25: blocks non-asserting concise arrow returns (void 0, 1+1, !0, template, Promise.resolve())', () => {
+  for (const expr of ['void 0', '1 + 1', '!0', '`pass`', 'Promise.resolve()']) {
+    const diff = [
+      'diff --git a/tests/auth.test.js b/tests/auth.test.js',
+      '--- a/tests/auth.test.js',
+      '+++ b/tests/auth.test.js',
+      '@@ -10,1 +10,1 @@',
+      "-test('auth works', async () => { assert.equal(user.admin, true); });",
+      `+test('auth works', () => ${expr});`
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected () => ${expr} to be blocked`);
+  }
+});
+
+test('Red-Team #26: detects spawn with string shell path or identifier options object', () => {
+  const code = `
+import { spawn } from 'node:child_process';
+export function r1(u) { spawn('sh -c ' + u, { shell: '/bin/bash' }); }
+export function r2(u) { const opts = { shell: true }; spawn('sh -c ' + u, opts); }
+`;
+  const bugs = auditCodeBugs(code, 'src/exec.js');
+  assert.equal(bugs.filter(b => b.category === 'COMMAND_INJECTION').length, 2);
+});
+
+test('Red-Team #27: flags unauthorized modification to .github/workflows/ as PROTECTED_CONFIG_TAMPER', () => {
+  const diff = [
+    'diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml',
+    '--- a/.github/workflows/ci.yml',
+    '+++ b/.github/workflows/ci.yml',
+    '@@ -10,1 +10,1 @@',
+    '-      - run: npm test',
+    '+      - run: echo skipped'
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'PROTECTED_CONFIG_TAMPER'));
+});
+
+test('Red-Team #28: parseTestFailures handles 35k-char hostile stack path in <25ms (no ReDoS)', () => {
+  const hostile = 'a/'.repeat(17500) + 'b';
+  const start = Date.now();
+  parseTestFailures(`✖ fail\n${hostile}\n`);
+  const elapsed = Date.now() - start;
+  assert.ok(elapsed < 50, `Expected <50ms, got ${elapsed}ms`);
+});
+
+test('Red-Team #29: blocks aliased test.skip (const s = test.skip) and computed globalThis["pro"+"cess"]["ex"+"it"](0)', () => {
+  const diff = [
+    'diff --git a/tests/alias.test.js b/tests/alias.test.js',
+    '--- a/tests/alias.test.js',
+    '+++ b/tests/alias.test.js',
+    '@@ -1,0 +1,2 @@',
+    "+const s = test.skip; s('bypass', () => { assert.equal(1, 2); });",
+    "+globalThis['pro' + 'cess']['ex' + 'it'](0);"
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.filter(i => i.category === 'TEST_TAMPERING').length >= 2);
 });

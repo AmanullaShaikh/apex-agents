@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: prompt-injection-shield
 division: AI & Agentic Systems
 role: Prompt Injection Shield & AI Red Team Specialist

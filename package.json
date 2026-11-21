@@ -1,6 +1,6 @@
 {
   "name": "aveyx",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Developer Tooling & Babel AST Context Compactor Harness: PageRank & Caller Graph Compactor, Git-Native Checkpoint & Rollback, Semantic Symbol Tracer, Static AST Bug Hunter, Token Volume & AST Compaction Auditor, Deterministic Test-Loop Runner, Codebase Dependency Graph, Anti-Test-Tampering Diff Auditor, Persistent Memory & Handoff, Git Worktree Sandboxes, and Native MCP Server for Claude Code, Cursor, Windsurf, Copilot, and Antigravity",
   "main": "bin/aveyx.js",
   "bin": {

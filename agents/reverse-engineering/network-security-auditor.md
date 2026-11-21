@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: network-security-auditor
 division: Reverse Engineering & Protocol Inspection
 role: Network Protocol & Traffic Security Auditor

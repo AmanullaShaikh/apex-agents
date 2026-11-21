@@ -725,7 +725,7 @@ describe('Diff Security & Anti-Cheat Audit', () => {
     assert.ok(protRes.issues.some(i => i.category === 'PROTECTED_CONFIG_TAMPER'));
     assert.ok(protRes.stats.tampering >= 1);
 
-    const sarif = buildSarifReport(protRes.issues, 'aveyx-review', '3.0.2');
+    const sarif = buildSarifReport(protRes.issues, 'aveyx-review', '3.0.3');
     assert.strictEqual(sarif.version, '2.1.0');
     assert.ok(Array.isArray(sarif.runs) && sarif.runs.length === 1);
     assert.ok(sarif.runs[0].results.length >= 2);

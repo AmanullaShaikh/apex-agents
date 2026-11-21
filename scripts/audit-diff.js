@@ -269,7 +269,19 @@ function astAuditTestSnippet(file, code) {
 
   const processAliases = new Set();
   const processExitFuncs = new Set();
+  const skippedAliases = new Set();
   const isAssertionName = (name) => /^(expect|assert|should)$/.test(name);
+  const evalStaticStr = (n) => {
+    if (!n) return null;
+    if (n.type === 'StringLiteral') return n.value;
+    if (n.type === 'TemplateLiteral' && n.expressions.length === 0) return n.quasis.map(q => q.value.cooked).join('');
+    if (n.type === 'BinaryExpression' && n.operator === '+') {
+      const l = evalStaticStr(n.left);
+      const r = evalStaticStr(n.right);
+      if (l !== null && r !== null) return l + r;
+    }
+    return null;
+  };
 
   try {
     traverse(ast, {
@@ -303,6 +315,16 @@ function astAuditTestSnippet(file, code) {
       },
       VariableDeclarator(p) {
         const init = p.node.init;
+        if (
+          init?.type === 'MemberExpression' &&
+          init.object?.type === 'Identifier' &&
+          ['it', 'test', 'describe'].includes(init.object.name) &&
+          ['skip', 'only', 'todo', 'skipIf', 'runIf'].includes(init.property?.name || evalStaticStr(init.property)) &&
+          p.node.id?.type === 'Identifier'
+        ) {
+          skippedAliases.add(p.node.id.name);
+          return;
+        }
         if (
           init?.type === 'MemberExpression' &&
           ((init.object?.type === 'Identifier' && init.object.name === 'process') ||
@@ -342,6 +364,42 @@ function astAuditTestSnippet(file, code) {
       },
       CallExpression(p) {
         const callee = p.node.callee;
+        // 0a. Aliased skip/only call: const s = test.skip; s(...);
+        if (callee?.type === 'Identifier' && skippedAliases.has(callee.name)) {
+          astIssues.push({
+            severity: 'CRITICAL',
+            category: 'TEST_TAMPERING',
+            file,
+            line: p.node.loc?.start?.line || 1,
+            description: `AI Agent Attempted Test Weakening: Aliased Test Skip/Only ${callee.name}() (AST)`,
+            snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${callee.name}()`
+          });
+          return;
+        }
+        // 0b. Computed string-concat process exit: globalThis['pro'+'cess']['ex'+'it'](0)
+        if (callee?.type === 'MemberExpression' && callee.computed) {
+          const propStr = evalStaticStr(callee.property);
+          if (['exit', 'abort', 'kill', 'reallyExit'].includes(propStr)) {
+            const obj = callee.object;
+            const isComputedGlobalProc =
+              (obj?.type === 'Identifier' && (obj.name === 'process' || processAliases.has(obj.name))) ||
+              (obj?.type === 'MemberExpression' &&
+               obj.object?.type === 'Identifier' &&
+               ['globalThis', 'global', 'window'].includes(obj.object.name) &&
+               evalStaticStr(obj.property) === 'process');
+            if (isComputedGlobalProc) {
+              astIssues.push({
+                severity: 'CRITICAL',
+                category: 'TEST_TAMPERING',
+                file,
+                line: p.node.loc?.start?.line || 1,
+                description: `AI Agent Attempted Test Weakening: Obfuscated Process ${propStr}() Injection (AST)`,
+                snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `process.${propStr}()`
+              });
+              return;
+            }
+          }
+        }
         // 0. Direct destructured call: const { abort } = process; abort();
         if (callee?.type === 'Identifier' && processExitFuncs.has(callee.name)) {
           astIssues.push({
@@ -408,19 +466,20 @@ function astAuditTestSnippet(file, code) {
                 snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
               });
             }
-          } else if (
-            cb &&
-            cb.body &&
-            ['BooleanLiteral', 'NumericLiteral', 'StringLiteral', 'NullLiteral', 'Identifier', 'ObjectExpression', 'ArrayExpression'].includes(cb.body.type)
-          ) {
-            astIssues.push({
-              severity: 'CRITICAL',
-              category: 'TEST_TAMPERING',
-              file,
-              line: cb.body.loc?.start?.line || p.node.loc?.start?.line || 1,
-              description: `AI Agent Attempted Test Weakening: Concise arrow return in ${testFnName}() (AST)`,
-              snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
-            });
+          } else if (cb && cb.body && cb.body.type !== 'BlockStatement') {
+            const isAssertionCall = (n) =>
+              n?.type === 'CallExpression' &&
+              /\b(?:expect|assert|should)\b/i.test(n.callee?.name || n.callee?.property?.name || n.callee?.object?.name || '');
+            if (!isAssertionCall(cb.body)) {
+              astIssues.push({
+                severity: 'CRITICAL',
+                category: 'TEST_TAMPERING',
+                file,
+                line: cb.body.loc?.start?.line || p.node.loc?.start?.line || 1,
+                description: `AI Agent Attempted Test Weakening: Non-asserting concise arrow return in ${testFnName}() (AST)`,
+                snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || `${testFnName}(...)`
+              });
+            }
           }
         }
       },
@@ -458,7 +517,7 @@ function astAuditTestSnippet(file, code) {
   return astIssues;
 }
 
-export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.2') {
+export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.3') {
   const rulesMap = new Map();
   const results = [];
 
@@ -602,6 +661,7 @@ export function auditDiff(rawDiff) {
 
       if (
         currentFile.startsWith('.git/hooks/') ||
+        currentFile.startsWith('.github/workflows/') ||
         currentFile === '.claude/settings.json' ||
         currentFile === '.claude/settings.local.json'
       ) {
@@ -819,7 +879,10 @@ export function auditDiff(rawDiff) {
   for (const [tFile, snippetLines] of testAddedSnippets.entries()) {
     const astFindings = astAuditTestSnippet(tFile, snippetLines.join('\n'));
     for (const af of astFindings) {
-      issues.push(af);
+      const isDuplicate = issues.some(i => i.file === af.file && i.category === af.category && i.snippet && af.snippet && (i.snippet.includes(af.snippet) || af.snippet.includes(i.snippet)));
+      if (!isDuplicate) {
+        issues.push(af);
+      }
     }
   }
 
@@ -860,7 +923,7 @@ export function runDiffAuditCli(options = {}) {
   const result = auditDiff(diff);
 
   if (options.format === 'sarif') {
-    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.2'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.3'), null, 2));
     const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
     if (!result.clean && (options.strict || hasCritical)) {
       process.exit(1);

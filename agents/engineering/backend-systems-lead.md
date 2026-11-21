@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: backend-systems-lead
 division: Core Engineering
 role: Principal Distributed Backend & Systems Architect

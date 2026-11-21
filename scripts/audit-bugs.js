@@ -272,10 +272,25 @@ export function auditCodeBugs(code, filePath = 'unknown.ts') {
           (p.node.callee.type === 'Identifier' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.name)) ||
           (p.node.callee.type === 'MemberExpression' && ['execFileSync', 'spawnSync', 'spawn', 'execFile'].includes(p.node.callee.property?.name));
         if (!isTestFile && isSpawnOrExecFile) {
-          const hasShellTrue = p.node.arguments.some(arg =>
-            arg && arg.type === 'ObjectExpression' &&
-            arg.properties?.some(pr => (pr.key?.name === 'shell' || pr.key?.value === 'shell') && pr.value?.type === 'BooleanLiteral' && pr.value.value === true)
-          );
+          const isTruthyShellObj = (objNode) =>
+            objNode?.type === 'ObjectExpression' &&
+            objNode.properties?.some(pr => {
+              const k = pr.key?.name || pr.key?.value;
+              if (k !== 'shell') return false;
+              if (pr.value?.type === 'BooleanLiteral' && pr.value.value === true) return true;
+              if (pr.value?.type === 'StringLiteral' && pr.value.value.length > 0) return true;
+              if (pr.value?.type === 'UnaryExpression' && pr.value.operator === '!' && pr.value.argument?.value === 0) return true;
+              return false;
+            });
+          const hasShellTrue = p.node.arguments.some(arg => {
+            if (!arg) return false;
+            if (isTruthyShellObj(arg)) return true;
+            if (arg.type === 'Identifier') {
+              const init = p.scope?.getBinding(arg.name)?.path?.node?.init;
+              if (isTruthyShellObj(init)) return true;
+            }
+            return false;
+          });
           if (hasShellTrue) {
             const cmdArg = p.node.arguments[0];
             const argsArg = p.node.arguments[1];
@@ -797,7 +812,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
       description: i.message,
       snippet: ''
     }));
-    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.2'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.3'), null, 2));
     process.exit(report.passed ? 0 : 1);
   }
 

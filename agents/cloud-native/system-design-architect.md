@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: system-design-architect
 division: Cloud-Native & Serverless
 role: Principal Distributed Systems & Scale Architect

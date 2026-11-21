@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.2 Operational Instinct -->
+<!-- Aveyx v3.0.3 Operational Instinct -->
 # Instinct: Context Retention & State Compaction
 
 ## Principle

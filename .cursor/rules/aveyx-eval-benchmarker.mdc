@@ -3,7 +3,7 @@ description: Agent: LLM Evaluation Benchmarker - ai-systems specialist from Avey
 globs: *
 ---
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: eval-benchmarker
 division: AI & Agentic Systems
 role: Principal LLM Evaluation & Alignment Specialist

@@ -112,7 +112,7 @@ export function parseTestFailures(output) {
     }
 
     // Detect file location (preserves Windows drive letters like C:\... and file:///C:/...)
-    const fileMatch = line.match(/(?:at\s+|in\s+)?(?:file:\/\/\/)?([a-zA-Z]:[\\/][^:)\s]+\.(?:test|spec)\.[a-zA-Z0-9]+|[a-zA-Z0-9_.\-\\/]+\.(?:test|spec)\.[a-zA-Z0-9]+)(?::(\d+))?/i);
+    const fileMatch = line.length > 2048 ? null : line.match(/(?:at\s+|in\s+)?(?:file:\/\/\/)?([a-zA-Z]:[\\/][^\s:)]+?\.(?:test|spec)\.[a-zA-Z0-9]+|[^\s:()\\/]+(?:[\\/][^\s:()\\/]+)*?\.(?:test|spec)\.[a-zA-Z0-9]+)(?::(\d+))?/i);
     if (fileMatch && currentFailure && !currentFailure.file) {
       currentFailure.file = fileMatch[1];
       if (fileMatch[2]) currentFailure.line = parseInt(fileMatch[2], 10);

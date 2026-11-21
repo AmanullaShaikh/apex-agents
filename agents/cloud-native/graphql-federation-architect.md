@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: graphql-federation-architect
 division: Cloud-Native & Serverless
 role: Principal GraphQL Federation & API Subgraph Architect

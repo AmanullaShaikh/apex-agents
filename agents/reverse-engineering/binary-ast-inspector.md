@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: binary-ast-inspector
 division: Reverse Engineering & Protocol Inspection
 role: Binary & Source Code AST Reverse Engineer

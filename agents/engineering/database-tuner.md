@@ -1,5 +1,5 @@
 ---
-version: "3.0.2"
+version: "3.0.3"
 name: database-tuner
 division: Core Engineering
 role: Principal Database Administrator & Performance Tuner
