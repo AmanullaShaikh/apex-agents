@@ -28,3 +28,4 @@ Please **do NOT** open public GitHub issues for security vulnerabilities (such a
 - **Offline-First:** Aveyx never transmits source code, diffs, or credentials over the network and never requires cloud API keys.
 - **Workspace Containment:** MCP tools (`aveyx_trace_symbol`, `aveyx_impact_radius`) and CLI analyzers enforce workspace boundary checks against path traversal.
 - **Untrusted Code:** Aveyx performs static AST parsing (`@babel/parser`) without executing target repository code (`test-loop` and `install-hooks` execute user-configured commands/hooks locally).
+<!-- Aveyx v3.0.4 synced -->

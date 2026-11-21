@@ -39,6 +39,7 @@
     "mcp": "node ./bin/mcp-server.js"
   },
   "keywords": [
+    "aveyx",
     "agents",
     "claude-code",
     "cursor",

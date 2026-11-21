@@ -208,3 +208,4 @@ Exposes **10 AST/Git/Security tools** and **44 native MCP prompts** (`prompts/li
 ## License
 
 Distributed under the **MIT License**. Authored by **Amanulla Shaikh**.
+<!-- Aveyx v3.0.4 -->

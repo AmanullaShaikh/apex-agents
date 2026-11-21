@@ -22,3 +22,4 @@ const child = spawn(process.execPath, ['--test', ...testFiles], {
 child.on('exit', (code) => {
   process.exit(code || 0);
 });
+// Aveyx v3.0.4 test runner

@@ -15,3 +15,4 @@ Every code output must be:
 - 100% syntactically valid.
 - Complete with all necessary imports, TypeScript types, and export declarations.
 - Verified against the project's actual dependencies in `package.json`.
+<!-- Aveyx v3.0.4 synced -->

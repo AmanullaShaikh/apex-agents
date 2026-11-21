@@ -607,3 +607,4 @@ switch (command) {
     }
     break;
 }
+// Aveyx v3.0.4 CLI entrypoint
