@@ -1,5 +1,5 @@
 ---
-version: "3.0.3"
+version: "3.0.4"
 name: rag-pipeline-architect
 division: AI & Agentic Systems
 role: Principal Retrieval-Augmented Generation (RAG) Architect

@@ -1,5 +1,5 @@
 ---
-version: "3.0.3"
+version: "3.0.4"
 name: binary-decompiler
 division: Reverse Engineering & Protocol Inspection
 role: Principal Native Binary & Protocol Decompiler

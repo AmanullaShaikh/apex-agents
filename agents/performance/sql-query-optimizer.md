@@ -1,5 +1,5 @@
 ---
-version: "3.0.3"
+version: "3.0.4"
 name: sql-query-optimizer
 division: Deep Performance
 role: SQL Query & Relational Performance Specialist

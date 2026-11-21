@@ -30,7 +30,8 @@ function safeRealpath(p) {
 const SELF_EXCLUDED_PATHS = new Set([
   safeRealpath(path.join(ROOT_DIR, 'scripts', 'scan-secrets.js')),
   safeRealpath(path.join(ROOT_DIR, 'scripts', 'audit-diff.js')),
-  safeRealpath(path.join(ROOT_DIR, 'tests', 'diff-audit.test.js'))
+  safeRealpath(path.join(ROOT_DIR, 'tests', 'diff-audit.test.js')),
+  safeRealpath(path.join(ROOT_DIR, 'tests', 'v3-redteam-regression.test.js'))
 ]);
 
 function scanFile(fullPath, fileName, findings) {

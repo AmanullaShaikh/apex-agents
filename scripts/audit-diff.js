@@ -32,7 +32,7 @@ export const SECRET_PATTERNS = [
   { name: 'GitHub Fine-Grained Personal Access Token', regex: /\bgithub_pat_[0-9a-zA-Z_]{82}\b/ },
   { name: 'Google Cloud / Maps API Key', regex: /\bAIza[0-9A-Za-z\-_]{35}\b/ },
   { name: 'JSON Web Token (JWT)', regex: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
-  { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/ },
+  { name: 'Slack Bot Token', regex: /xoxb-[0-9]{9,13}-[0-9]{9,13}-[0-9a-zA-Z]{16,}/ },
   { name: 'Private Key Header', regex: /-----BEGIN (?:(?:RSA|OPENSSH|EC|DSA|ENCRYPTED|PGP)\s+)?PRIVATE KEY(?:\s+BLOCK)?-----/ },
   { name: 'Concatenated / Split Secret', regex: /(['"])(sk_live_|sk-proj-|sk-ant-api03-|AKIA|ASIA|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|AIza)\1\s*\+\s*(['"])[0-9a-zA-Z-_]{8,}\3/ },
   { name: 'Hardcoded Password Assignment', regex: /\b(password|passwd|api_secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i }
@@ -65,7 +65,7 @@ const TEST_TAMPERING_PATTERNS = [
   { name: 'Test Matcher Hijacking (expect.extend)', regex: /\bexpect\s*\.\s*extend\s*\(/ },
   { name: 'Unhandled Asynchronous Timer or Microtask in Test Execution', regex: /\b(setTimeout|setImmediate|queueMicrotask|process\.nextTick)\s*\(/ },
   { name: 'Dead Branch Conditional Assertion Wrap', regex: /\bif\s*\(\s*(?:false|0|null|undefined|!\s*(?:true|1))\s*\)\s*(?:\{|\b(?:assert|expect|should|return|throw)\b)/ },
-  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*(?!\d+\s*\))([^()\r\n]{1,120})\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^'\r\n]{0,80}'|"[^"\r\n]{0,80}")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(strictEqual|equal|deepStrictEqual)\s*\(\s*([^,\r\n]{1,120})\s*,\s*\2\s*\)|\bassert(\.ok)?\s*\(\s*true\s*\)|\bexpect\s*\(\s*typeof\s+[^()\r\n]{1,120}\)\.toBe\s*\(\s*['"][^'"\r\n]{1,40}['"]\s*\)|\bexpect\s*\(\s*\[[^\]\r\n]{0,120}\]\[0\]\s*\)\.toBe\s*\(/i }
+  { name: 'Tautological Assertion Cheat', regex: /\bexpect\s*\(\s*([^()\r\n]{1,120})\s*\)\s*\.\s*(toBe|toEqual|toStrictEqual)\s*\(\s*\1\s*\)|\bexpect\s*\(\s*(true|false|1|0|'[^'\r\n]{0,80}'|"[^"\r\n]{0,80}")\s*\)\s*\.\s*(toBeTruthy|toBeFalsy|toBeDefined)\s*\(\s*\)|\bassert\.(?:strictEqual|equal|deepStrictEqual)\s*\(\s*([^,\r\n]{1,120})\s*,\s*\5\s*\)|\bassert(\.ok)?\s*\(\s*(?:true|1)\s*\)|\bexpect\s*\(\s*typeof\s+[^()\r\n]{1,120}\)\.toBe\s*\(\s*['"][^'"\r\n]{1,40}['"]\s*\)|\bexpect\s*\(\s*\[[^\]\r\n]{0,120}\]\[0\]\s*\)\.toBe\s*\(/i }
 ];
 
 function hasConstantFalseIf(text) {
@@ -325,6 +325,33 @@ function astAuditTestSnippet(file, code) {
           skippedAliases.add(p.node.id.name);
           return;
         }
+        if (p.node.id?.type === 'ArrayPattern' && init?.type === 'ArrayExpression') {
+          (init.elements || []).forEach((elem, idx) => {
+            if (
+              elem?.type === 'MemberExpression' &&
+              elem.object?.type === 'Identifier' &&
+              ['it', 'test', 'describe'].includes(elem.object.name) &&
+              ['skip', 'only', 'todo', 'skipIf', 'runIf'].includes(elem.property?.name || evalStaticStr(elem.property))
+            ) {
+              const targetId = p.node.id.elements?.[idx];
+              if (targetId?.type === 'Identifier') skippedAliases.add(targetId.name);
+            }
+          });
+          return;
+        }
+        if (
+          p.node.id?.type === 'Identifier' &&
+          init?.type === 'CallExpression' &&
+          init.callee?.type === 'MemberExpression' &&
+          init.callee.object?.name === 'Reflect' &&
+          init.callee.property?.name === 'get' &&
+          init.arguments?.[0]?.type === 'Identifier' &&
+          ['it', 'test', 'describe'].includes(init.arguments[0].name) &&
+          ['skip', 'only', 'todo', 'skipIf', 'runIf'].includes(evalStaticStr(init.arguments[1]))
+        ) {
+          skippedAliases.add(p.node.id.name);
+          return;
+        }
         if (
           p.node.id?.type === 'ObjectPattern' &&
           init?.type === 'Identifier' &&
@@ -351,15 +378,15 @@ function astAuditTestSnippet(file, code) {
             return;
           }
         }
-        if (init?.type === 'AwaitExpression') {
-          const isImportExpr = init.argument?.type === 'ImportExpression';
-          const isCallImport = init.argument?.type === 'CallExpression' && init.argument.callee?.type === 'Import';
-          if (isImportExpr || isCallImport) {
-            const src = isImportExpr ? init.argument.source?.value : init.argument.arguments[0]?.value;
-            if ((src === 'process' || src === 'node:process') && p.node.id?.type === 'Identifier') {
-              processAliases.add(p.node.id.name);
-              return;
-            }
+        const isImportExpr =
+          (init?.type === 'AwaitExpression' &&
+           ((init.argument?.type === 'CallExpression' && init.argument.callee?.type === 'Import') ||
+            init.argument?.type === 'ImportExpression'));
+        if (isImportExpr) {
+          const src = init.argument.source?.value || init.argument.arguments?.[0]?.value;
+          if ((src === 'process' || src === 'node:process') && p.node.id?.type === 'Identifier') {
+            processAliases.add(p.node.id.name);
+            return;
           }
         }
         const isProc = (init?.type === 'Identifier' && init.name === 'process') ||
@@ -380,7 +407,7 @@ function astAuditTestSnippet(file, code) {
       CallExpression(p) {
         const callee = p.node.callee;
         // 0a-indirect. Indirect invocation: test.skip.call(...) / Reflect.apply(test.skip, ...)
-        if (callee?.type === 'MemberExpression' && ['call', 'apply'].includes(callee.property?.name)) {
+        if (callee?.type === 'MemberExpression' && ['call', 'apply', 'bind'].includes(callee.property?.name)) {
           const obj = callee.object;
           if (
             (obj?.type === 'MemberExpression' && ['skip', 'only', 'todo'].includes(obj.property?.name)) ||
@@ -396,6 +423,25 @@ function astAuditTestSnippet(file, code) {
             });
             return;
           }
+        }
+        if (
+          callee?.type === 'CallExpression' &&
+          callee.callee?.type === 'MemberExpression' &&
+          callee.callee.object?.name === 'Reflect' &&
+          callee.callee.property?.name === 'get' &&
+          callee.arguments?.[0]?.type === 'Identifier' &&
+          ['it', 'test', 'describe'].includes(callee.arguments[0].name) &&
+          ['skip', 'only', 'todo', 'skipIf', 'runIf'].includes(evalStaticStr(callee.arguments[1]))
+        ) {
+          astIssues.push({
+            severity: 'CRITICAL',
+            category: 'TEST_TAMPERING',
+            file,
+            line: p.node.loc?.start?.line || 1,
+            description: 'AI Agent Attempted Test Weakening: Reflect.get on test.skip (AST)',
+            snippet: code.split('\n')[(p.node.loc?.start?.line || 1) - 1]?.trim().slice(0, 80) || 'Reflect.get(test, skip)'
+          });
+          return;
         }
         if (
           callee?.type === 'MemberExpression' &&
@@ -606,7 +652,7 @@ function astAuditTestSnippet(file, code) {
   return astIssues;
 }
 
-export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.3') {
+export function buildSarifReport(issues, toolName = 'aveyx-review', version = '3.0.4') {
   const rulesMap = new Map();
   const results = [];
 
@@ -1012,7 +1058,7 @@ export function runDiffAuditCli(options = {}) {
   const result = auditDiff(diff);
 
   if (options.format === 'sarif') {
-    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.3'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(result.issues, 'aveyx-review', '3.0.4'), null, 2));
     const hasCritical = result.issues.some(iss => iss.severity === 'CRITICAL');
     if (!result.clean && (options.strict || hasCritical)) {
       process.exit(1);

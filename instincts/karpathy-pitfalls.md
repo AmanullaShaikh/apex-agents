@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.3 Operational Instinct -->
+<!-- Aveyx v3.0.4 Operational Instinct -->
 # LLM Hallucination & Coding Pitfalls Antidotes
 
 Foundational engineering rules defending against common Large Language Model failure modes when writing code in AI coding harnesses.

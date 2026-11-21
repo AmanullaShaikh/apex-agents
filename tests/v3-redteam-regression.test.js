@@ -415,8 +415,8 @@ test('Red-Team #30: allows legitimate concise arrow assertions (assert.equal & e
     '--- a/tests/valid.test.js',
     '+++ b/tests/valid.test.js',
     '@@ -1,0 +1,2 @@',
-    "+test('x', () => assert.equal(1, 1));",
-    "+test('y', () => expect(200).toBe(200));"
+    "+test('x', () => assert.equal(status, 200));",
+    "+test('y', () => expect(status).toBe(200));"
   ].join('\n');
   const res = auditDiff(diff);
   assert.equal(res.clean, true);
@@ -463,4 +463,54 @@ export function find(id) {
 `;
   const bugs = auditCodeBugs(code, 'src/db.js');
   assert.ok(bugs.some(b => b.category === 'SQL_INJECTION'));
+});
+
+test('Red-Team #34: catches assert.equal(1, 1), assert.strictEqual(a, a), and assert.ok(1) tautologies', () => {
+  for (const line of [
+    "+test('cheat1', () => { assert.equal(1, 1); });",
+    "+test('cheat2', () => { assert.strictEqual('a', 'a'); });",
+    "+test('cheat3', () => { assert.ok(1); });"
+  ]) {
+    const diff = [
+      'diff --git a/tests/taut.test.js b/tests/taut.test.js',
+      '--- a/tests/taut.test.js',
+      '+++ b/tests/taut.test.js',
+      '@@ -1,0 +1,1 @@',
+      line
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected tautology to be blocked: ${line}`);
+  }
+});
+
+test('Red-Team #35: blocks array destructuring skip, .bind skip, and Reflect.get(test, "skip")', () => {
+  for (const line of [
+    "+const [s] = [test.skip]; s('x', () => { assert.equal(1, 1); });",
+    "+test.skip.bind(test)('y', () => { assert.equal(1, 1); });",
+    "+Reflect.get(test, 'skip')('z', () => { assert.equal(1, 1); });"
+  ]) {
+    const diff = [
+      'diff --git a/tests/skip-adv.test.js b/tests/skip-adv.test.js',
+      '--- a/tests/skip-adv.test.js',
+      '+++ b/tests/skip-adv.test.js',
+      '@@ -1,0 +1,1 @@',
+      line
+    ].join('\n');
+    const res = auditDiff(diff);
+    assert.equal(res.clean, false, `Expected skip bypass to be blocked: ${line}`);
+  }
+});
+
+test('Red-Team #36: detects Slack Bot tokens with variable-length workspace/user IDs (10-13 digits)', () => {
+  const token = ['xoxb', '1234567890', '1234567890123', 'abcdefghijklmnop'].join('-');
+  const diff = [
+    'diff --git a/src/slack.js b/src/slack.js',
+    '--- a/src/slack.js',
+    '+++ b/src/slack.js',
+    '@@ -1,0 +1,1 @@',
+    `+const token = '${token}';`
+  ].join('\n');
+  const res = auditDiff(diff);
+  assert.equal(res.clean, false);
+  assert.ok(res.issues.some(i => i.category === 'SECRET_LEAK'));
 });

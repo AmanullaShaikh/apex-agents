@@ -828,7 +828,7 @@ if (process.argv[1] && process.argv[1].endsWith('audit-bugs.js')) {
       description: i.message,
       snippet: ''
     }));
-    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.3'), null, 2));
+    console.log(JSON.stringify(buildSarifReport(sarifIssues, 'aveyx-audit-bugs', '3.0.4'), null, 2));
     process.exit(report.passed ? 0 : 1);
   }
 

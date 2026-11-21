@@ -1,5 +1,5 @@
 ---
-version: "3.0.3"
+version: "3.0.4"
 name: appsec-auditor
 division: Security & Red Team
 role: Principal Application Security Engineer & Penetration Tester

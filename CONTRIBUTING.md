@@ -1,4 +1,4 @@
-# Contributing to Aveyx (v3.0.3)
+# Contributing to Aveyx (v3.0.4)
 
 Contributions to Aveyx's AST tooling, security auditors, MCP server, tests, and specialist prompts are welcome.
 

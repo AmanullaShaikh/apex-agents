@@ -1,4 +1,4 @@
-<!-- Aveyx v3.0.3 Operational Instinct -->
+<!-- Aveyx v3.0.4 Operational Instinct -->
 # Instinct: Zero-Slop Execution Contract
 
 ## Principle
